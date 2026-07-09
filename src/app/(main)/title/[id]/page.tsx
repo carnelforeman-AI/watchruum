@@ -5,6 +5,8 @@ import { getMedia, getSeasons } from "@/lib/tmdb";
 import { Poster } from "@/components/media/poster";
 import { Badge } from "@/components/ui/badge";
 import { TitleActions, ShowRating } from "@/components/media/title-actions";
+import { ReviewsSection } from "@/components/review/reviews-section";
+import { getReviewsForMedia } from "@/lib/queries";
 import { posterGradient, compact } from "@/lib/utils";
 
 export default async function TitlePage({ params }: { params: Promise<{ id: string }> }) {
@@ -12,7 +14,10 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
   const media = await getMedia(id);
   if (!media) notFound();
 
-  const seasons = media.media_type === "tv" ? await getSeasons(id) : [];
+  const [seasons, reviews] = await Promise.all([
+    media.media_type === "tv" ? getSeasons(id) : Promise.resolve([]),
+    getReviewsForMedia(media.tmdb_id, media.media_type),
+  ]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 md:px-6">
@@ -85,6 +90,8 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
           </div>
         </section>
       )}
+
+      <ReviewsSection media={media} initialReviews={reviews} />
     </div>
   );
 }

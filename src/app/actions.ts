@@ -154,3 +154,58 @@ export async function reportContent(
   });
   return { ok: !error, error: error?.message };
 }
+
+/** Write a review for a title / season / episode. */
+export async function postReview(
+  media: MediaItem,
+  season: number | null,
+  episode: number | null,
+  score: number,
+  body: string,
+  spoiler_scope: SpoilerScope,
+): Promise<Result & { id?: string }> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  const mediaId = await ensureMedia(ctx.supabase, media);
+  if (!mediaId) return { ok: false, error: "media" };
+  const { data, error } = await ctx.supabase
+    .from("reviews")
+    .insert({
+      user_id: ctx.userId,
+      media_id: mediaId,
+      season_number: season,
+      episode_number: episode,
+      score,
+      body,
+      spoiler_scope,
+    })
+    .select("id")
+    .single();
+  return { ok: !error, id: data?.id, error: error?.message };
+}
+
+/** Like / unlike a review (or comment). Counts are derived from reactions. */
+export async function toggleReaction(
+  targetType: "review" | "comment",
+  targetId: string,
+  liked: boolean,
+): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  if (liked) {
+    const { error } = await ctx.supabase
+      .from("reactions")
+      .upsert(
+        { user_id: ctx.userId, target_type: targetType, target_id: targetId, emoji: "❤️" },
+        { onConflict: "user_id,target_type,target_id,emoji" },
+      );
+    return { ok: !error, error: error?.message };
+  }
+  const { error } = await ctx.supabase
+    .from("reactions")
+    .delete()
+    .eq("user_id", ctx.userId)
+    .eq("target_type", targetType)
+    .eq("target_id", targetId);
+  return { ok: !error, error: error?.message };
+}

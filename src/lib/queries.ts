@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "./supabase/server";
 import { getShowEpisodeCount, trending } from "./tmdb";
-import type { MediaItem, Room, Review, ActivityEvent } from "./types";
+import type { MediaItem, Room, Review, ActivityEvent, SpoilerScope } from "./types";
 import { type DiscussionCard, PROFILES } from "./mock-data";
 
 /**
@@ -146,6 +146,123 @@ export const getSampleContent = cache(async (): Promise<SampleContent> => {
       ? `${continueWatching[0].media.title} ${continueWatching[0].label.replace(" · ", " ")}`
       : null,
   };
+});
+
+/* ------------------------------------------------------------------ reviews */
+
+export interface DisplayReview {
+  id: string;
+  author_name: string;
+  author_avatar: string | null;
+  season_number: number | null;
+  episode_number: number | null;
+  score: number;
+  body: string;
+  spoiler_scope: SpoilerScope;
+  like_count: number;
+  liked_by_me: boolean;
+  created_at: string;
+}
+
+async function reactionCounts(
+  supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
+  ids: string[],
+  userId: string | null,
+) {
+  const counts = new Map<string, number>();
+  const mine = new Set<string>();
+  if (!ids.length) return { counts, mine };
+  const { data } = await supabase
+    .from("reactions")
+    .select("target_id, user_id")
+    .eq("target_type", "review")
+    .in("target_id", ids);
+  for (const r of (data ?? []) as any[]) {
+    counts.set(r.target_id, (counts.get(r.target_id) ?? 0) + 1);
+    if (userId && r.user_id === userId) mine.add(r.target_id);
+  }
+  return { counts, mine };
+}
+
+/** Real reviews for a given TMDb title (newest first). */
+export const getReviewsForMedia = cache(
+  async (tmdbId: number, mediaType: "movie" | "tv"): Promise<DisplayReview[]> => {
+    const supabase = await createClient();
+    if (!supabase) return [];
+    const { data: media } = await supabase
+      .from("media_items")
+      .select("id")
+      .eq("tmdb_id", tmdbId)
+      .eq("media_type", mediaType)
+      .maybeSingle();
+    if (!media) return [];
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { data: rows } = await supabase
+      .from("reviews")
+      .select("id, season_number, episode_number, score, body, spoiler_scope, created_at, author:profiles(display_name, avatar_url)")
+      .eq("media_id", media.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    const list = (rows ?? []) as any[];
+    const { counts, mine } = await reactionCounts(supabase, list.map((r) => r.id), user?.id ?? null);
+
+    return list.map((r) => ({
+      id: r.id,
+      author_name: r.author?.display_name ?? "User",
+      author_avatar: r.author?.avatar_url ?? null,
+      season_number: r.season_number,
+      episode_number: r.episode_number,
+      score: r.score ?? 0,
+      body: r.body,
+      spoiler_scope: r.spoiler_scope,
+      like_count: counts.get(r.id) ?? 0,
+      liked_by_me: mine.has(r.id),
+      created_at: r.created_at,
+    }));
+  },
+);
+
+/** Recent spoiler-free reviews across the app, for the home feed. */
+export const getPopularReviews = cache(async (limit = 2): Promise<Review[]> => {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data: rows } = await supabase
+    .from("reviews")
+    .select("id, season_number, episode_number, score, body, spoiler_scope, created_at, author:profiles(username, display_name, avatar_url), media:media_items(id, tmdb_id, media_type, title)")
+    .eq("spoiler_scope", "none")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  const list = (rows ?? []) as any[];
+  const { counts } = await reactionCounts(supabase, list.map((r) => r.id), null);
+
+  return list
+    .filter((r) => r.media)
+    .map((r) => ({
+      id: r.id,
+      author: {
+        id: "u",
+        username: r.author?.username ?? "user",
+        display_name: r.author?.display_name ?? "User",
+        avatar_url: r.author?.avatar_url ?? null,
+        bio: null,
+        favorite_genres: [],
+      },
+      media: { id: `tmdb_${r.media.media_type}_${r.media.tmdb_id}`, title: r.media.title },
+      season_number: r.season_number,
+      episode_number: r.episode_number,
+      score: r.score ?? 0,
+      body: r.body,
+      spoiler_scope: r.spoiler_scope,
+      like_count: counts.get(r.id) ?? 0,
+      comment_count: 0,
+      created_at: r.created_at,
+    }));
 });
 
 /**

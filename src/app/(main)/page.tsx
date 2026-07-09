@@ -4,15 +4,17 @@ import { RoomCard } from "@/components/feed/room-card";
 import { DiscussionCard } from "@/components/feed/discussion-card";
 import { ReviewCard } from "@/components/feed/review-card";
 import { RightRail } from "@/components/layout/right-rail";
-import { getUserLibrary, getTrendingRooms, getSampleContent } from "@/lib/queries";
+import { getUserLibrary, getTrendingRooms, getSampleContent, getPopularReviews } from "@/lib/queries";
 
 export default async function HomePage() {
-  const [lib, rooms, sample] = await Promise.all([
+  const [lib, rooms, sample, popular] = await Promise.all([
     getUserLibrary(),
     getTrendingRooms(6),
     getSampleContent(),
+    getPopularReviews(2),
   ]);
   const signedIn = !!lib;
+  const reviews = popular.length ? popular : sample.reviews;
 
   return (
     <div className="flex gap-6">
@@ -40,7 +42,7 @@ export default async function HomePage() {
         <section>
           <SectionHeader title="Popular Reviews" href="/explore" />
           <div className="grid gap-3 md:grid-cols-2">
-            {sample.reviews.map((r) => (
+            {reviews.map((r) => (
               <ReviewCard key={r.id} review={r} />
             ))}
           </div>
