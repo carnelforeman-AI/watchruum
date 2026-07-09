@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { Episode, MediaItem, Season } from "./types";
 import { MEDIA, MEDIA_BY_ID, SEASONS, episodesFor } from "./mock-data";
 
@@ -78,13 +79,41 @@ export async function searchMedia(query: string): Promise<MediaItem[]> {
     .slice(0, 24);
 }
 
-export async function trending(): Promise<MediaItem[]> {
+/**
+ * A broad, varied catalog. TMDb's trending endpoint only returns ~20 items per
+ * page, so we merge several sources (trending week x2 pages + popular movies +
+ * popular TV) and de-duplicate. Trending items come first so "Trending" is
+ * genuinely trending; popular titles backfill the depth. Cached per request.
+ */
+export const trending = cache(async (): Promise<MediaItem[]> => {
   if (!isTmdbConfigured) return MEDIA;
-  const data = await tmdb<{ results: any[] }>("/trending/all/week");
-  return data.results
-    .filter((r) => r.media_type === "movie" || r.media_type === "tv")
-    .map((r) => mapMedia(r, r.media_type));
-}
+
+  const empty = { results: [] as any[] };
+  const [tw1, tw2, popMovies, popTv] = await Promise.all([
+    tmdb<{ results: any[] }>("/trending/all/week", { page: "1" }).catch(() => empty),
+    tmdb<{ results: any[] }>("/trending/all/week", { page: "2" }).catch(() => empty),
+    tmdb<{ results: any[] }>("/movie/popular", { page: "1" }).catch(() => empty),
+    tmdb<{ results: any[] }>("/tv/popular", { page: "1" }).catch(() => empty),
+  ]);
+
+  const items: MediaItem[] = [];
+  const seen = new Set<string>();
+  const push = (r: any, type: "movie" | "tv") => {
+    if (!r?.id) return;
+    const key = `${type}_${r.id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    items.push(mapMedia(r, type));
+  };
+
+  for (const r of tw1.results) if (r.media_type === "movie" || r.media_type === "tv") push(r, r.media_type);
+  for (const r of tw2.results) if (r.media_type === "movie" || r.media_type === "tv") push(r, r.media_type);
+  for (const r of popMovies.results) push(r, "movie");
+  for (const r of popTv.results) push(r, "tv");
+
+  // Drop entries with no poster so grids never show blank tiles.
+  return items.filter((m) => m.poster_url);
+});
 
 /** Parse our internal id: either "tmdb_tv_1399" or a mock id "m_frontier". */
 function parseId(id: string): { type: "movie" | "tv"; tmdbId: number } | null {
