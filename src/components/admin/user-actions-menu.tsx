@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -54,6 +55,43 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
+
+  // Position the menu with fixed coords in a portal so it escapes the table's
+  // overflow clipping. Flips upward when there isn't room below.
+  const toggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const el = btnRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const width = 224; // w-56
+      const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
+      const spaceBelow = window.innerHeight - r.bottom;
+      const spaceAbove = r.top;
+      if (spaceBelow < 320 && spaceAbove > spaceBelow) {
+        setCoords({ left, bottom: window.innerHeight - r.top + 6, maxHeight: spaceAbove - 16 });
+      } else {
+        setCoords({ left, top: r.bottom + 6, maxHeight: spaceBelow - 16 });
+      }
+    }
+    setOpen(true);
+  };
+
+  // Close on scroll / resize so the menu never detaches from its row.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
 
   // Deep-link to the Supabase dashboard's Auth → Users page, derived from
   // the public Supabase URL (e.g. https://<ref>.supabase.co).
@@ -72,18 +110,24 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
   return (
     <div className="relative inline-block">
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-label="User actions"
         className="grid size-7 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
       >
         <MoreHorizontal className="size-4" />
       </button>
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-20" onClick={closeMenu} />
-          <div className="absolute right-0 z-30 mt-1 w-56 rounded-xl border border-border bg-bg-elevated py-1 shadow-xl">
+      {open &&
+        coords &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-40" onClick={closeMenu} />
+            <div
+              className="fixed z-50 w-56 overflow-y-auto rounded-xl border border-border bg-bg-elevated py-1 shadow-xl"
+              style={{ left: coords.left, top: coords.top, bottom: coords.bottom, maxHeight: coords.maxHeight }}
+            >
             {user.status !== "active" && (
               <>
                 <MenuButton
@@ -283,9 +327,10 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
                 })
               }
             />
-          </div>
-        </>
-      )}
+            </div>
+          </>,
+          document.body,
+        )}
 
       {modal && (
         <ActionModal
