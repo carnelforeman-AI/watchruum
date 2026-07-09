@@ -27,7 +27,30 @@ export async function proxy(request: NextRequest) {
   });
 
   // Touch the session so cookies stay fresh.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+  const isAuthRoute = pathname === "/login" || pathname === "/signup";
+  const isPublic = isAuthRoute || pathname.startsWith("/auth");
+
+  // Gate the app: unauthenticated users can only reach the auth pages.
+  if (!user && !isPublic) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  // Signed-in users shouldn't sit on the login / signup screens.
+  if (user && isAuthRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   return response;
 }
 
