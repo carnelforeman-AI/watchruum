@@ -170,7 +170,11 @@ export async function reportContent(
   reason: string,
 ): Promise<Result> {
   const ctx = await authed();
-  if (!ctx) return { ok: true, demo: true };
+  if (!ctx) return { ok: false, error: "Sign in to report content." };
+  // Only real (persisted) content has a UUID id — reject sample/optimistic ids
+  // so a report can never silently no-op.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_RE.test(targetId)) return { ok: false, error: "This item can't be reported yet." };
   const { error } = await ctx.supabase.from("reports").insert({
     reporter_id: ctx.userId,
     target_type: targetType,

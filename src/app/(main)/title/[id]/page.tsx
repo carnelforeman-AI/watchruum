@@ -9,6 +9,8 @@ import { ReviewsSection } from "@/components/review/reviews-section";
 import { getReviewsForMedia } from "@/lib/queries";
 import { posterGradient, compact } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export default async function TitlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const media = await getMedia(id);

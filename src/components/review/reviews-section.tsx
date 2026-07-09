@@ -109,7 +109,17 @@ function ReviewItem({ review }: { review: DisplayReview }) {
   const [liked, setLiked] = useState(review.liked_by_me);
   const [likes, setLikes] = useState(review.like_count);
   const [reported, setReported] = useState(false);
+  const [reportErr, setReportErr] = useState<string | null>(null);
   const [, start] = useTransition();
+
+  function report() {
+    setReportErr(null);
+    start(async () => {
+      const res = await reportContent("review", review.id, "Unmarked spoiler");
+      if (res.ok) setReported(true);
+      else setReportErr(res.error ?? "Couldn't report this review.");
+    });
+  }
 
   const spoiler = review.spoiler_scope !== "none";
   const hidden = spoiler && !revealed;
@@ -170,15 +180,15 @@ function ReviewItem({ review }: { review: DisplayReview }) {
           <Heart className={cn("size-3.5", liked && "fill-danger")} /> {likes}
         </button>
         <button
-          onClick={() => {
-            setReported(true);
-            reportContent("review", review.id, "Unmarked spoiler");
-          }}
-          className={cn("ml-auto flex items-center gap-1.5 hover:text-warn", reported && "text-warn")}
+          onClick={report}
+          disabled={reported}
+          className={cn("ml-auto flex items-center gap-1.5 hover:text-warn disabled:opacity-70", reported && "text-warn")}
+          title={reportErr ?? undefined}
         >
-          <Flag className="size-3.5" /> {reported ? "Reported" : "Report"}
+          <Flag className="size-3.5" /> {reported ? "Reported" : reportErr ? "Try again" : "Report"}
         </button>
       </div>
+      {reportErr && <p className="mt-1.5 text-right text-[11px] text-danger">{reportErr}</p>}
     </div>
   );
 }
