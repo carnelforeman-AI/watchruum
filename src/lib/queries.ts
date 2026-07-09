@@ -1,8 +1,34 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "./supabase/server";
-import { getShowEpisodeCount } from "./tmdb";
-import type { MediaItem } from "./types";
+import { getShowEpisodeCount, trending } from "./tmdb";
+import type { MediaItem, Room } from "./types";
+
+/**
+ * Real "Trending Watch Rooms" built from live TMDb trending titles.
+ * Posters, titles and ratings are real; the active-user counts are a
+ * deterministic display value (there is no rooms table yet). Falls back
+ * gracefully if TMDb is unavailable.
+ */
+export const getTrendingRooms = cache(async (limit = 6): Promise<Room[]> => {
+  let items: MediaItem[] = [];
+  try {
+    items = await trending();
+  } catch {
+    items = [];
+  }
+  return items.slice(0, limit).map((m, i) => ({
+    id: m.id,
+    media: m,
+    scope_label:
+      [m.release_year, m.genres[0]].filter(Boolean).join(" · ") ||
+      (m.media_type === "tv" ? "Series" : "Movie"),
+    season_number: null,
+    episode_number: null,
+    active_users: Math.max(120, 1900 - i * 240 + (m.tmdb_id % 80)),
+    is_hot: i === 0,
+  }));
+});
 
 /**
  * Server-side reads of the signed-in user's real library.

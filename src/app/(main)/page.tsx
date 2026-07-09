@@ -4,11 +4,11 @@ import { RoomCard } from "@/components/feed/room-card";
 import { DiscussionCard } from "@/components/feed/discussion-card";
 import { ReviewCard } from "@/components/feed/review-card";
 import { RightRail } from "@/components/layout/right-rail";
-import { ROOMS, TOP_DISCUSSIONS, POPULAR_REVIEWS } from "@/lib/mock-data";
-import { getUserLibrary } from "@/lib/queries";
+import { TOP_DISCUSSIONS, POPULAR_REVIEWS } from "@/lib/mock-data";
+import { getUserLibrary, getTrendingRooms } from "@/lib/queries";
 
 export default async function HomePage() {
-  const lib = await getUserLibrary();
+  const [lib, rooms] = await Promise.all([getUserLibrary(), getTrendingRooms(6)]);
 
   return (
     <div className="flex gap-6">
@@ -18,7 +18,7 @@ export default async function HomePage() {
         <section>
           <SectionHeader title="Trending Watch Rooms" href="/trending" />
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-            {ROOMS.map((room) => (
+            {rooms.map((room) => (
               <RoomCard key={room.id} room={room} />
             ))}
           </div>
