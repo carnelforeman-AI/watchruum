@@ -48,6 +48,21 @@ async function authed() {
   return { supabase, userId: user.id };
 }
 
+/**
+ * Read the caller's moderation status. Returns "active" if unknown or if the
+ * status column isn't present yet (pre-migration).
+ */
+async function accountStatus(
+  supabase: NonNullable<Awaited<ReturnType<typeof createClient>>>,
+  userId: string,
+): Promise<string> {
+  const { data } = await supabase.from("profiles").select("status").eq("id", userId).maybeSingle();
+  return (data as { status?: string } | null)?.status ?? "active";
+}
+
+const BLOCK_COMMENT = new Set(["muted", "suspended", "banned"]);
+const BLOCK_REVIEW = new Set(["muted", "limited", "suspended", "banned"]);
+
 export async function toggleWatchlist(media: MediaItem, next: boolean): Promise<Result> {
   const ctx = await authed();
   if (!ctx) return { ok: true, demo: true };
@@ -122,6 +137,8 @@ export async function postComment(
 ): Promise<Result & { id?: string }> {
   const ctx = await authed();
   if (!ctx) return { ok: true, demo: true };
+  if (BLOCK_COMMENT.has(await accountStatus(ctx.supabase, ctx.userId)))
+    return { ok: false, error: "Your account can't post right now." };
   const mediaId = await ensureMedia(ctx.supabase, media);
   if (!mediaId) return { ok: false, error: "media" };
   const { data, error } = await ctx.supabase
@@ -166,6 +183,8 @@ export async function postReview(
 ): Promise<Result & { id?: string }> {
   const ctx = await authed();
   if (!ctx) return { ok: true, demo: true };
+  if (BLOCK_REVIEW.has(await accountStatus(ctx.supabase, ctx.userId)))
+    return { ok: false, error: "Your account can't post reviews right now." };
   const mediaId = await ensureMedia(ctx.supabase, media);
   if (!mediaId) return { ok: false, error: "media" };
   const { data, error } = await ctx.supabase

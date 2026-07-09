@@ -11,7 +11,6 @@ import {
   ChevronDown,
   Plus,
   Download,
-  MoreHorizontal,
   Upload,
   Mail,
   ChevronLeft,
@@ -20,8 +19,17 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Donut, AreaChart } from "@/components/admin/charts";
+import { UserActionsMenu } from "@/components/admin/user-actions-menu";
 import { getAdminUsers } from "@/lib/admin";
 import { timeAgo, compact } from "@/lib/utils";
+
+const STATUS_BADGE: Record<string, { variant: "safe" | "warn" | "danger" | "neutral"; label: string }> = {
+  active: { variant: "safe", label: "Active" },
+  muted: { variant: "warn", label: "Muted" },
+  limited: { variant: "warn", label: "Limited" },
+  suspended: { variant: "warn", label: "Suspended" },
+  banned: { variant: "danger", label: "Banned" },
+};
 
 export const metadata = { title: "Admin · Users · Watchruum" };
 export const dynamic = "force-dynamic";
@@ -201,7 +209,10 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                           </div>
                         </td>
                         <td className="py-3 pr-4">
-                          <Badge variant="safe">Active</Badge>
+                          {(() => {
+                            const s = STATUS_BADGE[u.status] ?? STATUS_BADGE.active;
+                            return <Badge variant={s.variant}>{s.label}</Badge>;
+                          })()}
                         </td>
                         <td className="py-3 pr-4 text-muted">{u.is_admin ? "Admin" : "User"}</td>
                         <td className="whitespace-nowrap py-3 pr-4 text-muted">{joinedLabel(u.created_at)}</td>
@@ -216,9 +227,15 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                           <span className={u.reports > 0 ? "font-semibold text-danger" : "text-muted"}>{u.reports}</span>
                         </td>
                         <td className="py-3 pr-4">
-                          <button className="grid size-7 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground">
-                            <MoreHorizontal className="size-4" />
-                          </button>
+                          <UserActionsMenu
+                            user={{
+                              id: u.id,
+                              display_name: u.display_name,
+                              username: u.username,
+                              is_admin: u.is_admin,
+                              status: u.status,
+                            }}
+                          />
                         </td>
                       </tr>
                     ))
