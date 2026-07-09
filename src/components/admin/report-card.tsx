@@ -38,6 +38,11 @@ export function ReportCard({ report }: { report: ModReport }) {
         <div className="flex items-center gap-2 text-[13px]">
           <Icon className="size-4 text-primary" />
           <span className="font-semibold capitalize">{report.target_type} reported</span>
+          {report.content?.media_title && (
+            <span className="text-muted">
+              on <span className="font-semibold text-foreground">{report.content.media_title}</span>
+            </span>
+          )}
           <span className="text-muted-2">by {report.reporter_name}</span>
           <span className="flex items-center gap-1 text-muted-2">
             <Clock className="size-3" /> {timeAgo(report.created_at)}
