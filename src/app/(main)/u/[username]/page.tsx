@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { notFound } from "next/navigation";
-import { ShieldCheck, Star } from "lucide-react";
+import { ShieldCheck, Star, Lock } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
@@ -24,10 +24,26 @@ async function loadProfile(username: string) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, username, display_name, avatar_url, bio, favorite_genres, is_admin, created_at")
+    .select("id, username, display_name, avatar_url, bio, favorite_genres, is_admin, is_private, created_at")
     .eq("username", username)
     .maybeSingle();
   if (!profile) return null;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isOwner = user?.id === (profile as any).id;
+  const restricted = !!(profile as any).is_private && !isOwner;
+
+  if (restricted) {
+    return {
+      profile: profile as any,
+      isOwner,
+      restricted: true as const,
+      stats: { reviews: 0, posts: 0, rooms: 0, followers: 0, following: 0 },
+      recentReviews: [] as any[],
+    };
+  }
 
   const count = (q: any): Promise<number> =>
     Promise.resolve(q)
@@ -54,6 +70,8 @@ async function loadProfile(username: string) {
 
   return {
     profile: profile as any,
+    isOwner,
+    restricted: false as const,
     stats: { reviews, posts, rooms, followers, following },
     recentReviews: recentReviews as any[],
   };
@@ -72,6 +90,47 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
 
   const { profile, stats, recentReviews } = data;
   const genres: string[] = profile.favorite_genres ?? [];
+
+  // Private profile viewed by someone else → minimal card only.
+  if (data.restricted) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
+        <div className="glass overflow-hidden rounded-2xl">
+          <div className="h-28 w-full" style={{ background: posterGradient(profile.username) }} />
+          <div className="px-5 pb-6">
+            <div className="-mt-8 flex items-end gap-4">
+              <Avatar
+                name={profile.display_name}
+                src={profile.avatar_url}
+                size="lg"
+                className="size-20 text-2xl ring-4 ring-bg"
+              />
+            </div>
+            <div className="mt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-extrabold tracking-tight">{profile.display_name}</h1>
+                {profile.is_admin && <Badge variant="default">Admin</Badge>}
+                <Badge variant="neutral">
+                  <Lock className="size-3" /> Private
+                </Badge>
+              </div>
+              <p className="text-[13px] text-muted-2">@{profile.username}</p>
+            </div>
+            <div className="mt-6 rounded-2xl border border-border bg-white/[0.02] p-6 text-center">
+              <span className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/25">
+                <Lock className="size-6" />
+              </span>
+              <p className="font-semibold">This profile is private</p>
+              <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-2">
+                {profile.display_name} keeps their bio, stats, and reviews private. You&apos;ll still see them in rooms
+                you share.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const statTiles: { label: string; value: number }[] = [
     { label: "Reviews", value: stats.reviews },

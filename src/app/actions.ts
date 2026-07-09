@@ -203,6 +203,17 @@ export async function postReview(
   return { ok: !error, id: data?.id, error: error?.message };
 }
 
+/** Toggle the caller's profile privacy. When private, others see a minimal card. */
+export async function setProfilePrivacy(isPrivate: boolean): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  const { error } = await ctx.supabase
+    .from("profiles")
+    .update({ is_private: isPrivate })
+    .eq("id", ctx.userId);
+  return { ok: !error, error: error?.message };
+}
+
 /** Like / unlike a review (or comment). Counts are derived from reactions. */
 export async function toggleReaction(
   targetType: "review" | "comment",

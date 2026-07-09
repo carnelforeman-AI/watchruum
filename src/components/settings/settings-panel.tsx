@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Bell, LogOut } from "lucide-react";
+import { ShieldCheck, Bell, LogOut, Lock, Loader2, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { setProfilePrivacy } from "@/app/actions";
 
 const SAFETY = [
   { value: "strict", label: "Strict", desc: "Hide everything beyond my progress. Recommended." },
@@ -25,11 +26,25 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   );
 }
 
-export function SettingsPanel() {
+export function SettingsPanel({ initialPrivate = false }: { initialPrivate?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
   const [safety, setSafety] = useState("strict");
   const [notifs, setNotifs] = useState({ replies: true, likes: true, unlocks: true, trending: false });
+  const [isPrivate, setIsPrivate] = useState(initialPrivate);
+  const [savedPrivate, setSavedPrivate] = useState(false);
+  const [pending, startPrivacy] = useTransition();
+
+  function togglePrivacy() {
+    const next = !isPrivate;
+    setIsPrivate(next);
+    setSavedPrivate(false);
+    startPrivacy(async () => {
+      const res = await setProfilePrivacy(next);
+      if (res.ok) setSavedPrivate(true);
+      else setIsPrivate(!next); // revert on failure
+    });
+  }
 
   async function signOut() {
     if (supabase) await supabase.auth.signOut();
@@ -39,6 +54,31 @@ export function SettingsPanel() {
 
   return (
     <div className="space-y-5">
+      <Card className="p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <Lock className="size-4 text-primary" />
+          <h2 className="font-semibold">Privacy</h2>
+        </div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Private profile</p>
+            <p className="text-[12px] text-muted-2">
+              When on, other members only see your name and avatar. Your bio, favorite genres, stats and reviews stay
+              hidden from everyone but you.
+            </p>
+            {savedPrivate && !pending && (
+              <p className="mt-1.5 flex items-center gap-1 text-[12px] font-medium text-safe">
+                <Check className="size-3.5" /> Saved
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {pending && <Loader2 className="size-4 animate-spin text-muted-2" />}
+            <Toggle on={isPrivate} onClick={togglePrivacy} />
+          </div>
+        </div>
+      </Card>
+
       <Card className="p-5">
         <div className="mb-4 flex items-center gap-2">
           <ShieldCheck className="size-4 text-primary" />
