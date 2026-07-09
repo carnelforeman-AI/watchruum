@@ -5,8 +5,11 @@ import { DiscussionCard } from "@/components/feed/discussion-card";
 import { ReviewCard } from "@/components/feed/review-card";
 import { RightRail } from "@/components/layout/right-rail";
 import { ROOMS, TOP_DISCUSSIONS, POPULAR_REVIEWS } from "@/lib/mock-data";
+import { getUserLibrary } from "@/lib/queries";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const lib = await getUserLibrary();
+
   return (
     <div className="flex gap-6">
       <div className="min-w-0 flex-1 space-y-8 px-4 py-6 md:px-6">
@@ -40,7 +43,11 @@ export default function HomePage() {
         </section>
       </div>
 
-      <RightRail />
+      <RightRail
+        signedIn={!!lib}
+        progress={lib?.continueWatching ?? []}
+        furthest={lib?.furthest ?? null}
+      />
     </div>
   );
 }

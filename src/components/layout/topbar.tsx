@@ -7,9 +7,14 @@ import { Avatar } from "@/components/ui/avatar";
 import { WatchruumLogo } from "./logo";
 import { CURRENT_USER } from "@/lib/mock-data";
 
-export function TopBar() {
+export function TopBar({
+  profile = null,
+}: {
+  profile?: { display_name: string; avatar_url: string | null } | null;
+}) {
   const router = useRouter();
   const [q, setQ] = useState("");
+  const displayName = profile?.display_name ?? CURRENT_USER.display_name;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +48,7 @@ export function TopBar() {
           <Mail className="size-[18px]" />
         </IconBtn>
         <div className="ml-1">
-          <Avatar name={CURRENT_USER.display_name} size="sm" />
+          <Avatar name={displayName} src={profile?.avatar_url} size="sm" />
         </div>
       </div>
     </header>

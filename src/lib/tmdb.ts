@@ -146,3 +146,15 @@ export async function getEpisode(
   const eps = await getEpisodes(id, season);
   return eps.find((e) => e.episode_number === episode) ?? null;
 }
+
+/** Total episode count for a show — used to compute real progress %. */
+export async function getShowEpisodeCount(id: string): Promise<number | null> {
+  const parsed = parseId(id);
+  if (!parsed) {
+    const total = SEASONS.filter((s) => s.media_id === id).reduce((a, s) => a + s.episode_count, 0);
+    return total || null;
+  }
+  if (parsed.type !== "tv") return null;
+  const r = await tmdb<{ number_of_episodes?: number }>(`/tv/${parsed.tmdbId}`);
+  return r.number_of_episodes ?? null;
+}

@@ -9,35 +9,67 @@ import { timeAgo } from "@/lib/utils";
 import { YOUR_PROGRESS, FRIEND_ACTIVITY } from "@/lib/mock-data";
 import { spoilerMeta } from "@/lib/spoiler";
 import type { SpoilerState } from "@/lib/types";
+import type { LibraryItem } from "@/lib/queries";
 
 const LEGEND: SpoilerState[] = ["safe", "episode", "season", "series", "locked"];
 
-export function RightRail() {
+export function RightRail({
+  signedIn = false,
+  progress = [],
+  furthest = null,
+}: {
+  signedIn?: boolean;
+  progress?: LibraryItem[];
+  furthest?: LibraryItem | null;
+}) {
+  const rows: LibraryItem[] = signedIn
+    ? progress
+    : YOUR_PROGRESS.map((p) => ({
+        media: p.media,
+        season_number: p.season_number,
+        episode_number: p.episode_number,
+        label: p.label,
+        percent: p.percent,
+      }));
+
+  const safeLabel = signedIn
+    ? furthest
+      ? `${furthest.media.title} ${furthest.label.replace(" · ", " ")}`
+      : null
+    : "Frontier Blood S2 E4";
+
   return (
     <aside className="hidden w-[320px] shrink-0 flex-col gap-4 py-6 pr-6 xl:flex">
       <RailCard title="Your Progress" href="/watchlist" hrefLabel="View library">
-        <div className="space-y-4">
-          {YOUR_PROGRESS.map((p) => (
-            <div key={p.media.id} className="flex items-center gap-3">
-              <Poster
-                title={p.media.title}
-                src={p.media.poster_url}
-                genres={p.media.genres}
-                showTitle={false}
-                rounded="rounded-md"
-                className="h-12 w-9 shrink-0 ring-1 ring-white/10"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{p.media.title}</p>
-                <p className="text-[11px] text-muted-2">{p.label}</p>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <Progress value={p.percent} />
-                  <span className="text-[11px] font-semibold text-muted">{p.percent}%</span>
+        {rows.length === 0 ? (
+          <p className="text-[13px] leading-relaxed text-muted-2">
+            You haven&apos;t started anything yet. Search a show and mark an episode watched to
+            track your progress here.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {rows.slice(0, 3).map((p) => (
+              <div key={p.media.id} className="flex items-center gap-3">
+                <Poster
+                  title={p.media.title}
+                  src={p.media.poster_url}
+                  genres={p.media.genres}
+                  showTitle={false}
+                  rounded="rounded-md"
+                  className="h-12 w-9 shrink-0 ring-1 ring-white/10"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">{p.media.title}</p>
+                  <p className="text-[11px] text-muted-2">{p.label}</p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <Progress value={p.percent} />
+                    <span className="text-[11px] font-semibold text-muted">{p.percent}%</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </RailCard>
 
       <RailCard title="Friend Activity" href="/activity" hrefLabel="View all">
@@ -71,10 +103,12 @@ export function RightRail() {
           <div className="mb-4 rounded-xl border border-border bg-white/[0.03] p-3">
             <p className="text-[11px] text-muted-2">You&apos;re safe up to</p>
             <div className="mt-1 flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold">Frontier Blood S2 E4</p>
-              <Badge variant="safe">
-                <ShieldCheck className="size-3" /> Safe Zone
-              </Badge>
+              <p className="text-sm font-semibold">{safeLabel ?? "Nothing watched yet"}</p>
+              {safeLabel && (
+                <Badge variant="safe">
+                  <ShieldCheck className="size-3" /> Safe Zone
+                </Badge>
+              )}
             </div>
           </div>
           <div className="space-y-2.5">

@@ -19,6 +19,8 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar } from "@/components/ui/avatar";
 import { CONTINUE_WATCHING, WATCHLIST, CURRENT_USER } from "@/lib/mock-data";
 import { WatchruumLogo } from "./logo";
+import type { LibraryItem } from "@/lib/queries";
+import type { MediaItem } from "@/lib/types";
 
 const NAV = [
   { href: "/", label: "Home", icon: Home },
@@ -30,8 +32,32 @@ const NAV = [
   { href: "/profile", label: "Profile", icon: User },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  signedIn = false,
+  profile = null,
+  continueWatching = [],
+  watchlist = [],
+}: {
+  signedIn?: boolean;
+  profile?: { display_name: string; avatar_url: string | null } | null;
+  continueWatching?: LibraryItem[];
+  watchlist?: MediaItem[];
+}) {
   const pathname = usePathname();
+
+  // Signed-in → real data (may be empty). Logged out → sample data.
+  const cw: LibraryItem[] = signedIn
+    ? continueWatching
+    : CONTINUE_WATCHING.map((c) => ({
+        media: c.media,
+        season_number: c.season_number,
+        episode_number: c.episode_number,
+        label: c.label,
+        percent: c.percent,
+      }));
+  const wl: MediaItem[] = signedIn ? watchlist : WATCHLIST.map((w) => w.media);
+  const displayName = profile?.display_name ?? CURRENT_USER.display_name;
+
   return (
     <aside className="sticky top-0 hidden h-screen w-[264px] shrink-0 flex-col border-r border-border-soft bg-bg-elevated/60 backdrop-blur-xl lg:flex">
       <div className="px-5 py-5">
@@ -61,52 +87,63 @@ export function Sidebar() {
 
       <div className="mt-6 flex-1 overflow-y-auto px-3 no-scrollbar">
         <LibrarySection title="Continue Watching" icon={<PlayCircle className="size-3.5" />}>
-          {CONTINUE_WATCHING.map((c) => (
-            <Link
-              key={c.media.id}
-              href={`/title/${c.media.id}`}
-              className="group flex items-center gap-3 rounded-lg p-2 hover:bg-white/5"
-            >
-              <Poster
-                title={c.media.title}
-                src={c.media.poster_url}
-                genres={c.media.genres}
-                showTitle={false}
-                rounded="rounded-md"
-                className="h-11 w-8 shrink-0 ring-1 ring-white/10"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold">{c.media.title}</p>
-                <p className="truncate text-[11px] text-muted-2">{c.label}</p>
-                <Progress value={c.percent} className="mt-1.5" />
-              </div>
-            </Link>
-          ))}
-          <ViewAll href="/watchlist" />
+          {cw.length === 0 ? (
+            <EmptyHint text="Mark an episode watched to see it here." />
+          ) : (
+            cw.slice(0, 4).map((c) => (
+              <Link
+                key={c.media.id}
+                href={`/title/${c.media.id}`}
+                className="group flex items-center gap-3 rounded-lg p-2 hover:bg-white/5"
+              >
+                <Poster
+                  title={c.media.title}
+                  src={c.media.poster_url}
+                  genres={c.media.genres}
+                  showTitle={false}
+                  rounded="rounded-md"
+                  className="h-11 w-8 shrink-0 ring-1 ring-white/10"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold">{c.media.title}</p>
+                  <p className="truncate text-[11px] text-muted-2">{c.label}</p>
+                  <Progress value={c.percent} className="mt-1.5" />
+                </div>
+              </Link>
+            ))
+          )}
+          {cw.length > 0 && <ViewAll href="/watchlist" />}
         </LibrarySection>
 
         <LibrarySection title="Your Watchlist" icon={<Bookmark className="size-3.5" />}>
-          {WATCHLIST.map((w) => (
-            <Link
-              key={w.media.id}
-              href={`/title/${w.media.id}`}
-              className="flex items-center gap-3 rounded-lg p-2 hover:bg-white/5"
-            >
-              <Poster
-                title={w.media.title}
-                src={w.media.poster_url}
-                genres={w.media.genres}
-                showTitle={false}
-                rounded="rounded-md"
-                className="h-9 w-7 shrink-0 ring-1 ring-white/10"
-              />
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold">{w.media.title}</p>
-                <p className="text-[11px] text-muted-2">{w.label}</p>
-              </div>
-            </Link>
-          ))}
-          <ViewAll href="/watchlist" />
+          {wl.length === 0 ? (
+            <EmptyHint text="Add shows from Discover to build your list." />
+          ) : (
+            wl.slice(0, 5).map((m) => (
+              <Link
+                key={m.id}
+                href={`/title/${m.id}`}
+                className="flex items-center gap-3 rounded-lg p-2 hover:bg-white/5"
+              >
+                <Poster
+                  title={m.title}
+                  src={m.poster_url}
+                  genres={m.genres}
+                  showTitle={false}
+                  rounded="rounded-md"
+                  className="h-9 w-7 shrink-0 ring-1 ring-white/10"
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold">{m.title}</p>
+                  <p className="text-[11px] text-muted-2">
+                    {m.media_type === "tv" ? "Show" : "Movie"}
+                    {m.release_year ? ` · ${m.release_year}` : ""}
+                  </p>
+                </div>
+              </Link>
+            ))
+          )}
+          {wl.length > 0 && <ViewAll href="/watchlist" />}
         </LibrarySection>
       </div>
 
@@ -114,10 +151,10 @@ export function Sidebar() {
         href="/profile"
         className="m-3 flex items-center gap-3 rounded-xl border border-border-soft bg-white/[0.03] p-2.5 hover:bg-white/5"
       >
-        <Avatar name={CURRENT_USER.display_name} />
+        <Avatar name={displayName} src={profile?.avatar_url} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{CURRENT_USER.display_name}</p>
-          <p className="text-[11px] text-primary">View Profile</p>
+          <p className="truncate text-sm font-semibold">{displayName}</p>
+          <p className="text-[11px] text-primary">{signedIn ? "View Profile" : "Sign in"}</p>
         </div>
         <ChevronRight className="size-4 text-muted-2" />
       </Link>
@@ -143,6 +180,10 @@ function LibrarySection({
       <div className="space-y-0.5">{children}</div>
     </div>
   );
+}
+
+function EmptyHint({ text }: { text: string }) {
+  return <p className="px-2 py-1.5 text-[11px] leading-relaxed text-muted-2">{text}</p>;
 }
 
 function ViewAll({ href }: { href: string }) {
