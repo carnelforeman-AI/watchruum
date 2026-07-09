@@ -119,6 +119,42 @@ export function RoomChat({
     });
   }
 
+  // Locked state: the whole chat is gated until the viewer marks the episode
+  // watched (or explicitly reveals). This is the "unlock chat" moment.
+  if (!unlocked) {
+    return (
+      <div className="glass flex flex-col overflow-hidden rounded-2xl">
+        <div className="relative grid min-h-[440px] place-items-center overflow-hidden p-8 text-center">
+          <div className="absolute inset-0 opacity-40 [background-image:radial-gradient(circle_at_30%_20%,rgba(139,92,246,0.25),transparent_55%)]" />
+          <div className="relative z-10 mx-auto max-w-md">
+            <span className="mx-auto mb-4 grid size-14 place-items-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/30">
+              <Lock className="size-6" />
+            </span>
+            <h3 className="text-xl font-bold">Discussion is locked</h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              To keep you spoiler-safe, the chat for{" "}
+              <span className="font-semibold text-foreground">
+                {media.title} {safeLabel}
+              </span>{" "}
+              unlocks once you mark this episode watched. Post, react, and reveal the moment you do.
+            </p>
+            <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <Button size="lg" onClick={markWatched} disabled={pending}>
+                <ShieldCheck className="size-4" /> Mark as watched
+              </Button>
+              <Button variant="ghost" size="lg" onClick={() => setOverride(true)}>
+                <Eye className="size-4" /> Show spoilers anyway
+              </Button>
+            </div>
+            <p className="mt-4 text-[12px] text-muted-2">
+              You control when discussion unlocks. Spoilers beyond {safeLabel} stay hidden either way.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="glass flex flex-col overflow-hidden rounded-2xl">
       {/* Safe zone banner */}
