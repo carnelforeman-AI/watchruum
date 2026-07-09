@@ -15,15 +15,27 @@ const ICON = {
  * room right rail and anywhere the scale needs explaining. Single source of
  * truth: colors/labels/order come from spoiler.ts.
  */
+const MOVIE_LEVELS: { state: SpoilerState; label: string; detail: string; icon: "shield" | "series" | "lock" }[] = [
+  { state: "safe", label: "Safe Zone", detail: "Spoiler-free talk", icon: "shield" },
+  { state: "series", label: "Spoilers", detail: "Hidden until you watch", icon: "series" },
+  { state: "locked", label: "Locked", detail: "Not watched yet", icon: "lock" },
+];
+
 export function SpoilerLegend({
   season,
   episode,
+  isMovie = false,
   className = "",
 }: {
   season: number | null;
   episode: number | null;
+  isMovie?: boolean;
   className?: string;
 }) {
+  const levels = isMovie
+    ? MOVIE_LEVELS.map((l) => ({ state: l.state, label: l.label, color: spoilerMeta(l.state).color, icon: l.icon, detail: l.detail }))
+    : SPOILER_LEVELS.map((l) => ({ ...l, detail: spoilerLevelDetail(l.state, season, episode) }));
+
   return (
     <div className={`glass rounded-2xl p-5 ${className}`}>
       <div className="mb-4 flex items-center justify-between">
@@ -31,7 +43,7 @@ export function SpoilerLegend({
         <span className="text-[12px] font-semibold text-primary">How it works</span>
       </div>
       <ul className="space-y-3.5">
-        {SPOILER_LEVELS.map((lvl) => {
+        {levels.map((lvl) => {
           const Icon = ICON[lvl.icon];
           return (
             <li key={lvl.state} className="flex items-center gap-3">
@@ -43,7 +55,7 @@ export function SpoilerLegend({
               </span>
               <div className="min-w-0">
                 <p className="text-[13px] font-semibold leading-tight">{lvl.label}</p>
-                <p className="text-[12px] text-muted-2">{spoilerLevelDetail(lvl.state, season, episode)}</p>
+                <p className="text-[12px] text-muted-2">{lvl.detail}</p>
               </div>
             </li>
           );

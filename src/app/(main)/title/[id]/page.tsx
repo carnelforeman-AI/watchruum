@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Calendar, Layers, Users, Star } from "lucide-react";
+import { Calendar, Layers, Users, Star, MessageSquare, ChevronRight } from "lucide-react";
 import { getMedia, getSeasons } from "@/lib/tmdb";
 import { Poster } from "@/components/media/poster";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +68,30 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
       <div className="mt-6">
         <ShowRating media={media} />
       </div>
+
+      {media.media_type === "movie" && (
+        <section className="mt-6">
+          <Link
+            href={`/title/${id}/room`}
+            className="glass glass-hover flex flex-wrap items-center justify-between gap-3 rounded-2xl p-5"
+          >
+            <div className="flex items-center gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary ring-1 ring-primary/25">
+                <MessageSquare className="size-5" />
+              </span>
+              <div>
+                <p className="font-semibold">Enter the Watchruum</p>
+                <p className="text-[13px] text-muted-2">
+                  Spoiler-safe chat, ratings and reactions for {media.title}.
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-primary-strong px-4 py-2 text-[13px] font-semibold text-white">
+              Join Room <ChevronRight className="size-4" />
+            </span>
+          </Link>
+        </section>
+      )}
 
       {media.media_type === "tv" && (
         <section className="mt-8">

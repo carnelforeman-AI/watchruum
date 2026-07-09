@@ -309,7 +309,12 @@ export interface RoomFeed {
  * isn't configured or nobody has posted yet.
  */
 export const getRoomFeed = cache(
-  async (tmdbId: number, mediaType: "movie" | "tv", season: number, episode: number): Promise<RoomFeed> => {
+  async (
+    tmdbId: number,
+    mediaType: "movie" | "tv",
+    season: number | null,
+    episode: number | null,
+  ): Promise<RoomFeed> => {
     const empty: RoomFeed = {
       configured: false,
       viewerId: null,
@@ -338,24 +343,18 @@ export const getRoomFeed = cache(
       .eq("media_type", mediaType)
       .maybeSingle();
 
+    const isMovie = mediaType === "movie";
+
     // Viewer progress + watched episodes in this season (needs the media row).
     let progress: import("./spoiler").ViewerProgress | null = null;
     let watchedEpisodes: number[] = [];
     if (viewerId && media) {
-      const [{ data: ws }, { data: ew }] = await Promise.all([
-        supabase
-          .from("watch_status")
-          .select("season_number, episode_number, movie_watched")
-          .eq("user_id", viewerId)
-          .eq("media_id", media.id)
-          .maybeSingle(),
-        supabase
-          .from("episode_watches")
-          .select("episode_number")
-          .eq("user_id", viewerId)
-          .eq("media_id", media.id)
-          .eq("season_number", season),
-      ]);
+      const { data: ws } = await supabase
+        .from("watch_status")
+        .select("season_number, episode_number, movie_watched")
+        .eq("user_id", viewerId)
+        .eq("media_id", media.id)
+        .maybeSingle();
       if (ws) {
         progress = {
           season_number: (ws as any).season_number,
@@ -363,25 +362,35 @@ export const getRoomFeed = cache(
           movie_watched: (ws as any).movie_watched ?? false,
         };
       }
-      watchedEpisodes = ((ew ?? []) as any[]).map((r) => r.episode_number).filter((n) => n != null);
+      if (!isMovie && season != null) {
+        const { data: ew } = await supabase
+          .from("episode_watches")
+          .select("episode_number")
+          .eq("user_id", viewerId)
+          .eq("media_id", media.id)
+          .eq("season_number", season);
+        watchedEpisodes = ((ew ?? []) as any[]).map((r) => r.episode_number).filter((n) => n != null);
+      }
     }
-    const watchedThisEpisode = watchedEpisodes.includes(episode);
+    const watchedThisEpisode = isMovie
+      ? !!progress?.movie_watched
+      : episode != null && watchedEpisodes.includes(episode);
 
     if (!media) {
       return { ...empty, configured: true, viewerId, progress, watchedThisEpisode, watchedEpisodes };
     }
 
-    // Messages posted in this room (this media + season + episode).
-    const { data: rows } = await supabase
+    // Messages posted in this room (this media + season + episode). Movies use
+    // null season/episode, so match with `.is` in that case.
+    let mq = supabase
       .from("comments")
       .select(
         "id, body, spoiler_scope, season_number, episode_number, created_at, author:profiles(id, username, display_name, avatar_url, is_admin)",
       )
-      .eq("media_id", media.id)
-      .eq("season_number", season)
-      .eq("episode_number", episode)
-      .order("created_at", { ascending: true })
-      .limit(200);
+      .eq("media_id", media.id);
+    mq = season == null ? mq.is("season_number", null) : mq.eq("season_number", season);
+    mq = episode == null ? mq.is("episode_number", null) : mq.eq("episode_number", episode);
+    const { data: rows } = await mq.order("created_at", { ascending: true }).limit(200);
 
     const list = (rows ?? []) as any[];
 

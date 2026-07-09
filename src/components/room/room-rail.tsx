@@ -15,15 +15,17 @@ export function RoomRail({
   members,
   memberCount,
   createdBy,
+  isMovie = false,
 }: {
   media: MediaItem;
-  season: number;
-  episode: number;
+  season: number | null;
+  episode: number | null;
   episodeName: string;
   safeLabel: string;
   members: RoomMember[];
   memberCount: number;
   createdBy: { username: string; display_name: string } | null;
+  isMovie?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -43,7 +45,9 @@ export function RoomRail({
           <div className="min-w-0">
             <p className="font-semibold leading-tight">{media.title}</p>
             <p className="text-[12px] text-muted-2">
-              S{season} E{episode} – {episodeName}
+              {isMovie
+                ? ["Movie", media.release_year].filter(Boolean).join(" · ")
+                : `S${season} E${episode} – ${episodeName}`}
             </p>
             <div className="mt-2">
               <SafeZonePill />
@@ -51,7 +55,9 @@ export function RoomRail({
           </div>
         </div>
         <p className="mt-3 text-[13px] leading-relaxed text-muted">
-          This is the Safe Zone for {safeLabel}. No spoilers beyond this episode. Use spoiler tags when needed.
+          {isMovie
+            ? "This is the Safe Zone for the movie. Spoilers stay hidden until you mark it watched — tag anything that gives it away."
+            : `This is the Safe Zone for ${safeLabel}. No spoilers beyond this episode. Use spoiler tags when needed.`}
         </p>
         <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-[12px] text-muted-2">
           <Calendar className="size-3.5" />
@@ -69,7 +75,7 @@ export function RoomRail({
       </div>
 
       {/* Spoiler Protection standard */}
-      <SpoilerLegend season={season} episode={episode} />
+      <SpoilerLegend season={season} episode={episode} isMovie={isMovie} />
 
       {/* Room Members */}
       <div className="glass rounded-2xl p-5">

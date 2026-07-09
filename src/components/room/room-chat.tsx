@@ -23,15 +23,19 @@ import { Button } from "@/components/ui/button";
 import { SpoilerTag } from "@/components/room/spoiler-standard";
 import { cn, timeAgo } from "@/lib/utils";
 import { evaluateSpoiler, hiddenReason, postTag, type ViewerProgress } from "@/lib/spoiler";
-import { markEpisodeWatched, postComment, reportContent, toggleReaction } from "@/app/actions";
+import { markEpisodeWatched, markMovieWatched, postComment, reportContent, toggleReaction } from "@/app/actions";
 import type { MediaItem, SpoilerScope } from "@/lib/types";
 import type { RoomMessage } from "@/lib/queries";
 
-const SCOPE_OPTIONS: { value: SpoilerScope; label: string }[] = [
+const TV_SCOPES: { value: SpoilerScope; label: string }[] = [
   { value: "none", label: "No spoilers" },
   { value: "episode", label: "This episode" },
   { value: "season", label: "This season" },
   { value: "series", label: "Whole series" },
+];
+const MOVIE_SCOPES: { value: SpoilerScope; label: string }[] = [
+  { value: "none", label: "No spoilers" },
+  { value: "series", label: "Spoilers" },
 ];
 
 /** Highest of two progress points (keeps whatever the viewer already unlocked). */
@@ -50,40 +54,59 @@ export function RoomChat({
   viewerName,
   progress,
   watchedThisEpisode,
+  isMovie = false,
 }: {
   media: MediaItem;
-  season: number;
-  episode: number;
-  safeLabel: string; // e.g. "S2 E4"
+  season: number | null;
+  episode: number | null;
+  safeLabel: string; // e.g. "S2 E4" (tv) — ignored for movies
   initialMessages: RoomMessage[];
   viewerId: string | null;
   viewerName: string | null;
   progress: ViewerProgress | null;
   watchedThisEpisode: boolean;
+  isMovie?: boolean;
 }) {
+  const scopes = isMovie ? MOVIE_SCOPES : TV_SCOPES;
   const [messages, setMessages] = useState<RoomMessage[]>(initialMessages);
   const [bannerOpen, setBannerOpen] = useState(true);
   const [localWatched, setLocalWatched] = useState(watchedThisEpisode);
   const [override, setOverride] = useState(false);
   const [body, setBody] = useState("");
-  const [scope, setScope] = useState<SpoilerScope>("episode");
+  const [scope, setScope] = useState<SpoilerScope>(isMovie ? "none" : "episode");
   const [scopeOpen, setScopeOpen] = useState(false);
   const [pending, start] = useTransition();
 
+  // What the room is "about", for copy.
+  const roomTitle = isMovie ? media.title : `${media.title} ${safeLabel}`;
+
+  // Spoiler chip for a chosen scope (movies use a simpler Safe/Spoiler split).
+  const chipTag = (sc: SpoilerScope): { state: "safe" | "series"; label: string } | ReturnType<typeof postTag> =>
+    isMovie
+      ? sc === "none"
+        ? { state: "safe", label: "Safe" }
+        : { state: "series", label: "Spoiler" }
+      : postTag(sc, season, episode);
+
   const unlocked = localWatched || override;
-  const roomPoint = season * 1000 + episode;
+  const roomPoint = isMovie ? 0 : (season ?? 0) * 1000 + (episode ?? 0);
   // Effective progress used to evaluate messages — never lower than what the
   // viewer already unlocked elsewhere.
-  const effProgress: ViewerProgress | null = unlocked
-    ? point(progress) >= roomPoint
-      ? progress
-      : { season_number: season, episode_number: episode, movie_watched: true }
-    : progress;
+  const effProgress: ViewerProgress | null = isMovie
+    ? unlocked
+      ? { season_number: null, episode_number: null, movie_watched: true }
+      : progress
+    : unlocked
+      ? point(progress) >= roomPoint
+        ? progress
+        : { season_number: season, episode_number: episode, movie_watched: true }
+      : progress;
 
   function markWatched() {
     setLocalWatched(true);
     start(() => {
-      markEpisodeWatched(media, season, episode);
+      if (isMovie) markMovieWatched(media, true);
+      else markEpisodeWatched(media, season as number, episode as number);
     });
   }
 
@@ -111,7 +134,8 @@ export function RoomChat({
     setMessages((m) => [...m, optimistic]);
     setBody("");
     start(async () => {
-      // Always store the room's (season, episode); scope carries the reach.
+      // Store the room key (season/episode, or null/null for movies); scope
+      // carries the spoiler reach.
       const res = await postComment(media, season, episode, text, scope);
       if (res.id) {
         setMessages((m) => m.map((x) => (x.id === optimistic.id ? { ...x, id: res.id! } : x)));
@@ -133,10 +157,9 @@ export function RoomChat({
             <h3 className="text-xl font-bold">Discussion is locked</h3>
             <p className="mt-2 text-sm leading-relaxed text-muted">
               To keep you spoiler-safe, the chat for{" "}
-              <span className="font-semibold text-foreground">
-                {media.title} {safeLabel}
-              </span>{" "}
-              unlocks once you mark this episode watched. Post, react, and reveal the moment you do.
+              <span className="font-semibold text-foreground">{roomTitle}</span>{" "}
+              unlocks once you mark {isMovie ? "the movie" : "this episode"} watched. Post, react, and reveal the
+              moment you do.
             </p>
             <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Button size="lg" onClick={markWatched} disabled={pending}>
@@ -147,7 +170,7 @@ export function RoomChat({
               </Button>
             </div>
             <p className="mt-4 text-[12px] text-muted-2">
-              You control when discussion unlocks. Spoilers beyond {safeLabel} stay hidden either way.
+              You control when discussion unlocks. Spoilers stay hidden either way.
             </p>
           </div>
         </div>
@@ -165,7 +188,9 @@ export function RoomChat({
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-bold text-primary">You&apos;re in the Safe Zone</p>
-            <p className="text-[12px] text-muted">No spoilers beyond {safeLabel} in this chat.</p>
+            <p className="text-[12px] text-muted">
+              {isMovie ? "Spoilers are tagged and hidden until you've watched." : `No spoilers beyond ${safeLabel} in this chat.`}
+            </p>
           </div>
           <span className="hidden shrink-0 rounded-lg border border-border bg-white/[0.04] px-2.5 py-1.5 text-[12px] font-semibold text-muted sm:inline">
             Learn more
@@ -209,7 +234,9 @@ export function RoomChat({
             <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">Mod</span>
           </div>
           <p className="text-[13px] leading-relaxed text-foreground/90">
-            Welcome to the Safe Zone! Please keep all spoilers up to {safeLabel}. Use spoiler tags for anything beyond.
+            {isMovie
+              ? "Welcome to the Safe Zone! Tag anything that spoils the movie so fans who haven't watched stay safe."
+              : `Welcome to the Safe Zone! Please keep all spoilers up to ${safeLabel}. Use spoiler tags for anything beyond.`}
           </p>
         </div>
 
@@ -221,7 +248,8 @@ export function RoomChat({
               </span>
               <p className="text-[15px] font-bold">Start the conversation</p>
               <p className="mt-1 text-[13px] text-muted-2">
-                Be the first to react to {media.title} {safeLabel}. Fans at your exact episode are here.
+                Be the first to react to {roomTitle}.{" "}
+                {isMovie ? "Fans who've seen it are here." : "Fans at your exact episode are here."}
               </p>
             </div>
           </div>
@@ -232,6 +260,7 @@ export function RoomChat({
               message={m}
               progress={effProgress}
               isMe={m.author.id === viewerId}
+              isMovie={isMovie}
             />
           ))
         )}
@@ -267,12 +296,12 @@ export function RoomChat({
                     onClick={() => setScopeOpen((v) => !v)}
                     className="ml-1 inline-flex items-center gap-1.5 rounded-lg border border-border bg-white/[0.03] px-2.5 py-1.5 text-[12px] font-semibold text-muted hover:text-foreground"
                   >
-                    <SpoilerTag {...postTag(scope, season, episode)} />
+                    <SpoilerTag {...chipTag(scope)} />
                     <ChevronDown className="size-3.5" />
                   </button>
                   {scopeOpen && (
                     <div className="absolute bottom-full left-0 z-20 mb-1.5 w-44 overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-xl">
-                      {SCOPE_OPTIONS.map((o) => (
+                      {scopes.map((o) => (
                         <button
                           key={o.value}
                           type="button"
@@ -286,7 +315,7 @@ export function RoomChat({
                           )}
                         >
                           {o.label}
-                          <SpoilerTag {...postTag(o.value, season, episode)} />
+                          <SpoilerTag {...chipTag(o.value)} />
                         </button>
                       ))}
                     </div>
@@ -294,7 +323,7 @@ export function RoomChat({
                 </div>
               </div>
               <span className="flex items-center gap-1.5 text-[12px] text-muted-2">
-                <Clock className="size-3.5" /> Tagged to {media.title} {safeLabel}
+                <Clock className="size-3.5" /> Tagged to {roomTitle}
               </span>
             </div>
           </form>
@@ -328,10 +357,12 @@ function MessageRow({
   message,
   progress,
   isMe,
+  isMovie,
 }: {
   message: RoomMessage;
   progress: ViewerProgress | null;
   isMe: boolean;
+  isMovie: boolean;
 }) {
   const [revealed, setRevealed] = useState(false);
   const [liked, setLiked] = useState(message.liked_by_me);
@@ -346,11 +377,16 @@ function MessageRow({
       episode_number: message.episode_number,
     },
     progress,
-    false,
+    isMovie,
   );
   const hidden = state !== "safe" && !revealed;
-  const tag = postTag(message.spoiler_scope, message.season_number, message.episode_number);
-  const spoilery = message.spoiler_scope === "season" || message.spoiler_scope === "series";
+  const tag = isMovie
+    ? { state: "series" as const, label: "Spoiler" }
+    : postTag(message.spoiler_scope, message.season_number, message.episode_number);
+  const spoilery = isMovie
+    ? message.spoiler_scope !== "none"
+    : message.spoiler_scope === "season" || message.spoiler_scope === "series";
+  const nameTagLabel = isMovie ? "SPOILERS" : `SPOILER: ${tag.label}`;
 
   function like() {
     const next = !liked;
@@ -389,9 +425,7 @@ function MessageRow({
             <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">Mod</span>
           )}
           <span className="text-[11px] text-muted-2">{timeAgo(message.created_at)}</span>
-          {spoilery && (
-            <SpoilerTag state={tag.state} label={`SPOILER: ${tag.label}`} />
-          )}
+          {spoilery && <SpoilerTag state={tag.state} label={nameTagLabel} />}
         </div>
 
         {hidden ? (

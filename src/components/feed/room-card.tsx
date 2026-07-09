@@ -8,9 +8,11 @@ import type { Room } from "@/lib/types";
 
 export function RoomCard({ room }: { room: Room }) {
   const href =
-    room.season_number && room.episode_number
-      ? `/title/${room.media.id}/season/${room.season_number}/episode/${room.episode_number}`
-      : `/title/${room.media.id}`;
+    room.media.media_type === "movie"
+      ? `/title/${room.media.id}/room`
+      : room.season_number && room.episode_number
+        ? `/title/${room.media.id}/season/${room.season_number}/episode/${room.episode_number}`
+        : `/title/${room.media.id}`;
   return (
     <Link href={href} className="glass glass-hover group block overflow-hidden rounded-2xl">
       <div className="relative">
