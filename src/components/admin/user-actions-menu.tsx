@@ -21,6 +21,7 @@ import {
   LogOut,
   Trash2,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
 import { changeRole, setUserStatus, addAdminNote, warnUser } from "@/app/admin-actions";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ type ModalState = {
   requireText?: boolean;
   textLabel?: string;
   destructive?: boolean;
+  link?: { href: string; label: string; external?: boolean };
   run: (text: string) => Promise<ActionResult>;
 };
 
@@ -52,6 +54,13 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
+
+  // Deep-link to the Supabase dashboard's Auth → Users page, derived from
+  // the public Supabase URL (e.g. https://<ref>.supabase.co).
+  const supaRef = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").match(/\/\/([a-z0-9]+)\.supabase\.co/)?.[1] ?? "";
+  const authUsersUrl = supaRef
+    ? `https://supabase.com/dashboard/project/${supaRef}/auth/users`
+    : "https://supabase.com/dashboard";
 
   const closeMenu = () => setOpen(false);
   const openModal = (m: ModalState) => {
@@ -140,7 +149,9 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
                 openModal({
                   mode: "info",
                   title: "Send Message",
-                  message: "Direct messaging is coming soon.",
+                  message:
+                    "Direct messaging isn't built yet. In the meantime, you can compose emails to members from the Email Templates section.",
+                  link: { href: "/admin/email-templates", label: "Go to Email Templates" },
                   run: noop,
                 })
               }
@@ -252,8 +263,8 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
                 openModal({
                   mode: "info",
                   title: "Force Logout",
-                  message:
-                    "Force logout must be done from the Supabase dashboard using the admin API — it can't be triggered from the app for security.",
+                  message: `Sign this account out from Supabase → Authentication → Users. Search for user ID ${user.id} and revoke its active sessions. This can't be triggered from the app for security.`,
+                  link: { href: authUsersUrl, label: "Open Supabase Auth", external: true },
                   run: noop,
                 })
               }
@@ -266,8 +277,8 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
                 openModal({
                   mode: "info",
                   title: "Delete Account",
-                  message:
-                    "Account deletion must be done from the Supabase dashboard using the admin API — it can't be triggered from the app for security.",
+                  message: `Delete this account from Supabase → Authentication → Users. Search for user ID ${user.id} and delete it there. This can't be triggered from the app for security.`,
+                  link: { href: authUsersUrl, label: "Open Supabase Auth", external: true },
                   run: noop,
                 })
               }
@@ -416,9 +427,26 @@ function ActionModal({
 
         <div className="mt-5 flex justify-end gap-2">
           {modal.mode === "info" ? (
-            <Button variant="secondary" size="sm" onClick={onClose}>
-              Got it
-            </Button>
+            <>
+              {modal.link &&
+                (modal.link.external ? (
+                  <Button asChild size="sm">
+                    <a href={modal.link.href} target="_blank" rel="noopener noreferrer" onClick={onClose}>
+                      {modal.link.label}
+                      <ExternalLink className="size-3.5" />
+                    </a>
+                  </Button>
+                ) : (
+                  <Button asChild size="sm">
+                    <Link href={modal.link.href} onClick={onClose}>
+                      {modal.link.label}
+                    </Link>
+                  </Button>
+                ))}
+              <Button variant="secondary" size="sm" onClick={onClose}>
+                {modal.link ? "Close" : "Got it"}
+              </Button>
+            </>
           ) : (
             <>
               <Button variant="secondary" size="sm" onClick={onClose} disabled={pending}>
