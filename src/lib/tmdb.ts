@@ -115,6 +115,46 @@ export const trending = cache(async (): Promise<MediaItem[]> => {
   return items.filter((m) => m.poster_url);
 });
 
+export const DISCOVER_MAX_PAGES = 5;
+
+/**
+ * A growing catalog for the Discover page. Fetches `pages` pages each of
+ * trending-week + popular movies + popular TV and de-duplicates, so "Load more"
+ * simply asks for one more page. Capped so it can't run away.
+ */
+export const discoverCatalog = cache(async (pages = 1): Promise<MediaItem[]> => {
+  if (!isTmdbConfigured) return MEDIA;
+  const p = Math.max(1, Math.min(pages, DISCOVER_MAX_PAGES));
+  const empty = { results: [] as any[] };
+
+  const reqs: Promise<{ results: any[] }>[] = [];
+  for (let n = 1; n <= p; n++) {
+    const page = String(n);
+    reqs.push(tmdb<{ results: any[] }>("/trending/all/week", { page }).catch(() => empty));
+    reqs.push(tmdb<{ results: any[] }>("/movie/popular", { page }).catch(() => empty));
+    reqs.push(tmdb<{ results: any[] }>("/tv/popular", { page }).catch(() => empty));
+  }
+  const all = await Promise.all(reqs);
+
+  const items: MediaItem[] = [];
+  const seen = new Set<string>();
+  const push = (r: any, type: "movie" | "tv") => {
+    if (!r?.id) return;
+    const key = `${type}_${r.id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    items.push(mapMedia(r, type));
+  };
+
+  // Interleave page-by-page: trending, then popular movies, then popular TV.
+  for (let i = 0; i < all.length; i += 3) {
+    for (const r of all[i].results) if (r.media_type === "movie" || r.media_type === "tv") push(r, r.media_type);
+    for (const r of all[i + 1].results) push(r, "movie");
+    for (const r of all[i + 2].results) push(r, "tv");
+  }
+  return items.filter((m) => m.poster_url);
+});
+
 /** Parse our internal id: either "tmdb_tv_1399" or a mock id "m_frontier". */
 function parseId(id: string): { type: "movie" | "tv"; tmdbId: number } | null {
   const m = id.match(/^tmdb_(movie|tv)_(\d+)$/);
