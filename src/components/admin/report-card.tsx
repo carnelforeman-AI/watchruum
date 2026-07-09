@@ -1,13 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Flag, Trash2, Check, X, MessageSquare, Star, Clock, EyeOff } from "lucide-react";
+import { Flag, Trash2, Check, X, MessageSquare, Star, Clock, EyeOff, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/utils";
 import { scopeLabel } from "@/lib/spoiler";
-import { setReportStatus, removeReportedContent, markContentSpoiler } from "@/app/admin-actions";
+import {
+  setReportStatus,
+  removeReportedContent,
+  markContentSpoiler,
+  setContentSpoilerScope,
+} from "@/app/admin-actions";
 import type { ModReport } from "@/lib/admin";
+
+type Scope = "none" | "episode" | "season" | "series";
 
 const STATUS_VARIANT: Record<string, "warn" | "safe" | "neutral"> = {
   open: "warn",
@@ -17,15 +24,30 @@ const STATUS_VARIANT: Record<string, "warn" | "safe" | "neutral"> = {
 };
 
 export function ReportCard({ report }: { report: ModReport }) {
+  const originalScope = (report.content?.spoiler_scope ?? "none") as Scope;
   const [status, setStatus] = useState(report.status);
   const [removed, setRemoved] = useState(false);
-  const [scopeShown, setScopeShown] = useState(report.content?.spoiler_scope ?? "none");
+  const [scopeShown, setScopeShown] = useState<Scope>(originalScope);
   const [pending, start] = useTransition();
 
   function act(fn: () => Promise<unknown>, nextStatus?: typeof status) {
     if (nextStatus) setStatus(nextStatus);
     start(() => {
       fn();
+    });
+  }
+
+  // Reverse a handled decision: reopen the report and revert any spoiler flag
+  // this admin flow applied. (Deleted content can't be restored.)
+  function undo() {
+    const scopeToRestore = scopeShown !== originalScope ? originalScope : null;
+    setStatus("open");
+    if (scopeToRestore) setScopeShown(scopeToRestore);
+    start(async () => {
+      await setReportStatus(report.id, "open");
+      if (scopeToRestore) {
+        await setContentSpoilerScope(report.target_type, report.target_id, scopeToRestore);
+      }
     });
   }
 
@@ -135,6 +157,18 @@ export function ReportCard({ report }: { report: ModReport }) {
           >
             <X className="size-3.5" /> Dismiss
           </Button>
+        </div>
+      )}
+
+      {/* Undo a handled decision */}
+      {settled && !removed && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="secondary" disabled={pending} onClick={undo}>
+            <RotateCcw className="size-3.5" /> Undo
+          </Button>
+          <span className="text-[12px] text-muted-2">
+            Reopens this report{scopeShown !== originalScope ? " and removes the spoiler flag" : ""}.
+          </span>
         </div>
       )}
     </div>

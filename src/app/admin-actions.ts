@@ -78,6 +78,21 @@ export async function markContentSpoiler(
   return { ok: true };
 }
 
+/** Set a piece of content's spoiler scope directly (used to undo a spoiler flag). */
+export async function setContentSpoilerScope(
+  targetType: "comment" | "review",
+  targetId: string,
+  scope: "none" | "episode" | "season" | "series",
+): Promise<Result> {
+  const ctx = await adminContext();
+  if (!ctx) return { ok: false, error: "Not authorized" };
+  const table = targetType === "comment" ? "comments" : "reviews";
+  const { error } = await ctx.supabase.from(table).update({ spoiler_scope: scope }).eq("id", targetId);
+  revalidatePath("/admin/reports");
+  revalidatePath("/admin");
+  return { ok: !error, error: error?.message };
+}
+
 /* ---------------- User moderation ---------------- */
 
 /** Promote to admin / demote to member. */
