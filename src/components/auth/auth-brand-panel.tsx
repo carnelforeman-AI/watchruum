@@ -14,15 +14,9 @@ export async function AuthBrandPanel() {
     <div className="relative hidden overflow-hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-between lg:p-12">
       <PosterCollage media={media} />
 
-      {/* Brand mark */}
-      <div className="relative flex items-center gap-3">
-        <span className="relative grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-primary to-accent shadow-[0_10px_28px_-10px_rgba(124,58,237,0.9)]">
-          <svg viewBox="0 0 24 24" className="size-6 text-white" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M10 8.5v7l6-3.5-6-3.5Z" fill="currentColor" stroke="none" />
-          </svg>
-        </span>
-        <span className="text-2xl font-extrabold tracking-tight">
+      {/* Brand wordmark */}
+      <div className="relative">
+        <span className="text-4xl font-extrabold tracking-tight">
           Watch<span className="brand-gradient">ruum</span>
         </span>
       </div>
