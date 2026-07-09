@@ -54,6 +54,30 @@ export async function removeReportedContent(
   return { ok: true };
 }
 
+/**
+ * Flag the reported content as containing a spoiler by escalating its
+ * spoiler_scope, then mark the report resolved. Users then see the content
+ * blurred behind a "This contains a spoiler" overlay until they unlock it.
+ */
+export async function markContentSpoiler(
+  reportId: string,
+  targetType: "comment" | "review",
+  targetId: string,
+  scope: "episode" | "season" | "series" = "series",
+): Promise<Result> {
+  const ctx = await adminContext();
+  if (!ctx) return { ok: false, error: "Not authorized" };
+
+  const table = targetType === "comment" ? "comments" : "reviews";
+  const { error } = await ctx.supabase.from(table).update({ spoiler_scope: scope }).eq("id", targetId);
+  if (error) return { ok: false, error: error.message };
+
+  await ctx.supabase.from("reports").update({ status: "resolved" }).eq("id", reportId);
+  revalidatePath("/admin/reports");
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
 /* ---------------- User moderation ---------------- */
 
 /** Promote to admin / demote to member. */

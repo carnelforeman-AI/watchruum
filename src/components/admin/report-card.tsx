@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Flag, Trash2, Check, X, MessageSquare, Star, Clock } from "lucide-react";
+import { Flag, Trash2, Check, X, MessageSquare, Star, Clock, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/utils";
 import { scopeLabel } from "@/lib/spoiler";
-import { setReportStatus, removeReportedContent } from "@/app/admin-actions";
+import { setReportStatus, removeReportedContent, markContentSpoiler } from "@/app/admin-actions";
 import type { ModReport } from "@/lib/admin";
 
 const STATUS_VARIANT: Record<string, "warn" | "safe" | "neutral"> = {
@@ -19,6 +19,7 @@ const STATUS_VARIANT: Record<string, "warn" | "safe" | "neutral"> = {
 export function ReportCard({ report }: { report: ModReport }) {
   const [status, setStatus] = useState(report.status);
   const [removed, setRemoved] = useState(false);
+  const [scopeShown, setScopeShown] = useState(report.content?.spoiler_scope ?? "none");
   const [pending, start] = useTransition();
 
   function act(fn: () => Promise<unknown>, nextStatus?: typeof status) {
@@ -66,8 +67,8 @@ export function ReportCard({ report }: { report: ModReport }) {
             <Badge variant="neutral">
               {scopeLabel(report.content.season_number, report.content.episode_number)}
             </Badge>
-            <Badge variant="neutral" className="capitalize">
-              {report.content.spoiler_scope} spoiler
+            <Badge variant={scopeShown === "none" ? "neutral" : "warn"} className="capitalize">
+              {scopeShown} spoiler
             </Badge>
           </div>
           <p className="text-sm leading-relaxed text-foreground/90">{report.content.body}</p>
@@ -95,6 +96,22 @@ export function ReportCard({ report }: { report: ModReport }) {
               }}
             >
               <Trash2 className="size-3.5" /> Remove content
+            </Button>
+          )}
+          {report.content && scopeShown === "none" && (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={pending}
+              onClick={() => {
+                setScopeShown("series");
+                setStatus("resolved");
+                start(() => {
+                  markContentSpoiler(report.id, report.target_type, report.target_id, "series");
+                });
+              }}
+            >
+              <EyeOff className="size-3.5" /> Mark as spoiler
             </Button>
           )}
           <Button

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Star, Heart, Flag, Eye, PenLine, Sparkles } from "lucide-react";
+import { Star, Heart, Flag, Eye, EyeOff, PenLine, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -159,14 +159,24 @@ function ReviewItem({ review }: { review: DisplayReview }) {
       </div>
 
       {hidden ? (
-        <div className="mt-3 rounded-xl border border-warn/30 bg-warn/5 p-3">
-          <p className="text-[13px] text-muted">This review contains spoilers.</p>
-          <button
-            onClick={() => setRevealed(true)}
-            className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-warn hover:brightness-110"
-          >
-            <Eye className="size-3.5" /> Reveal anyway
-          </button>
+        <div className="relative mt-3 overflow-hidden rounded-xl border border-warn/25">
+          {/* Blurred body behind the overlay */}
+          <p className="select-none px-3 py-4 text-sm leading-relaxed text-foreground/90 blur-[6px]" aria-hidden>
+            {review.body || "This review contains spoilers for people who haven't watched yet."}
+          </p>
+          <div className="absolute inset-0 grid place-items-center bg-bg/50 backdrop-blur-[2px]">
+            <div className="text-center">
+              <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-warn">
+                <EyeOff className="size-4" /> This contains a spoiler
+              </p>
+              <button
+                onClick={() => setRevealed(true)}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-[12px] font-semibold text-white transition hover:brightness-110"
+              >
+                <Eye className="size-3.5" /> Unlock
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <p className="mt-3 text-sm leading-relaxed text-foreground/90">{review.body}</p>
