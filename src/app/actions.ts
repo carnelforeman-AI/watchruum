@@ -63,6 +63,12 @@ async function accountStatus(
 const BLOCK_COMMENT = new Set(["muted", "suspended", "banned"]);
 const BLOCK_REVIEW = new Set(["muted", "limited", "suspended", "banned"]);
 
+/** Trim and hard-cap free text before it's stored. Content is rendered escaped
+ * by React, so this is abuse-prevention (length), not XSS sanitization. */
+function cleanText(input: string, max: number): string {
+  return (input ?? "").trim().slice(0, max);
+}
+
 export async function toggleWatchlist(media: MediaItem, next: boolean): Promise<Result> {
   const ctx = await authed();
   if (!ctx) return { ok: true, demo: true };
@@ -139,6 +145,8 @@ export async function postComment(
   if (!ctx) return { ok: true, demo: true };
   if (BLOCK_COMMENT.has(await accountStatus(ctx.supabase, ctx.userId)))
     return { ok: false, error: "Your account can't post right now." };
+  const text = cleanText(body, 4000);
+  if (!text) return { ok: false, error: "Message is empty." };
   const mediaId = await ensureMedia(ctx.supabase, media);
   if (!mediaId) return { ok: false, error: "media" };
   const { data, error } = await ctx.supabase
@@ -148,7 +156,7 @@ export async function postComment(
       media_id: mediaId,
       season_number: season,
       episode_number: episode,
-      body,
+      body: text,
       spoiler_scope,
     })
     .select("id")
@@ -167,7 +175,7 @@ export async function reportContent(
     reporter_id: ctx.userId,
     target_type: targetType,
     target_id: targetId,
-    reason,
+    reason: cleanText(reason, 500) || "Reported",
   });
   return { ok: !error, error: error?.message };
 }
@@ -185,6 +193,7 @@ export async function postReview(
   if (!ctx) return { ok: true, demo: true };
   if (BLOCK_REVIEW.has(await accountStatus(ctx.supabase, ctx.userId)))
     return { ok: false, error: "Your account can't post reviews right now." };
+  const text = cleanText(body, 8000);
   const mediaId = await ensureMedia(ctx.supabase, media);
   if (!mediaId) return { ok: false, error: "media" };
   const { data, error } = await ctx.supabase
@@ -194,8 +203,8 @@ export async function postReview(
       media_id: mediaId,
       season_number: season,
       episode_number: episode,
-      score,
-      body,
+      score: Math.max(1, Math.min(10, Math.round(score))),
+      body: text,
       spoiler_scope,
     })
     .select("id")
