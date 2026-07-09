@@ -1,5 +1,6 @@
 import { ShieldCheck, Star, MessageCircle, Users, Award } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { AvatarUploader } from "@/components/profile/avatar-uploader";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ReviewCard } from "@/components/feed/review-card";
@@ -33,7 +34,11 @@ export default async function ProfilePage() {
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-primary/30 via-accent/20 to-transparent" />
         <div className="relative p-6 pt-10">
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
-            <Avatar name={name} src={lib?.profile?.avatar_url} size="lg" className="size-20 text-2xl ring-4 ring-bg" />
+            {signedIn && lib?.profile ? (
+              <AvatarUploader userId={lib.profile.id} name={name} src={lib.profile.avatar_url ?? null} />
+            ) : (
+              <Avatar name={name} src={lib?.profile?.avatar_url} size="lg" className="size-20 text-2xl ring-4 ring-bg" />
+            )}
             <div className="flex-1">
               <h1 className="text-2xl font-extrabold tracking-tight">{name}</h1>
               <p className="text-sm text-muted">@{username}</p>

@@ -216,6 +216,17 @@ export async function postReview(
   return { ok: !error, id: data?.id, error: error?.message };
 }
 
+/** Save a new avatar URL (uploaded to Supabase Storage) on the caller's profile. */
+export async function updateAvatar(avatarUrl: string): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: false, error: "Sign in to update your photo." };
+  const { error } = await ctx.supabase
+    .from("profiles")
+    .update({ avatar_url: avatarUrl || null })
+    .eq("id", ctx.userId);
+  return { ok: !error, error: error?.message };
+}
+
 /** Toggle the caller's profile privacy. When private, others see a minimal card. */
 export async function setProfilePrivacy(isPrivate: boolean): Promise<Result> {
   const ctx = await authed();
