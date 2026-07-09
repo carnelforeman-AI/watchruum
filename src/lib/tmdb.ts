@@ -155,6 +155,77 @@ export const discoverCatalog = cache(async (pages = 1): Promise<MediaItem[]> => 
   return items.filter((m) => m.poster_url);
 });
 
+/* ------------------------------------------------------------------ genres */
+
+/** Browsable genres with their TMDb movie/tv genre ids (some are one-sided). */
+export const GENRES_BROWSE: { name: string; movie?: number; tv?: number }[] = [
+  { name: "Action", movie: 28, tv: 10759 },
+  { name: "Adventure", movie: 12, tv: 10759 },
+  { name: "Animation", movie: 16, tv: 16 },
+  { name: "Comedy", movie: 35, tv: 35 },
+  { name: "Crime", movie: 80, tv: 80 },
+  { name: "Documentary", movie: 99, tv: 99 },
+  { name: "Drama", movie: 18, tv: 18 },
+  { name: "Family", movie: 10751, tv: 10751 },
+  { name: "Fantasy", movie: 14, tv: 10765 },
+  { name: "History", movie: 36 },
+  { name: "Horror", movie: 27 },
+  { name: "Mystery", movie: 9648, tv: 9648 },
+  { name: "Reality", tv: 10764 },
+  { name: "Romance", movie: 10749 },
+  { name: "Sci-Fi", movie: 878, tv: 10765 },
+  { name: "Thriller", movie: 53 },
+  { name: "War", movie: 10752, tv: 10768 },
+  { name: "Western", movie: 37, tv: 37 },
+];
+
+export const GENRE_MAX_PAGES = 20;
+
+/** Titles in a genre, paginated (merges discover/movie + discover/tv). */
+export const discoverByGenre = cache(
+  async (name: string, page = 1): Promise<{ items: MediaItem[]; totalPages: number }> => {
+    const def = GENRES_BROWSE.find((g) => g.name.toLowerCase() === name.toLowerCase());
+    if (!def) return { items: [], totalPages: 1 };
+    if (!isTmdbConfigured) {
+      return { items: MEDIA.filter((m) => m.genres.includes(def.name)), totalPages: 1 };
+    }
+
+    const p = String(Math.max(1, Math.min(page, GENRE_MAX_PAGES)));
+    const empty = { results: [] as any[], total_pages: 1 };
+    const [mv, tv] = await Promise.all([
+      def.movie
+        ? tmdb<{ results: any[]; total_pages: number }>("/discover/movie", {
+            with_genres: String(def.movie),
+            sort_by: "popularity.desc",
+            page: p,
+          }).catch(() => empty)
+        : Promise.resolve(empty),
+      def.tv
+        ? tmdb<{ results: any[]; total_pages: number }>("/discover/tv", {
+            with_genres: String(def.tv),
+            sort_by: "popularity.desc",
+            page: p,
+          }).catch(() => empty)
+        : Promise.resolve(empty),
+    ]);
+
+    const items: MediaItem[] = [];
+    const seen = new Set<string>();
+    const push = (r: any, t: "movie" | "tv") => {
+      if (!r?.id) return;
+      const key = `${t}_${r.id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      items.push(mapMedia(r, t));
+    };
+    for (const r of mv.results) push(r, "movie");
+    for (const r of tv.results) push(r, "tv");
+
+    const totalPages = Math.min(GENRE_MAX_PAGES, Math.max(mv.total_pages ?? 1, tv.total_pages ?? 1));
+    return { items: items.filter((m) => m.poster_url), totalPages };
+  },
+);
+
 /** Parse our internal id: either "tmdb_tv_1399" or a mock id "m_frontier". */
 function parseId(id: string): { type: "movie" | "tv"; tmdbId: number } | null {
   const m = id.match(/^tmdb_(movie|tv)_(\d+)$/);
