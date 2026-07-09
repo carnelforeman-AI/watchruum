@@ -60,6 +60,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   async function oauth(provider: "google" | "apple") {
     setMsg(null);
+
+    // Providers that are actually configured in Supabase.
+    const ENABLED: Record<"google" | "apple", boolean> = { google: true, apple: false };
+    if (!ENABLED[provider]) {
+      setMsg(`${provider === "google" ? "Google" : "Apple"} sign-in is coming soon.`);
+      return;
+    }
+
     if (!supabase) {
       router.push(isSignup ? "/onboarding" : "/");
       return;
