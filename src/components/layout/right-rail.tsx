@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -96,17 +97,17 @@ export function RightRail({
               )}
             </div>
           </div>
-          <div className="space-y-2.5">
+          <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2.5 text-[12px]">
             {LEGEND.map((s) => {
               const m = spoilerMeta(s);
               return (
-                <div key={s} className="flex items-center justify-between text-[12px]">
-                  <span className="flex items-center gap-2">
-                    <span className="size-2.5 rounded-full" style={{ background: m.color }} />
+                <Fragment key={s}>
+                  <span className="flex items-center gap-2 whitespace-nowrap">
+                    <span className="size-2.5 shrink-0 rounded-full" style={{ background: m.color }} />
                     <span className="font-medium">{m.label}</span>
                   </span>
-                  <span className="text-muted-2">{m.copy}</span>
-                </div>
+                  <span className="text-right text-[11px] leading-tight text-muted-2">{m.copy}</span>
+                </Fragment>
               );
             })}
           </div>
