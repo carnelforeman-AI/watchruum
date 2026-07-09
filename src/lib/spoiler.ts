@@ -108,6 +108,67 @@ export function spoilerMeta(state: SpoilerState) {
   return { copy: COPY[state], color: COLOR[state], label: LABEL[state] };
 }
 
+/**
+ * The canonical spoiler scale, in order of increasing reach. This is the single
+ * source of truth for the Spoiler Protection legend (and any badge) shown
+ * anywhere on the site — same colors, labels and order everywhere.
+ */
+export const SPOILER_LEVELS: {
+  state: SpoilerState;
+  label: string;
+  color: string;
+  /** icon key so client components can map to a lucide icon */
+  icon: "shield" | "episode" | "season" | "series" | "lock";
+}[] = [
+  { state: "safe", label: "Safe Zone", color: COLOR.safe, icon: "shield" },
+  { state: "episode", label: "Episode Spoilers", color: COLOR.episode, icon: "episode" },
+  { state: "season", label: "Season Spoilers", color: COLOR.season, icon: "season" },
+  { state: "series", label: "Full Series Spoilers", color: COLOR.series, icon: "series" },
+  { state: "locked", label: "Locked", color: COLOR.locked, icon: "lock" },
+];
+
+/** Sub-label for a spoiler level relative to a room's (season, episode). */
+export function spoilerLevelDetail(
+  state: SpoilerState,
+  season: number | null,
+  episode: number | null,
+): string {
+  const here = season && episode ? `S${season} E${episode}` : season ? `Season ${season}` : "here";
+  switch (state) {
+    case "safe":
+      return `Up to ${here}`;
+    case "episode":
+      return `Beyond ${here}`;
+    case "season":
+      return season ? `Beyond Season ${season}` : "Beyond this season";
+    case "series":
+      return "Beyond the entire series";
+    case "locked":
+      return "Not watched yet";
+  }
+}
+
+/**
+ * The spoiler tag to stamp on a post, given the scope the author picked and the
+ * room it was posted in. Returns a short chip label + the matching state.
+ */
+export function postTag(
+  scope: SpoilerScope,
+  season: number | null,
+  episode: number | null,
+): { state: SpoilerState; label: string } {
+  switch (scope) {
+    case "none":
+      return { state: "safe", label: "Safe" };
+    case "episode":
+      return { state: "episode", label: season && episode ? `S${season} E${episode}` : "Episode" };
+    case "season":
+      return { state: "season", label: season ? `S${season}+` : "Season+" };
+    case "series":
+      return { state: "series", label: "Series+" };
+  }
+}
+
 /** Human sentence explaining why content is hidden. */
 export function hiddenReason(
   content: ContentSpoilerTag,

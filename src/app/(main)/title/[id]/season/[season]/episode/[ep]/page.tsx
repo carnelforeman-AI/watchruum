@@ -1,17 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ChevronRight, Calendar, Clock } from "lucide-react";
+import { ChevronRight, Settings, UserPlus, ShieldCheck } from "lucide-react";
 import { getMedia, getEpisode, getEpisodes } from "@/lib/tmdb";
-import { getCurrentProfile, createClient } from "@/lib/supabase/server";
-import { EpisodeRoom } from "@/components/room/episode-room";
-import { EpisodePicker } from "@/components/room/episode-picker";
-import { Poster } from "@/components/media/poster";
-import { Badge } from "@/components/ui/badge";
-import { commentsFor } from "@/lib/mock-data";
-import { posterGradient } from "@/lib/utils";
-import type { Comment } from "@/lib/types";
+import { getCurrentProfile } from "@/lib/supabase/server";
+import { getRoomFeed } from "@/lib/queries";
+import { RoomChat } from "@/components/room/room-chat";
+import { EpisodeNav } from "@/components/room/episode-nav";
+import { RoomRail } from "@/components/room/room-rail";
+import { SafeZonePill } from "@/components/room/spoiler-standard";
+import { scopeLabel } from "@/lib/spoiler";
+import { Avatar } from "@/components/ui/avatar";
+import { compact } from "@/lib/utils";
 
-export default async function EpisodePage({
+export const dynamic = "force-dynamic";
+
+const TABS = ["Chat", "Discussion", "Polls", "Media", "About"];
+
+export default async function EpisodeRoomPage({
   params,
 }: {
   params: Promise<{ id: string; season: string; ep: string }>;
@@ -27,89 +32,148 @@ export default async function EpisodePage({
   ]);
   if (!media || !episode) notFound();
 
-  // Load real data if signed in + configured; otherwise demo mock.
-  let initiallyWatched = false;
-  const comments: Comment[] = commentsFor(id, seasonNum, epNum);
+  const [profile, feed] = await Promise.all([
+    getCurrentProfile(),
+    getRoomFeed(media.tmdb_id, media.media_type, seasonNum, epNum),
+  ]);
 
-  const profile = await getCurrentProfile();
-  if (profile) {
-    const supabase = await createClient();
-    if (supabase) {
-      const { data: w } = await supabase
-        .from("episode_watches")
-        .select("id")
-        .eq("user_id", profile.id)
-        .eq("season_number", seasonNum)
-        .eq("episode_number", epNum)
-        .maybeSingle();
-      initiallyWatched = !!w;
-    }
-  }
-
-  const prev = epNum > 1 ? epNum - 1 : null;
-  const next = episodes.some((e) => e.episode_number === epNum + 1) ? epNum + 1 : null;
+  const safeLabel = scopeLabel(seasonNum, epNum); // "S2 E4"
   const base = `/title/${id}/season/${seasonNum}/episode`;
 
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
-      <Link
-        href={`/title/${id}/season/${seasonNum}`}
-        className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" /> {media.title} · Season {seasonNum}
-      </Link>
+  // Viewer's furthest watched episode within this season, for the navigator.
+  let furthestEpisode: number | null = null;
+  if (feed.progress) {
+    if (feed.progress.season_number === seasonNum) furthestEpisode = feed.progress.episode_number;
+    else if ((feed.progress.season_number ?? 0) > seasonNum) furthestEpisode = episodes.length;
+  }
 
-      {/* Episode header */}
-      <div className="glass overflow-hidden rounded-2xl">
-        <div className="relative h-44 md:h-56">
-          {episode.still_url ? (
-            <Poster title={episode.name} src={episode.still_url} showTitle={false} rounded="rounded-none" className="h-full w-full" />
-          ) : (
-            <div className="h-full w-full" style={{ background: posterGradient(`${media.title} ${seasonNum} ${epNum}`) }} />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 p-5">
-            <Badge>S{seasonNum} · E{epNum}</Badge>
-            <h1 className="mt-2 text-2xl font-extrabold tracking-tight drop-shadow">{episode.name}</h1>
-            <p className="text-[13px] text-white/70">{media.title}</p>
+  const topChatters = feed.members.slice(0, 3);
+
+  return (
+    <div className="mx-auto max-w-[1500px] px-4 py-5 md:px-6">
+      {/* Breadcrumb */}
+      <nav className="mb-3 flex flex-wrap items-center gap-1.5 text-[13px] text-muted-2">
+        <Link href="/rooms" className="font-semibold text-muted hover:text-foreground">
+          Back to Rooms
+        </Link>
+        <ChevronRight className="size-3.5" />
+        <Link href={`/title/${id}`} className="hover:text-foreground">
+          {media.title}
+        </Link>
+        <ChevronRight className="size-3.5" />
+        <Link href={`/title/${id}/season/${seasonNum}`} className="hover:text-foreground">
+          Season {seasonNum}
+        </Link>
+        <ChevronRight className="size-3.5" />
+        <span className="text-foreground">Episode {epNum} – {episode.name}</span>
+      </nav>
+
+      {/* Header */}
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-extrabold tracking-tight md:text-[28px]">
+            {media.title} {safeLabel} – {episode.name}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px] text-muted">
+            <SafeZonePill />
+            <span className="text-muted-2">·</span>
+            <span>{compact(feed.memberCount)} Members</span>
+            <span className="text-muted-2">·</span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-safe" /> {compact(feed.onlineCount)} Online
+            </span>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-4 p-5 text-[13px] text-muted">
-          {episode.air_date && (
-            <span className="flex items-center gap-1.5"><Calendar className="size-4" /> {episode.air_date}</span>
-          )}
-          {episode.runtime && (
-            <span className="flex items-center gap-1.5"><Clock className="size-4" /> {episode.runtime}m</span>
-          )}
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-primary-strong px-3.5 py-2 text-[13px] font-semibold text-white hover:brightness-110">
+            <Settings className="size-4" /> Room Settings
+          </button>
+          <button className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white/[0.03] px-3.5 py-2 text-[13px] font-semibold hover:bg-white/[0.07]">
+            <UserPlus className="size-4" /> Invite
+          </button>
         </div>
-        {episode.overview && (
-          <p className="px-5 pb-5 text-[14px] leading-relaxed text-foreground/85">{episode.overview}</p>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
+        {TABS.map((t) => (
+          <span
+            key={t}
+            className={
+              t === "Chat"
+                ? "border-b-2 border-primary px-3 py-2 text-[14px] font-semibold text-foreground"
+                : "cursor-default border-b-2 border-transparent px-3 py-2 text-[14px] font-medium text-muted-2"
+            }
+          >
+            {t}
+          </span>
+        ))}
+      </div>
+
+      {/* 3-pane layout */}
+      <div className="grid gap-5 lg:grid-cols-[248px_minmax(0,1fr)] xl:grid-cols-[248px_minmax(0,1fr)_320px]">
+        <aside className="hidden lg:block">
+          <EpisodeNav
+            media={{ id, title: media.title, poster_url: media.poster_url }}
+            season={seasonNum}
+            currentEpisode={epNum}
+            seasonName={episode.name}
+            episodes={episodes.map((e) => ({ episode_number: e.episode_number, name: e.name }))}
+            watchedEpisodes={feed.watchedEpisodes}
+            furthestEpisode={furthestEpisode}
+          />
+        </aside>
+
+        <main className="min-w-0">
+          <RoomChat
+            media={media}
+            season={seasonNum}
+            episode={epNum}
+            safeLabel={safeLabel}
+            initialMessages={feed.messages}
+            viewerId={feed.viewerId}
+            viewerName={profile?.display_name ?? null}
+            progress={feed.progress}
+            watchedThisEpisode={feed.watchedThisEpisode}
+          />
+        </main>
+
+        <aside className="hidden xl:block">
+          <RoomRail
+            media={media}
+            season={seasonNum}
+            episode={epNum}
+            episodeName={episode.name}
+            safeLabel={safeLabel}
+            members={feed.members}
+            memberCount={feed.memberCount}
+            createdBy={feed.createdBy}
+          />
+        </aside>
+      </div>
+
+      {/* Bottom bar */}
+      <div className="glass mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl px-5 py-3.5">
+        <span className="flex items-center gap-2 text-[13px] font-semibold">
+          <span className="size-2 rounded-full bg-safe" /> {compact(feed.onlineCount)} Online now
+        </span>
+        {topChatters.length > 0 && (
+          <div className="flex items-center gap-4">
+            <span className="text-[12px] font-semibold uppercase tracking-wide text-muted-2">Top Chatters</span>
+            {topChatters.map((m, i) => (
+              <Link key={m.id} href={`/u/${m.username}`} className="flex items-center gap-2 hover:opacity-90">
+                <Avatar name={m.display_name} src={m.avatar_url} size="sm" />
+                <span className="text-[13px]">
+                  <span className="font-semibold">#{i + 1} {m.display_name}</span>{" "}
+                  <span className="text-muted-2">{compact(m.message_count)} msgs</span>
+                </span>
+              </Link>
+            ))}
+          </div>
         )}
-      </div>
-
-      {/* Episode navigation */}
-      <div className="mt-4 flex items-center justify-between gap-3">
-        {prev ? (
-          <Link href={`${base}/${prev}`} className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white/5 px-3 py-2 text-[13px] font-semibold hover:bg-white/10">
-            <ChevronLeft className="size-4" /> Episode {prev}
-          </Link>
-        ) : <span />}
-        <EpisodePicker id={id} season={seasonNum} current={epNum} total={episodes.length} />
-        {next ? (
-          <Link href={`${base}/${next}`} className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white/5 px-3 py-2 text-[13px] font-semibold hover:bg-white/10">
-            Episode {next} <ChevronRight className="size-4" />
-          </Link>
-        ) : <span />}
-      </div>
-
-      <div className="mt-6">
-        <EpisodeRoom
-          media={media}
-          season={seasonNum}
-          episode={epNum}
-          initialComments={comments}
-          initiallyWatched={initiallyWatched}
-        />
+        <span className="ml-auto flex items-center gap-1.5 text-[13px] font-semibold text-muted">
+          <ShieldCheck className="size-4 text-warn" /> Room Rules
+        </span>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -52,10 +52,41 @@ export interface UserActionsMenuUser {
   status: string;
 }
 
+type MenuPos = { top: number; left: number; maxH: number };
+
 export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
   const router = useRouter();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<MenuPos | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
+
+  const MENU_WIDTH = 248;
+
+  const openMenu = () => {
+    const el = triggerRef.current;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const gap = 6;
+    let top = 80;
+    let left = vw - MENU_WIDTH - 16;
+    let maxH = Math.min(560, vh - 16);
+
+    if (el) {
+      const r = el.getBoundingClientRect();
+      // Right-align the menu to the button, opening downward.
+      left = r.right - MENU_WIDTH;
+      top = r.bottom + gap;
+      maxH = Math.min(560, vh - 16);
+      // Keep on screen vertically (flip/clamp if it would overflow the bottom).
+      if (top + maxH > vh - 8) top = Math.max(8, vh - 8 - maxH);
+      // Keep on screen horizontally.
+      if (left < 8) left = 8;
+      if (left + MENU_WIDTH > vw - 8) left = vw - 8 - MENU_WIDTH;
+    }
+    setPos({ top, left, maxH });
+    setOpen(true);
+  };
 
   const closeMenu = () => setOpen(false);
   const openModal = (m: ModalState) => {
@@ -63,6 +94,21 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
     setModal(m);
   };
   const noop = async (): Promise<ActionResult> => ({ ok: true });
+
+  // Close the dropdown when the page scrolls or resizes (it's fixed-positioned).
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   // Deep-link to the Supabase dashboard's Auth → Users page, derived from
   // the public Supabase URL (e.g. https://<ref>.supabase.co).
@@ -74,8 +120,9 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         aria-label="User actions"
         className="grid size-7 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
       >
@@ -83,17 +130,18 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
       </button>
 
       {open &&
+        pos &&
         createPortal(
-          <div
-            className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
-            onClick={closeMenu}
-          >
+          <>
+            {/* Transparent click-catcher — closes on outside click, no dim/blur. */}
+            <div className="fixed inset-0 z-40" onClick={closeMenu} />
             <div
-              className="glass max-h-[85vh] w-full max-w-xs overflow-y-auto rounded-2xl border border-border shadow-2xl"
+              className="glass fixed z-50 overflow-y-auto rounded-2xl border border-border shadow-2xl"
+              style={{ top: pos.top, left: pos.left, width: MENU_WIDTH, maxHeight: pos.maxH }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-bg-elevated px-4 py-3">
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-bg-elevated px-4 py-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{user.display_name}</p>
                   <p className="truncate text-[11px] text-muted-2">@{user.username ?? "member"}</p>
@@ -102,9 +150,9 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
                   type="button"
                   onClick={closeMenu}
                   aria-label="Close menu"
-                  className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
+                  className="grid size-6 shrink-0 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
                 >
-                  <X className="size-4" />
+                  <X className="size-3.5" />
                 </button>
               </div>
 
@@ -312,7 +360,7 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
                 />
               </div>
             </div>
-          </div>,
+          </>,
           document.body,
         )}
 

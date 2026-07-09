@@ -265,6 +265,198 @@ export const getPopularReviews = cache(async (limit = 2): Promise<Review[]> => {
     }));
 });
 
+/* ------------------------------------------------------------------ rooms */
+
+export interface RoomMessage {
+  id: string;
+  author: { id: string; username: string; display_name: string; avatar_url: string | null; is_admin: boolean };
+  body: string;
+  spoiler_scope: SpoilerScope;
+  season_number: number | null;
+  episode_number: number | null;
+  like_count: number;
+  liked_by_me: boolean;
+  created_at: string;
+}
+
+export interface RoomMember {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  is_admin: boolean;
+  online: boolean;
+  message_count: number;
+}
+
+export interface RoomFeed {
+  configured: boolean;
+  viewerId: string | null;
+  messages: RoomMessage[];
+  members: RoomMember[];
+  memberCount: number;
+  onlineCount: number;
+  progress: import("./spoiler").ViewerProgress | null;
+  watchedThisEpisode: boolean;
+  watchedEpisodes: number[]; // episode numbers watched in this season
+  createdBy: { username: string; display_name: string } | null;
+}
+
+/**
+ * Everything the episode room needs, from real Supabase data. The "room" is
+ * keyed by (media, season, episode); a message belongs to it when its stored
+ * season/episode match. Falls back to an empty (but valid) room when Supabase
+ * isn't configured or nobody has posted yet.
+ */
+export const getRoomFeed = cache(
+  async (tmdbId: number, mediaType: "movie" | "tv", season: number, episode: number): Promise<RoomFeed> => {
+    const empty: RoomFeed = {
+      configured: false,
+      viewerId: null,
+      messages: [],
+      members: [],
+      memberCount: 0,
+      onlineCount: 0,
+      progress: null,
+      watchedThisEpisode: false,
+      watchedEpisodes: [],
+      createdBy: null,
+    };
+
+    const supabase = await createClient();
+    if (!supabase) return empty;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const viewerId = user?.id ?? null;
+
+    const { data: media } = await supabase
+      .from("media_items")
+      .select("id")
+      .eq("tmdb_id", tmdbId)
+      .eq("media_type", mediaType)
+      .maybeSingle();
+
+    // Viewer progress + watched episodes in this season (needs the media row).
+    let progress: import("./spoiler").ViewerProgress | null = null;
+    let watchedEpisodes: number[] = [];
+    if (viewerId && media) {
+      const [{ data: ws }, { data: ew }] = await Promise.all([
+        supabase
+          .from("watch_status")
+          .select("season_number, episode_number, movie_watched")
+          .eq("user_id", viewerId)
+          .eq("media_id", media.id)
+          .maybeSingle(),
+        supabase
+          .from("episode_watches")
+          .select("episode_number")
+          .eq("user_id", viewerId)
+          .eq("media_id", media.id)
+          .eq("season_number", season),
+      ]);
+      if (ws) {
+        progress = {
+          season_number: (ws as any).season_number,
+          episode_number: (ws as any).episode_number,
+          movie_watched: (ws as any).movie_watched ?? false,
+        };
+      }
+      watchedEpisodes = ((ew ?? []) as any[]).map((r) => r.episode_number).filter((n) => n != null);
+    }
+    const watchedThisEpisode = watchedEpisodes.includes(episode);
+
+    if (!media) {
+      return { ...empty, configured: true, viewerId, progress, watchedThisEpisode, watchedEpisodes };
+    }
+
+    // Messages posted in this room (this media + season + episode).
+    const { data: rows } = await supabase
+      .from("comments")
+      .select(
+        "id, body, spoiler_scope, season_number, episode_number, created_at, author:profiles(id, username, display_name, avatar_url, is_admin)",
+      )
+      .eq("media_id", media.id)
+      .eq("season_number", season)
+      .eq("episode_number", episode)
+      .order("created_at", { ascending: true })
+      .limit(200);
+
+    const list = (rows ?? []) as any[];
+
+    // Reaction counts for these comments.
+    const counts = new Map<string, number>();
+    const mine = new Set<string>();
+    if (list.length) {
+      const { data: reacts } = await supabase
+        .from("reactions")
+        .select("target_id, user_id")
+        .eq("target_type", "comment")
+        .in(
+          "target_id",
+          list.map((r) => r.id),
+        );
+      for (const r of (reacts ?? []) as any[]) {
+        counts.set(r.target_id, (counts.get(r.target_id) ?? 0) + 1);
+        if (viewerId && r.user_id === viewerId) mine.add(r.target_id);
+      }
+    }
+
+    const messages: RoomMessage[] = list
+      .filter((r) => r.author)
+      .map((r) => ({
+        id: r.id,
+        author: {
+          id: r.author.id,
+          username: r.author.username ?? "member",
+          display_name: r.author.display_name ?? "Member",
+          avatar_url: r.author.avatar_url ?? null,
+          is_admin: !!r.author.is_admin,
+        },
+        body: r.body,
+        spoiler_scope: r.spoiler_scope,
+        season_number: r.season_number,
+        episode_number: r.episode_number,
+        like_count: counts.get(r.id) ?? 0,
+        liked_by_me: mine.has(r.id),
+        created_at: r.created_at,
+      }));
+
+    // Members = distinct authors in this room (real participation).
+    const memberMap = new Map<string, RoomMember>();
+    for (const m of messages) {
+      const prev = memberMap.get(m.author.id);
+      if (prev) prev.message_count += 1;
+      else
+        memberMap.set(m.author.id, {
+          ...m.author,
+          online: false,
+          message_count: 1,
+        });
+    }
+    const members = [...memberMap.values()].sort((a, b) => b.message_count - a.message_count);
+    // Mark the most recent posters as "online" (illustrative presence).
+    const recent = new Set(messages.slice(-6).map((m) => m.author.id));
+    for (const mem of members) mem.online = recent.has(mem.id);
+
+    const createdBy = members[0] ? { username: members[0].username, display_name: members[0].display_name } : null;
+
+    return {
+      configured: true,
+      viewerId,
+      messages,
+      members,
+      memberCount: members.length,
+      onlineCount: members.filter((m) => m.online).length,
+      progress,
+      watchedThisEpisode,
+      watchedEpisodes,
+      createdBy,
+    };
+  },
+);
+
 /**
  * Server-side reads of the signed-in user's real library.
  * Returns null when Supabase isn't configured or nobody is signed in —

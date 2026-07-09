@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -37,17 +37,60 @@ export interface RoomActionsRoom {
   hidden: boolean;
 }
 
+type MenuPos = { top: number; left: number; maxH: number };
+
 export function RoomActionsMenu({ room }: { room: RoomActionsRoom }) {
   const router = useRouter();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<MenuPos | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const MENU_WIDTH = 248;
+
+  const openMenu = () => {
+    const el = triggerRef.current;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const gap = 6;
+    let top = 80;
+    let left = vw - MENU_WIDTH - 16;
+    let maxH = Math.min(520, vh - 16);
+
+    if (el) {
+      const r = el.getBoundingClientRect();
+      left = r.right - MENU_WIDTH;
+      top = r.bottom + gap;
+      maxH = Math.min(520, vh - 16);
+      if (top + maxH > vh - 8) top = Math.max(8, vh - 8 - maxH);
+      if (left < 8) left = 8;
+      if (left + MENU_WIDTH > vw - 8) left = vw - 8 - MENU_WIDTH;
+    }
+    setPos({ top, left, maxH });
+    setOpen(true);
+  };
 
   const close = () => {
     setOpen(false);
     setError(null);
   };
+
+  // Close the dropdown on scroll/resize/Escape (it's fixed-positioned).
+  useEffect(() => {
+    if (!open) return;
+    const c = () => setOpen(false);
+    window.addEventListener("scroll", c, true);
+    window.addEventListener("resize", c);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("scroll", c, true);
+      window.removeEventListener("resize", c);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const apply = (patch: RoomFlags, thenClose = true) => {
     setError(null);
@@ -68,8 +111,9 @@ export function RoomActionsMenu({ room }: { room: RoomActionsRoom }) {
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         aria-label="Room actions"
         className="grid size-7 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
       >
@@ -77,13 +121,17 @@ export function RoomActionsMenu({ room }: { room: RoomActionsRoom }) {
       </button>
 
       {open &&
+        pos &&
         createPortal(
-          <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={close}>
+          <>
+            {/* Transparent click-catcher — closes on outside click, no dim/blur. */}
+            <div className="fixed inset-0 z-40" onClick={close} />
             <div
-              className="glass max-h-[85vh] w-full max-w-xs overflow-y-auto rounded-2xl border border-border shadow-2xl"
+              className="glass fixed z-50 overflow-y-auto rounded-2xl border border-border shadow-2xl"
+              style={{ top: pos.top, left: pos.left, width: MENU_WIDTH, maxHeight: pos.maxH }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-bg-elevated px-4 py-3">
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-bg-elevated px-4 py-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{room.title}</p>
                   <p className="truncate text-[11px] text-muted-2">{room.scope_label}</p>
@@ -92,9 +140,9 @@ export function RoomActionsMenu({ room }: { room: RoomActionsRoom }) {
                   type="button"
                   onClick={close}
                   aria-label="Close menu"
-                  className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
+                  className="grid size-6 shrink-0 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
                 >
-                  <X className="size-4" />
+                  <X className="size-3.5" />
                 </button>
               </div>
 
@@ -175,7 +223,7 @@ export function RoomActionsMenu({ room }: { room: RoomActionsRoom }) {
                 {error && <p className="px-4 py-2 text-[12px] font-medium text-danger">{error}</p>}
               </div>
             </div>
-          </div>,
+          </>,
           document.body,
         )}
 
