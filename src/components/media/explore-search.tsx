@@ -4,16 +4,36 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 
-const FILTERS = ["TV Shows", "Movies", "Trending", "New", "Most Active", "Spoiler-Safe"];
+const FILTERS: { label: string; key: string }[] = [
+  { label: "TV Shows", key: "tv" },
+  { label: "Movies", key: "movies" },
+  { label: "Trending", key: "trending" },
+  { label: "New", key: "new" },
+  { label: "Most Active", key: "active" },
+  { label: "Spoiler-Safe", key: "safe" },
+];
 
-export function ExploreSearch({ initial = "" }: { initial?: string }) {
+export function ExploreSearch({
+  initial = "",
+  activeFilter = "trending",
+}: {
+  initial?: string;
+  activeFilter?: string;
+}) {
   const router = useRouter();
   const [q, setQ] = useState(initial);
-  const [active, setActive] = useState("Trending");
+
+  function urlFor(filter: string) {
+    const p = new URLSearchParams();
+    if (q.trim()) p.set("q", q.trim());
+    if (filter && filter !== "trending") p.set("filter", filter);
+    const s = p.toString();
+    return s ? `/explore?${s}` : "/explore";
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    router.push(q.trim() ? `/explore?q=${encodeURIComponent(q.trim())}` : "/explore");
+    router.push(urlFor(activeFilter));
   }
 
   return (
@@ -30,16 +50,17 @@ export function ExploreSearch({ initial = "" }: { initial?: string }) {
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
-            key={f}
-            onClick={() => setActive(f)}
+            key={f.key}
+            type="button"
+            onClick={() => router.push(urlFor(f.key))}
             className={
               "rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors " +
-              (active === f
+              (activeFilter === f.key
                 ? "border-primary/50 bg-primary/15 text-foreground"
                 : "border-border bg-white/5 text-muted hover:text-foreground")
             }
           >
-            {f}
+            {f.label}
           </button>
         ))}
       </div>
