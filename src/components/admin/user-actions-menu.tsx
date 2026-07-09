@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -23,6 +23,7 @@ import {
   Trash2,
   Loader2,
   ExternalLink,
+  X,
 } from "lucide-react";
 import { changeRole, setUserStatus, addAdminNote, warnUser } from "@/app/admin-actions";
 import { Button } from "@/components/ui/button";
@@ -55,50 +56,6 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<ModalState | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const [coords, setCoords] = useState<{ left: number; top?: number; bottom?: number; maxHeight: number } | null>(null);
-
-  // Position the menu with fixed coords in a portal so it escapes the table's
-  // overflow clipping. Flips upward when there isn't room below.
-  const toggle = () => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    const el = btnRef.current;
-    if (el) {
-      const r = el.getBoundingClientRect();
-      const width = 224; // w-56
-      const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
-      const spaceBelow = window.innerHeight - r.bottom;
-      const spaceAbove = r.top;
-      if (spaceBelow < 320 && spaceAbove > spaceBelow) {
-        setCoords({ left, bottom: window.innerHeight - r.top + 6, maxHeight: spaceAbove - 16 });
-      } else {
-        setCoords({ left, top: r.bottom + 6, maxHeight: spaceBelow - 16 });
-      }
-    }
-    setOpen(true);
-  };
-
-  // Close on scroll / resize so the menu never detaches from its row.
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
-    };
-  }, [open]);
-
-  // Deep-link to the Supabase dashboard's Auth → Users page, derived from
-  // the public Supabase URL (e.g. https://<ref>.supabase.co).
-  const supaRef = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").match(/\/\/([a-z0-9]+)\.supabase\.co/)?.[1] ?? "";
-  const authUsersUrl = supaRef
-    ? `https://supabase.com/dashboard/project/${supaRef}/auth/users`
-    : "https://supabase.com/dashboard";
 
   const closeMenu = () => setOpen(false);
   const openModal = (m: ModalState) => {
@@ -107,12 +64,18 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
   };
   const noop = async (): Promise<ActionResult> => ({ ok: true });
 
+  // Deep-link to the Supabase dashboard's Auth → Users page, derived from
+  // the public Supabase URL (e.g. https://<ref>.supabase.co).
+  const supaRef = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").match(/\/\/([a-z0-9]+)\.supabase\.co/)?.[1] ?? "";
+  const authUsersUrl = supaRef
+    ? `https://supabase.com/dashboard/project/${supaRef}/auth/users`
+    : "https://supabase.com/dashboard";
+
   return (
-    <div className="relative inline-block">
+    <>
       <button
-        ref={btnRef}
         type="button"
-        onClick={toggle}
+        onClick={() => setOpen(true)}
         aria-label="User actions"
         className="grid size-7 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
       >
@@ -120,215 +83,236 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
       </button>
 
       {open &&
-        coords &&
         createPortal(
-          <>
-            <div className="fixed inset-0 z-40" onClick={closeMenu} />
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={closeMenu}
+          >
             <div
-              className="fixed z-50 w-56 overflow-y-auto rounded-xl border border-border bg-bg-elevated py-1 shadow-xl"
-              style={{ left: coords.left, top: coords.top, bottom: coords.bottom, maxHeight: coords.maxHeight }}
+              className="glass max-h-[85vh] w-full max-w-xs overflow-y-auto rounded-2xl border border-border shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
             >
-            {user.status !== "active" && (
-              <>
+              {/* Header */}
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-bg-elevated px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{user.display_name}</p>
+                  <p className="truncate text-[11px] text-muted-2">@{user.username ?? "member"}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeMenu}
+                  aria-label="Close menu"
+                  className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+
+              <div className="py-1">
+                {user.status !== "active" && (
+                  <>
+                    <MenuButton
+                      icon={RotateCcw}
+                      label="Reactivate account"
+                      className="text-safe"
+                      onClick={() =>
+                        openModal({
+                          mode: "confirm",
+                          title: "Reactivate account",
+                          message: `Restore ${user.display_name}'s account to active status?`,
+                          confirmLabel: "Reactivate",
+                          run: () => setUserStatus(user.id, "active"),
+                        })
+                      }
+                    />
+                    <Separator />
+                  </>
+                )}
+
+                <GroupLabel>View</GroupLabel>
+                <MenuLink icon={User} label="View Profile" href={`/admin/users/${user.id}`} onNavigate={closeMenu} />
+                <MenuLink
+                  icon={Info}
+                  label="View Admin Details"
+                  href={`/admin/users/${user.id}#details`}
+                  onNavigate={closeMenu}
+                />
+                <MenuLink
+                  icon={Activity}
+                  label="View Activity"
+                  href={`/admin/users/${user.id}#activity`}
+                  onNavigate={closeMenu}
+                />
+                <MenuLink
+                  icon={Flag}
+                  label="View Reports"
+                  href={`/admin/users/${user.id}#reports`}
+                  onNavigate={closeMenu}
+                />
+
+                <Separator />
+                <GroupLabel>Manage</GroupLabel>
                 <MenuButton
-                  icon={RotateCcw}
-                  label="Reactivate account"
-                  className="text-safe"
+                  icon={StickyNote}
+                  label="Add Admin Note"
                   onClick={() =>
                     openModal({
-                      mode: "confirm",
-                      title: "Reactivate account",
-                      message: `Restore ${user.display_name}'s account to active status?`,
-                      confirmLabel: "Reactivate",
-                      run: () => setUserStatus(user.id, "active"),
+                      mode: "text",
+                      title: "Add Admin Note",
+                      message: "This private note is only visible to admins.",
+                      confirmLabel: "Save Note",
+                      requireText: true,
+                      textLabel: "Note",
+                      run: (text) => addAdminNote(user.id, text),
                     })
                   }
                 />
+                <MenuButton
+                  icon={MessageSquare}
+                  label="Send Message"
+                  onClick={() =>
+                    openModal({
+                      mode: "info",
+                      title: "Send Message",
+                      message:
+                        "Direct messaging isn't built yet. In the meantime, you can compose emails to members from the Email Templates section.",
+                      link: { href: "/admin/email-templates", label: "Go to Email Templates" },
+                      run: noop,
+                    })
+                  }
+                />
+                <MenuButton
+                  icon={Shield}
+                  label={user.is_admin ? "Remove Admin" : "Make Admin"}
+                  onClick={() =>
+                    openModal({
+                      mode: "confirm",
+                      title: user.is_admin ? "Remove admin role" : "Make admin",
+                      message: user.is_admin
+                        ? `Revoke admin privileges from ${user.display_name}?`
+                        : `Grant admin privileges to ${user.display_name}?`,
+                      confirmLabel: user.is_admin ? "Remove Admin" : "Make Admin",
+                      destructive: user.is_admin,
+                      run: () => changeRole(user.id, !user.is_admin),
+                    })
+                  }
+                />
+
                 <Separator />
-              </>
-            )}
+                <GroupLabel>Moderation</GroupLabel>
+                <MenuButton
+                  icon={AlertTriangle}
+                  label="Warn User"
+                  className="text-warn"
+                  onClick={() =>
+                    openModal({
+                      mode: "text",
+                      title: "Warn User",
+                      message: `Send a warning to ${user.display_name}.`,
+                      confirmLabel: "Send Warning",
+                      requireText: true,
+                      run: (text) => warnUser(user.id, text),
+                    })
+                  }
+                />
+                <MenuButton
+                  icon={MinusCircle}
+                  label="Limit Account"
+                  className="text-warn"
+                  onClick={() =>
+                    openModal({
+                      mode: "confirm",
+                      title: "Limit account",
+                      message: `Restrict ${user.display_name}'s account activity?`,
+                      confirmLabel: "Limit Account",
+                      destructive: true,
+                      run: () => setUserStatus(user.id, "limited"),
+                    })
+                  }
+                />
+                <MenuButton
+                  icon={VolumeX}
+                  label="Mute User"
+                  className="text-warn"
+                  onClick={() =>
+                    openModal({
+                      mode: "confirm",
+                      title: "Mute user",
+                      message: `Prevent ${user.display_name} from posting?`,
+                      confirmLabel: "Mute User",
+                      destructive: true,
+                      run: () => setUserStatus(user.id, "muted"),
+                    })
+                  }
+                />
+                <MenuButton
+                  icon={PauseCircle}
+                  label="Suspend User"
+                  className="text-warn"
+                  onClick={() =>
+                    openModal({
+                      mode: "text",
+                      title: "Suspend User",
+                      message: `Temporarily suspend ${user.display_name}'s account.`,
+                      confirmLabel: "Suspend User",
+                      requireText: false,
+                      textLabel: "Reason (optional)",
+                      destructive: true,
+                      run: (text) => setUserStatus(user.id, "suspended", text || undefined),
+                    })
+                  }
+                />
+                <MenuButton
+                  icon={Ban}
+                  label="Ban User"
+                  className="text-danger"
+                  onClick={() =>
+                    openModal({
+                      mode: "text",
+                      title: "Ban User",
+                      message: `Permanently ban ${user.display_name} from Watchruum.`,
+                      confirmLabel: "Ban User",
+                      requireText: false,
+                      textLabel: "Reason (optional)",
+                      destructive: true,
+                      run: (text) => setUserStatus(user.id, "banned", text || undefined),
+                    })
+                  }
+                />
 
-            <GroupLabel>View</GroupLabel>
-            <MenuLink icon={User} label="View Profile" href={`/admin/users/${user.id}`} onNavigate={closeMenu} />
-            <MenuLink
-              icon={Info}
-              label="View Admin Details"
-              href={`/admin/users/${user.id}#details`}
-              onNavigate={closeMenu}
-            />
-            <MenuLink
-              icon={Activity}
-              label="View Activity"
-              href={`/admin/users/${user.id}#activity`}
-              onNavigate={closeMenu}
-            />
-            <MenuLink
-              icon={Flag}
-              label="View Reports"
-              href={`/admin/users/${user.id}#reports`}
-              onNavigate={closeMenu}
-            />
-
-            <Separator />
-            <GroupLabel>Manage</GroupLabel>
-            <MenuButton
-              icon={StickyNote}
-              label="Add Admin Note"
-              onClick={() =>
-                openModal({
-                  mode: "text",
-                  title: "Add Admin Note",
-                  message: "This private note is only visible to admins.",
-                  confirmLabel: "Save Note",
-                  requireText: true,
-                  textLabel: "Note",
-                  run: (text) => addAdminNote(user.id, text),
-                })
-              }
-            />
-            <MenuButton
-              icon={MessageSquare}
-              label="Send Message"
-              onClick={() =>
-                openModal({
-                  mode: "info",
-                  title: "Send Message",
-                  message:
-                    "Direct messaging isn't built yet. In the meantime, you can compose emails to members from the Email Templates section.",
-                  link: { href: "/admin/email-templates", label: "Go to Email Templates" },
-                  run: noop,
-                })
-              }
-            />
-            <MenuButton
-              icon={Shield}
-              label={user.is_admin ? "Remove Admin" : "Make Admin"}
-              onClick={() =>
-                openModal({
-                  mode: "confirm",
-                  title: user.is_admin ? "Remove admin role" : "Make admin",
-                  message: user.is_admin
-                    ? `Revoke admin privileges from ${user.display_name}?`
-                    : `Grant admin privileges to ${user.display_name}?`,
-                  confirmLabel: user.is_admin ? "Remove Admin" : "Make Admin",
-                  destructive: user.is_admin,
-                  run: () => changeRole(user.id, !user.is_admin),
-                })
-              }
-            />
-
-            <Separator />
-            <GroupLabel>Moderation</GroupLabel>
-            <MenuButton
-              icon={AlertTriangle}
-              label="Warn User"
-              className="text-warn"
-              onClick={() =>
-                openModal({
-                  mode: "text",
-                  title: "Warn User",
-                  message: `Send a warning to ${user.display_name}.`,
-                  confirmLabel: "Send Warning",
-                  requireText: true,
-                  run: (text) => warnUser(user.id, text),
-                })
-              }
-            />
-            <MenuButton
-              icon={MinusCircle}
-              label="Limit Account"
-              className="text-warn"
-              onClick={() =>
-                openModal({
-                  mode: "confirm",
-                  title: "Limit account",
-                  message: `Restrict ${user.display_name}'s account activity?`,
-                  confirmLabel: "Limit Account",
-                  destructive: true,
-                  run: () => setUserStatus(user.id, "limited"),
-                })
-              }
-            />
-            <MenuButton
-              icon={VolumeX}
-              label="Mute User"
-              className="text-warn"
-              onClick={() =>
-                openModal({
-                  mode: "confirm",
-                  title: "Mute user",
-                  message: `Prevent ${user.display_name} from posting?`,
-                  confirmLabel: "Mute User",
-                  destructive: true,
-                  run: () => setUserStatus(user.id, "muted"),
-                })
-              }
-            />
-            <MenuButton
-              icon={PauseCircle}
-              label="Suspend User"
-              className="text-warn"
-              onClick={() =>
-                openModal({
-                  mode: "text",
-                  title: "Suspend User",
-                  message: `Temporarily suspend ${user.display_name}'s account.`,
-                  confirmLabel: "Suspend User",
-                  requireText: false,
-                  destructive: true,
-                  run: (text) => setUserStatus(user.id, "suspended", text || undefined),
-                })
-              }
-            />
-            <MenuButton
-              icon={Ban}
-              label="Ban User"
-              className="text-danger"
-              onClick={() =>
-                openModal({
-                  mode: "text",
-                  title: "Ban User",
-                  message: `Permanently ban ${user.display_name} from Watchruum.`,
-                  confirmLabel: "Ban User",
-                  requireText: false,
-                  destructive: true,
-                  run: (text) => setUserStatus(user.id, "banned", text || undefined),
-                })
-              }
-            />
-
-            <Separator />
-            <GroupLabel>Danger</GroupLabel>
-            <MenuButton
-              icon={LogOut}
-              label="Force Logout"
-              className="text-danger"
-              onClick={() =>
-                openModal({
-                  mode: "info",
-                  title: "Force Logout",
-                  message: `Sign this account out from Supabase → Authentication → Users. Search for user ID ${user.id} and revoke its active sessions. This can't be triggered from the app for security.`,
-                  link: { href: authUsersUrl, label: "Open Supabase Auth", external: true },
-                  run: noop,
-                })
-              }
-            />
-            <MenuButton
-              icon={Trash2}
-              label="Delete Account"
-              className="text-danger"
-              onClick={() =>
-                openModal({
-                  mode: "info",
-                  title: "Delete Account",
-                  message: `Delete this account from Supabase → Authentication → Users. Search for user ID ${user.id} and delete it there. This can't be triggered from the app for security.`,
-                  link: { href: authUsersUrl, label: "Open Supabase Auth", external: true },
-                  run: noop,
-                })
-              }
-            />
+                <Separator />
+                <GroupLabel>Danger</GroupLabel>
+                <MenuButton
+                  icon={LogOut}
+                  label="Force Logout"
+                  className="text-danger"
+                  onClick={() =>
+                    openModal({
+                      mode: "info",
+                      title: "Force Logout",
+                      message: `Sign this account out from Supabase → Authentication → Users. Search for user ID ${user.id} and revoke its active sessions. This can't be triggered from the app for security.`,
+                      link: { href: authUsersUrl, label: "Open Supabase Auth", external: true },
+                      run: noop,
+                    })
+                  }
+                />
+                <MenuButton
+                  icon={Trash2}
+                  label="Delete Account"
+                  className="text-danger"
+                  onClick={() =>
+                    openModal({
+                      mode: "info",
+                      title: "Delete Account",
+                      message: `Delete this account from Supabase → Authentication → Users. Search for user ID ${user.id} and delete it there. This can't be triggered from the app for security.`,
+                      link: { href: authUsersUrl, label: "Open Supabase Auth", external: true },
+                      run: noop,
+                    })
+                  }
+                />
+              </div>
             </div>
-          </>,
+          </div>,
           document.body,
         )}
 
@@ -342,7 +326,7 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
           }}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -356,7 +340,7 @@ function Separator() {
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-2">
+    <p className="px-4 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-2">
       {children}
     </p>
   );
@@ -378,7 +362,7 @@ function MenuButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] hover:bg-white/5",
+        "flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] hover:bg-white/5",
         className,
       )}
     >
@@ -403,7 +387,7 @@ function MenuLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-foreground hover:bg-white/5"
+      className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] text-foreground hover:bg-white/5"
     >
       <Icon className="size-4" />
       {label}
@@ -441,7 +425,7 @@ function ActionModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
       onClick={() => {
         if (!pending) onClose();
       }}
@@ -498,22 +482,12 @@ function ActionModal({
                 Cancel
               </Button>
               {modal.mode === "confirm" ? (
-                <Button
-                  variant={confirmVariant}
-                  size="sm"
-                  onClick={() => submit("")}
-                  disabled={pending}
-                >
+                <Button variant={confirmVariant} size="sm" onClick={() => submit("")} disabled={pending}>
                   {pending && <Loader2 className="size-4 animate-spin" />}
                   {modal.confirmLabel ?? "Confirm"}
                 </Button>
               ) : (
-                <Button
-                  variant={confirmVariant}
-                  size="sm"
-                  onClick={() => submit(text)}
-                  disabled={textDisabled}
-                >
+                <Button variant={confirmVariant} size="sm" onClick={() => submit(text)} disabled={textDisabled}>
                   {pending && <Loader2 className="size-4 animate-spin" />}
                   {modal.confirmLabel ?? "Submit"}
                 </Button>
