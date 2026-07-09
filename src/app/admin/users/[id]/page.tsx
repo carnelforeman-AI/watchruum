@@ -54,12 +54,12 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
   if (!d.user) notFound();
   const u = d.user;
 
-  const statTiles: { label: string; value: number }[] = [
+  const statTiles: { label: string; value: number; href?: string }[] = [
     { label: "Reviews", value: d.stats.reviews },
     { label: "Comments", value: d.stats.comments },
     { label: "Rooms", value: d.stats.rooms },
-    { label: "Reports", value: d.stats.reports },
-    { label: "Warnings", value: d.stats.warnings },
+    { label: "Reports", value: d.stats.reports, href: "#reports" },
+    { label: "Warnings", value: d.stats.warnings, href: "#warnings" },
   ];
 
   const details: { label: string; value: React.ReactNode }[] = [
@@ -120,12 +120,19 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
 
       {/* Stat tiles */}
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {statTiles.map((t) => (
-          <div key={t.label} className="glass rounded-2xl p-4">
-            <p className="text-2xl font-extrabold">{t.value}</p>
-            <p className="text-[12px] text-muted-2">{t.label}</p>
-          </div>
-        ))}
+        {statTiles.map((t) =>
+          t.href && t.value > 0 ? (
+            <Link key={t.label} href={t.href} className="glass glass-hover rounded-2xl p-4 transition-colors">
+              <p className="text-2xl font-extrabold">{t.value}</p>
+              <p className="text-[12px] text-primary">{t.label}</p>
+            </Link>
+          ) : (
+            <div key={t.label} className="glass rounded-2xl p-4">
+              <p className="text-2xl font-extrabold">{t.value}</p>
+              <p className="text-[12px] text-muted-2">{t.label}</p>
+            </div>
+          ),
+        )}
       </div>
 
       <div className="mt-5 space-y-5">
@@ -179,20 +186,23 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
             {d.reports.length === 0 ? (
               <p className="text-[13px] text-muted-2">No reports against this user.</p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-1">
                 {d.reports.map((r) => (
-                  <li
-                    key={r.id}
-                    className="flex items-start justify-between gap-3 border-b border-border/60 pb-3 last:border-0 last:pb-0"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium">{r.content}</p>
-                      <p className="text-[12px] text-muted">{r.reason}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Badge variant={reportVariant(r.status)}>{cap(r.status)}</Badge>
-                      <span className="text-[11px] text-muted-2">{timeAgo(r.created_at)}</span>
-                    </div>
+                  <li key={r.id} className="border-b border-border/60 last:border-0">
+                    <Link
+                      href="/admin/reports"
+                      className="-mx-2 flex items-start justify-between gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-white/5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-medium">{r.content}</p>
+                        <p className="text-[12px] text-muted">{r.reason}</p>
+                        <p className="mt-0.5 text-[11px] font-semibold text-primary">Review report →</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Badge variant={reportVariant(r.status)}>{cap(r.status)}</Badge>
+                        <span className="text-[11px] text-muted-2">{timeAgo(r.created_at)}</span>
+                      </div>
+                    </Link>
                   </li>
                 ))}
               </ul>
