@@ -25,7 +25,7 @@ export async function setReportStatus(
   const supabase = await adminContext();
   if (!supabase) return { ok: false, error: "Not authorized" };
   const { error } = await supabase.from("reports").update({ status }).eq("id", reportId);
-  revalidatePath("/admin");
+  revalidatePath("/admin/reports");
   return { ok: !error, error: error?.message };
 }
 
@@ -43,6 +43,6 @@ export async function removeReportedContent(
   if (delErr) return { ok: false, error: delErr.message };
 
   await supabase.from("reports").update({ status: "resolved" }).eq("id", reportId);
-  revalidatePath("/admin");
+  revalidatePath("/admin/reports");
   return { ok: true };
 }

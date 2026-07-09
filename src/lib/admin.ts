@@ -1,6 +1,9 @@
 import "server-only";
 import { cache } from "react";
 import { createClient } from "./supabase/server";
+import { trending } from "./tmdb";
+import { getTrendingRooms } from "./queries";
+import type { MediaItem, Room } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -102,4 +105,224 @@ export const getAdminSnapshot = cache(async (): Promise<AdminSnapshot> => {
   });
 
   return { isAdmin: true, reports: mapped, counts };
+});
+
+/* ------------------------------------------------------------------ */
+/* Overview dashboard                                                  */
+/* ------------------------------------------------------------------ */
+
+export interface AdminStat {
+  key: string;
+  label: string;
+  value: number;
+  delta: number | null; // new items in the last 7 days (real), null when N/A
+}
+
+export interface BreakdownSlice {
+  label: string;
+  value: number;
+  color: string;
+}
+
+export interface ActivityEvent {
+  id: string;
+  kind: "user" | "review" | "report" | "comment";
+  title: string;
+  subtitle: string;
+  created_at: string;
+}
+
+export interface RecentReportRow {
+  id: string;
+  type: "comment" | "review";
+  content: string;
+  reporter: string;
+  reason: string;
+  created_at: string;
+  status: string;
+}
+
+export interface AdminOverview {
+  isAdmin: boolean;
+  stats: AdminStat[];
+  breakdown: BreakdownSlice[];
+  totalUsers: number;
+  activitySeries: { label: string; value: number }[];
+  recentReports: RecentReportRow[];
+  recentActivity: ActivityEvent[];
+  trendingShows: MediaItem[];
+  trendingMovies: MediaItem[];
+  activeRooms: Room[];
+}
+
+async function isCurrentUserAdmin() {
+  const supabase = await createClient();
+  if (!supabase) return { supabase: null, admin: false };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { supabase, admin: false };
+  const { data: me } = await supabase.from("profiles").select("is_admin").eq("id", user.id).maybeSingle();
+  return { supabase, admin: !!me?.is_admin };
+}
+
+/** Real counts + illustrative extras for the admin Overview page. */
+export const getAdminOverview = cache(async (): Promise<AdminOverview> => {
+  const empty: AdminOverview = {
+    isAdmin: false,
+    stats: [],
+    breakdown: [],
+    totalUsers: 0,
+    activitySeries: [],
+    recentReports: [],
+    recentActivity: [],
+    trendingShows: [],
+    trendingMovies: [],
+    activeRooms: [],
+  };
+
+  const { supabase, admin } = await isCurrentUserAdmin();
+  if (!supabase || !admin) return empty;
+
+  const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+
+  const countOf = async (table: string, sinceCol?: string) => {
+    let q = supabase.from(table).select("*", { count: "exact", head: true });
+    if (sinceCol) q = q.gte(sinceCol, weekAgo);
+    const { count } = await q;
+    return count ?? 0;
+  };
+
+  // Real counts (parallel). head:true so no rows are transferred.
+  const [
+    users,
+    usersNew,
+    titles,
+    reviews,
+    reviewsNew,
+    comments,
+    commentsNew,
+    reports,
+    reportsNew,
+    admins,
+  ] = await Promise.all([
+    countOf("profiles"),
+    countOf("profiles", "created_at"),
+    countOf("media_items"),
+    countOf("reviews"),
+    countOf("reviews", "created_at"),
+    countOf("comments"),
+    countOf("comments", "created_at"),
+    countOf("reports"),
+    countOf("reports", "created_at"),
+    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("is_admin", true).then((r) => r.count ?? 0),
+  ]);
+
+  const stats: AdminStat[] = [
+    { key: "users", label: "Total Users", value: users, delta: usersNew },
+    { key: "reviews", label: "Reviews", value: reviews, delta: reviewsNew },
+    { key: "comments", label: "Posts", value: comments, delta: commentsNew },
+    { key: "titles", label: "Titles Tracked", value: titles, delta: null },
+    { key: "reports", label: "Reports", value: reports, delta: reportsNew },
+  ];
+
+  const established = Math.max(0, users - usersNew - admins);
+  const breakdown: BreakdownSlice[] = [
+    { label: "New this week", value: usersNew, color: "var(--color-primary)" },
+    { label: "Established", value: established, color: "var(--color-accent)" },
+    { label: "Admins", value: admins, color: "var(--color-accent-2)" },
+  ];
+
+  // Recent reports (real).
+  const { data: rr } = await supabase
+    .from("reports")
+    .select("id, target_type, target_id, reason, status, created_at, reporter:profiles!reports_reporter_id_fkey(display_name)")
+    .order("created_at", { ascending: false })
+    .limit(6);
+  const rrRows = (rr ?? []) as any[];
+
+  // Pull a short body for each reported item to show in the table.
+  const cIds = rrRows.filter((r) => r.target_type === "comment").map((r) => r.target_id);
+  const vIds = rrRows.filter((r) => r.target_type === "review").map((r) => r.target_id);
+  const [{ data: cRows }, { data: vRows }] = await Promise.all([
+    cIds.length ? supabase.from("comments").select("id, media:media_items(title)").in("id", cIds) : Promise.resolve({ data: [] as any[] }),
+    vIds.length ? supabase.from("reviews").select("id, media:media_items(title)").in("id", vIds) : Promise.resolve({ data: [] as any[] }),
+  ]);
+  const titleById = new Map<string, string>();
+  for (const c of (cRows ?? []) as any[]) titleById.set(c.id, c.media?.title ?? "");
+  for (const v of (vRows ?? []) as any[]) titleById.set(v.id, v.media?.title ?? "");
+
+  const recentReports: RecentReportRow[] = rrRows.map((r) => ({
+    id: r.id,
+    type: r.target_type,
+    content: titleById.get(r.target_id) || (r.target_type === "review" ? "Review" : "Post"),
+    reporter: r.reporter?.display_name ?? "Someone",
+    reason: r.reason,
+    created_at: r.created_at,
+    status: r.status,
+  }));
+
+  // Recent activity: merge new users + reviews + reports (all real).
+  const [{ data: newUsers }, { data: newReviews }] = await Promise.all([
+    supabase.from("profiles").select("id, display_name, created_at").order("created_at", { ascending: false }).limit(5),
+    supabase
+      .from("reviews")
+      .select("id, score, created_at, author:profiles(display_name), media:media_items(title)")
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
+
+  const events: ActivityEvent[] = [];
+  for (const u of (newUsers ?? []) as any[]) {
+    events.push({ id: `u_${u.id}`, kind: "user", title: "New member joined", subtitle: u.display_name ?? "Someone", created_at: u.created_at });
+  }
+  for (const v of (newReviews ?? []) as any[]) {
+    events.push({
+      id: `v_${v.id}`,
+      kind: "review",
+      title: `Review submitted${v.score ? ` · ${v.score}/10` : ""}`,
+      subtitle: v.media?.title ?? "a title",
+      created_at: v.created_at,
+    });
+  }
+  for (const r of rrRows.slice(0, 3)) {
+    events.push({ id: `r_${r.id}`, kind: "report", title: "Content reported", subtitle: r.reason, created_at: r.created_at });
+  }
+  events.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const recentActivity = events.slice(0, 6);
+
+  // Illustrative 7-day activity series (no historical table yet).
+  const activityLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const base = Math.max(4, Math.round((users + reviews + comments) / 7) || 6);
+  const shape = [0.6, 0.75, 0.7, 0.9, 1.0, 0.85, 0.8];
+  const activitySeries = activityLabels.map((label, i) => ({ label, value: Math.round(base * shape[i]) + (i % 2) }));
+
+  // Content overview (real TMDb).
+  let items: MediaItem[] = [];
+  try {
+    items = await trending();
+  } catch {
+    items = [];
+  }
+  const trendingShows = items.filter((m) => m.media_type === "tv").slice(0, 5);
+  const trendingMovies = items.filter((m) => m.media_type === "movie").slice(0, 5);
+  let activeRooms: Room[] = [];
+  try {
+    activeRooms = await getTrendingRooms(5);
+  } catch {
+    activeRooms = [];
+  }
+
+  return {
+    isAdmin: true,
+    stats,
+    breakdown,
+    totalUsers: users,
+    activitySeries,
+    recentReports,
+    recentActivity,
+    trendingShows,
+    trendingMovies,
+    activeRooms,
+  };
 });

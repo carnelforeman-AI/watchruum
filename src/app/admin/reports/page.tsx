@@ -1,31 +1,21 @@
-import { redirect } from "next/navigation";
-import { ShieldAlert, Flag, CheckCircle2, XCircle } from "lucide-react";
+import { Flag, CheckCircle2, XCircle, ShieldAlert } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ReportCard } from "@/components/admin/report-card";
 import { getAdminSnapshot } from "@/lib/admin";
 
-export const metadata = { title: "Moderation · Watchruum" };
+export const metadata = { title: "Admin · Reports · Watchruum" };
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+export default async function AdminReportsPage() {
   const snap = await getAdminSnapshot();
-
-  // Non-admins (and logged-out) never see the queue.
-  if (!snap.isAdmin) redirect("/");
-
   const open = snap.reports.filter((r) => r.status === "open" || r.status === "reviewing");
   const settled = snap.reports.filter((r) => r.status === "resolved" || r.status === "dismissed");
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
-      <div className="mb-5 flex items-center gap-2.5">
-        <span className="grid size-9 place-items-center rounded-xl bg-danger/15 text-danger ring-1 ring-danger/30">
-          <ShieldAlert className="size-5" />
-        </span>
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Moderation</h1>
-          <p className="text-[13px] text-muted-2">Review reported spoilers and unsafe content.</p>
-        </div>
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-5">
+        <h1 className="text-2xl font-extrabold tracking-tight">Reports</h1>
+        <p className="text-[13px] text-muted-2">Review reported spoilers and unsafe content.</p>
       </div>
 
       <div className="mb-6 grid grid-cols-3 gap-3">
