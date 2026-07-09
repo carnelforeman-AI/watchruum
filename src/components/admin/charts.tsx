@@ -50,6 +50,40 @@ export function AreaChart({ data }: { data: { label: string; value: number }[] }
   );
 }
 
+/** Tiny inline sparkline for table cells. */
+export function Sparkline({
+  data,
+  tone = "var(--color-primary)",
+}: {
+  data: number[];
+  tone?: string;
+}) {
+  const w = 88;
+  const h = 26;
+  const max = Math.max(1, ...data);
+  const stepX = data.length > 1 ? w / (data.length - 1) : w;
+  const pts = data.map((v, i) => ({
+    x: i * stepX,
+    y: h - 2 - (v / max) * (h - 4),
+  }));
+  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const area = `${line} L${w},${h} L0,${h} Z`;
+  const gid = `spark_${Math.round(pts[0]?.y ?? 0)}_${data.length}_${max}`;
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-6 w-[88px]" preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={tone} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={tone} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gid})`} />
+      <path d={line} fill="none" stroke={tone} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function Donut({
   slices,
   total,

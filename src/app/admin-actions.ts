@@ -110,3 +110,36 @@ export async function warnUser(userId: string, reason: string): Promise<Result> 
   revalidateUser(userId);
   return { ok: !error, error: error?.message };
 }
+
+/* ---------------- Watch room moderation ---------------- */
+
+export type RoomFlag = "featured" | "pinned" | "locked" | "archived" | "hidden";
+export type RoomFlags = Partial<Record<RoomFlag, boolean>>;
+
+/**
+ * Persist admin overrides for a derived room (keyed by its stable room id).
+ * Upserts so a room row is created lazily the first time it's touched.
+ */
+export async function setRoomFlags(roomKey: string, patch: RoomFlags): Promise<Result> {
+  const ctx = await adminContext();
+  if (!ctx) return { ok: false, error: "Not authorized" };
+  if (!roomKey) return { ok: false, error: "Missing room" };
+
+  const allowed: RoomFlag[] = ["featured", "pinned", "locked", "archived", "hidden"];
+  const clean: RoomFlags = {};
+  for (const k of allowed) if (typeof patch[k] === "boolean") clean[k] = patch[k];
+  if (Object.keys(clean).length === 0) return { ok: false, error: "Nothing to update" };
+
+  const { error } = await ctx.supabase.from("room_states").upsert(
+    {
+      room_key: roomKey,
+      ...clean,
+      updated_by: ctx.userId,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "room_key" },
+  );
+
+  revalidatePath("/admin/rooms");
+  return { ok: !error, error: error?.message };
+}

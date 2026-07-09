@@ -3,7 +3,7 @@ import { cache } from "react";
 import { createClient } from "./supabase/server";
 import { trending } from "./tmdb";
 import { getTrendingRooms } from "./queries";
-import type { MediaItem, Room } from "./types";
+import type { MediaItem, MediaType, Room } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -664,4 +664,354 @@ export const getAdminUserDetail = cache(async (userId: string): Promise<UserDeta
     notes,
     warnings,
   };
+});
+
+/* ------------------------------------------------------------------ */
+/* Watch Rooms management                                              */
+/*                                                                     */
+/* Rooms are not a stored entity yet — they are derived from real TMDb */
+/* titles, matching how the rest of the app models rooms. Room model:  */
+/*   • a movie  → one movie room                                       */
+/*   • a TV show → one main "show" room + one room per episode         */
+/* Report counts are REAL (mapped from reported content back to the    */
+/* title); members / activity / status are deterministic illustration. */
+/* ------------------------------------------------------------------ */
+
+export type RoomType = "movie_room" | "title_room" | "episode_room";
+export type RoomStatus = "active" | "trending" | "new" | "reported" | "locked" | "archived" | "removed";
+
+export interface AdminRoomRow {
+  id: string;
+  media_id: string; // route id (tmdb_movie_123 style) for linking
+  title: string;
+  poster_url: string | null;
+  media_type: MediaType;
+  room_type: RoomType;
+  category: string; // "Movie Discussion" | "Show Discussion" | "Episode Discussion"
+  scope_label: string; // "Movie" | "Show" | "S1 · E4"
+  creator: string; // @handle (illustrative)
+  members: number;
+  activity: number[]; // 7-pt sparkline
+  last_active: string; // iso
+  created_at: string; // iso
+  status: RoomStatus;
+  reports: number;
+  is_hot: boolean;
+  // Persisted admin overrides (from room_states).
+  featured: boolean;
+  pinned: boolean;
+  locked: boolean;
+  archived: boolean;
+  hidden: boolean;
+}
+
+export interface AdminRoomsResult {
+  isAdmin: boolean;
+  rows: AdminRoomRow[];
+  total: number;
+  page: number;
+  perPage: number;
+  stats: {
+    total: number;
+    active: number;
+    trending: number;
+    reported: number;
+    locked: number;
+    archived: number;
+  };
+  breakdown: BreakdownSlice[]; // by room type
+  topShows: { title: string; rooms: number }[];
+  recentActivity: RoomActivity[];
+}
+
+export interface RoomActivity {
+  id: string;
+  actor: string; // @handle
+  verb: string;
+  target: string;
+  created_at: string;
+}
+
+export interface AdminRoomsParams {
+  q?: string;
+  tab?: string; // all | active | trending | new | reported | locked | archived
+  type?: string; // all | movie | show | episode
+  page?: number;
+  perPage?: number;
+}
+
+/** Deterministic 0..1 generator seeded by an integer (stable across renders). */
+function seeded(seed: number) {
+  let x = ((seed % 2147483647) + 2147483647) % 2147483647 || 1;
+  return () => {
+    x = (x * 48271) % 2147483647;
+    return (x - 1) / 2147483646;
+  };
+}
+
+const ROOM_CREATORS = [
+  "watchruum",
+  "roomkeeper",
+  "spoilerfree",
+  "bingebot",
+  "screenmod",
+  "fanwrangler",
+  "episodeone",
+  "nightowl",
+];
+
+export const getAdminRooms = cache(async (params: AdminRoomsParams = {}): Promise<AdminRoomsResult> => {
+  const perPage = params.perPage ?? 10;
+  const page = Math.max(1, params.page ?? 1);
+  const empty: AdminRoomsResult = {
+    isAdmin: false,
+    rows: [],
+    total: 0,
+    page,
+    perPage,
+    stats: { total: 0, active: 0, trending: 0, reported: 0, locked: 0, archived: 0 },
+    breakdown: [],
+    topShows: [],
+    recentActivity: [],
+  };
+
+  const { supabase, admin } = await isCurrentUserAdmin();
+  if (!supabase || !admin) return empty;
+
+  // Real report counts, mapped from reported content back to its TMDb title.
+  const reportsByTmdb = new Map<number, number>();
+  try {
+    const { data: reps } = await supabase.from("reports").select("target_id, target_type").limit(500);
+    const repRows = (reps ?? []) as any[];
+    const cIds = repRows.filter((r) => r.target_type === "comment").map((r) => r.target_id);
+    const vIds = repRows.filter((r) => r.target_type === "review").map((r) => r.target_id);
+    const [{ data: cRows }, { data: vRows }] = await Promise.all([
+      cIds.length ? supabase.from("comments").select("id, media:media_items(tmdb_id)").in("id", cIds) : Promise.resolve({ data: [] as any[] }),
+      vIds.length ? supabase.from("reviews").select("id, media:media_items(tmdb_id)").in("id", vIds) : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const tmdbByContent = new Map<string, number>();
+    for (const c of (cRows ?? []) as any[]) if (c.media?.tmdb_id) tmdbByContent.set(c.id, c.media.tmdb_id);
+    for (const v of (vRows ?? []) as any[]) if (v.media?.tmdb_id) tmdbByContent.set(v.id, v.media.tmdb_id);
+    for (const r of repRows) {
+      const t = tmdbByContent.get(r.target_id);
+      if (t != null) reportsByTmdb.set(t, (reportsByTmdb.get(t) ?? 0) + 1);
+    }
+  } catch {
+    /* reports table optional */
+  }
+
+  // Derive rooms from real TMDb trending titles.
+  let items: MediaItem[] = [];
+  try {
+    items = await trending();
+  } catch {
+    items = [];
+  }
+
+  const now = Date.now();
+  const day = 86400000;
+  const all: AdminRoomRow[] = [];
+  const showRoomCounts: { title: string; rooms: number }[] = [];
+
+  items.forEach((m, idx) => {
+    const rand = seeded(m.tmdb_id + idx);
+    const creator = ROOM_CREATORS[m.tmdb_id % ROOM_CREATORS.length];
+    const spark = () => Array.from({ length: 7 }, () => Math.round(20 + rand() * 80));
+    const titleReports = reportsByTmdb.get(m.tmdb_id) ?? 0;
+
+    const pickStatus = (base: number, hot: boolean, forceReported: boolean): RoomStatus => {
+      if (forceReported) return "reported";
+      const r = rand();
+      if (hot && r < 0.6) return "trending";
+      if (base < 7 * day) return "new";
+      if (r > 0.93) return "archived";
+      if (r > 0.86) return "locked";
+      return "active";
+    };
+
+    if (m.media_type === "movie") {
+      const created = now - Math.round(rand() * 120) * day;
+      all.push({
+        id: `mov_${m.tmdb_id}`,
+        media_id: m.id,
+        title: m.title,
+        poster_url: m.poster_url,
+        media_type: "movie",
+        room_type: "movie_room",
+        category: "Movie Discussion",
+        scope_label: "Movie",
+        creator,
+        members: Math.round(300 + rand() * 5200),
+        activity: spark(),
+        last_active: new Date(now - Math.round(rand() * 5) * day - Math.round(rand() * day)).toISOString(),
+        created_at: new Date(created).toISOString(),
+        status: pickStatus(now - created, idx < 3, titleReports > 0),
+        reports: titleReports,
+        is_hot: idx < 3,
+        featured: false,
+        pinned: false,
+        locked: false,
+        archived: false,
+        hidden: false,
+      });
+      showRoomCounts.push({ title: m.title, rooms: 1 });
+      return;
+    }
+
+    // TV show → main show room + per-episode rooms.
+    const created = now - Math.round(30 + rand() * 200) * day;
+    all.push({
+      id: `show_${m.tmdb_id}`,
+      media_id: m.id,
+      title: m.title,
+      poster_url: m.poster_url,
+      media_type: "tv",
+      room_type: "title_room",
+      category: "Show Discussion",
+      scope_label: "Show",
+      creator,
+      members: Math.round(2000 + rand() * 14000),
+      activity: spark(),
+      last_active: new Date(now - Math.round(rand() * 2) * day - Math.round(rand() * day)).toISOString(),
+      created_at: new Date(created).toISOString(),
+      status: pickStatus(now - created, idx < 3, titleReports > 0),
+      reports: titleReports,
+      is_hot: idx < 3,
+      featured: false,
+      pinned: false,
+      locked: false,
+      archived: false,
+      hidden: false,
+    });
+
+    const epCount = 3 + Math.floor(rand() * 5); // 3–7 episode rooms
+    for (let ep = 1; ep <= epCount; ep++) {
+      const epRand = seeded(m.tmdb_id * 100 + ep);
+      const epCreated = now - Math.round(epRand() * 90) * day;
+      all.push({
+        id: `ep_${m.tmdb_id}_s1e${ep}`,
+        media_id: m.id,
+        title: m.title,
+        poster_url: m.poster_url,
+        media_type: "tv",
+        room_type: "episode_room",
+        category: "Episode Discussion",
+        scope_label: `S1 · E${ep}`,
+        creator: ROOM_CREATORS[(m.tmdb_id + ep) % ROOM_CREATORS.length],
+        members: Math.round(120 + epRand() * 3400),
+        activity: Array.from({ length: 7 }, () => Math.round(10 + epRand() * 70)),
+        last_active: new Date(now - Math.round(epRand() * 6) * day - Math.round(epRand() * day)).toISOString(),
+        created_at: new Date(epCreated).toISOString(),
+        status: pickStatus(now - epCreated, ep === epCount && idx < 3, false),
+        reports: 0,
+        is_hot: ep === epCount && idx < 3,
+        featured: false,
+        pinned: false,
+        locked: false,
+        archived: false,
+        hidden: false,
+      });
+    }
+    showRoomCounts.push({ title: m.title, rooms: 1 + epCount });
+  });
+
+  // Overlay persisted admin overrides (room_states). Table is optional
+  // pre-migration; a failed read simply leaves defaults in place.
+  try {
+    const keys = all.map((r) => r.id);
+    if (keys.length) {
+      const { data: states } = await supabase
+        .from("room_states")
+        .select("room_key, featured, pinned, locked, archived, hidden")
+        .in("room_key", keys);
+      const byKey = new Map<string, any>();
+      for (const s of (states ?? []) as any[]) byKey.set(s.room_key, s);
+      for (const r of all) {
+        const s = byKey.get(r.id);
+        if (!s) continue;
+        r.featured = !!s.featured;
+        r.pinned = !!s.pinned;
+        r.locked = !!s.locked;
+        r.archived = !!s.archived;
+        r.hidden = !!s.hidden;
+        // Persisted moderation state wins over the derived status.
+        if (r.hidden) r.status = "removed";
+        else if (r.archived) r.status = "archived";
+        else if (r.locked) r.status = "locked";
+      }
+    }
+  } catch {
+    /* room_states table optional pre-migration */
+  }
+
+  // Pinned rooms float to the top of the list.
+  all.sort((a, b) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1));
+
+  // Global stats over the derived set (removed rooms excluded from totals).
+  const visible = all.filter((r) => !r.hidden);
+  const stats = {
+    total: visible.length,
+    active: visible.filter((r) => r.status === "active" || r.status === "new").length,
+    trending: visible.filter((r) => r.status === "trending").length,
+    reported: visible.filter((r) => r.status === "reported").length,
+    locked: visible.filter((r) => r.status === "locked").length,
+    archived: visible.filter((r) => r.status === "archived").length,
+  };
+
+  const typeCount = (t: RoomType) => visible.filter((r) => r.room_type === t).length;
+  const breakdown: BreakdownSlice[] = [
+    { label: "Episode Rooms", value: typeCount("episode_room"), color: "var(--color-primary)" },
+    { label: "Show Rooms", value: typeCount("title_room"), color: "var(--color-accent)" },
+    { label: "Movie Rooms", value: typeCount("movie_room"), color: "var(--color-accent-2)" },
+  ];
+
+  const topShows = showRoomCounts
+    .filter((s) => s.rooms > 1)
+    .sort((a, b) => b.rooms - a.rooms)
+    .slice(0, 5);
+  if (topShows.length === 0) {
+    topShows.push(...showRoomCounts.sort((a, b) => b.rooms - a.rooms).slice(0, 5));
+  }
+
+  // Recent room activity (illustrative, drawn from the derived rooms).
+  const recentActivity: RoomActivity[] = [...visible]
+    .sort((a, b) => (a.last_active < b.last_active ? 1 : -1))
+    .slice(0, 6)
+    .map((r) => ({
+      id: `ra_${r.id}`,
+      actor: r.creator,
+      verb: r.status === "trending" ? "sparked a discussion in" : "joined",
+      target: `${r.title}${r.scope_label !== "Movie" && r.scope_label !== "Show" ? ` · ${r.scope_label}` : ""}`,
+      created_at: r.last_active,
+    }));
+
+  // Filter.
+  const tab = params.tab ?? "all";
+  const type = params.type ?? "all";
+  const q = (params.q ?? "").trim().toLowerCase();
+
+  let filtered = all;
+  if (tab === "archived") {
+    // Archived view is also where removed (soft-deleted) rooms live, so they
+    // remain restorable.
+    filtered = filtered.filter((r) => r.status === "archived" || r.status === "removed");
+  } else {
+    // Every other tab hides removed rooms.
+    filtered = filtered.filter((r) => r.status !== "removed");
+    if (tab === "active") filtered = filtered.filter((r) => r.status === "active" || r.status === "new");
+    else if (tab === "new") filtered = filtered.filter((r) => r.status === "new");
+    else if (tab !== "all") filtered = filtered.filter((r) => r.status === tab);
+  }
+
+  if (type === "movie") filtered = filtered.filter((r) => r.room_type === "movie_room");
+  else if (type === "show") filtered = filtered.filter((r) => r.room_type === "title_room");
+  else if (type === "episode") filtered = filtered.filter((r) => r.room_type === "episode_room");
+
+  if (q) filtered = filtered.filter((r) => r.title.toLowerCase().includes(q) || r.creator.toLowerCase().includes(q));
+
+  const total = filtered.length;
+  const from = (page - 1) * perPage;
+  const rows = filtered.slice(from, from + perPage);
+
+  return { isAdmin: true, rows, total, page, perPage, stats, breakdown, topShows, recentActivity };
 });
