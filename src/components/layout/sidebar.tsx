@@ -154,6 +154,15 @@ export function Sidebar({
         </LibrarySection>
       </div>
 
+      {profile?.is_admin && (
+        <Link
+          href="/admin"
+          className="mx-3 mt-3 flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/20"
+        >
+          <ShieldAlert className="size-4" /> Switch to Admin View
+        </Link>
+      )}
+
       <Link
         href="/profile"
         className="m-3 flex items-center gap-3 rounded-xl border border-border-soft bg-white/[0.03] p-2.5 hover:bg-white/5"
