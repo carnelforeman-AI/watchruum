@@ -39,7 +39,13 @@ export interface LibraryItem {
 }
 
 export interface UserLibrary {
-  profile: { id: string; username: string; display_name: string; avatar_url: string | null } | null;
+  profile: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+    is_admin: boolean;
+  } | null;
   continueWatching: LibraryItem[];
   watchlist: MediaItem[];
   furthest: LibraryItem | null;
@@ -55,7 +61,7 @@ export const getUserLibrary = cache(async (): Promise<UserLibrary | null> => {
   if (!user) return null;
 
   const [{ data: profile }, { data: rows }, { data: watches }] = await Promise.all([
-    supabase.from("profiles").select("id, username, display_name, avatar_url").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("id, username, display_name, avatar_url, is_admin").eq("id", user.id).maybeSingle(),
     supabase
       .from("watch_status")
       .select("season_number, episode_number, movie_watched, in_watchlist, updated_at, media:media_items(*)")

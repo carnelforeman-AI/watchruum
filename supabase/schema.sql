@@ -304,6 +304,16 @@ create policy "admin reports read" on reports for select
 create policy "admin reports update" on reports for update
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.is_admin));
 
+-- Admin moderation: admins may edit/remove any comment or review.
+create policy "admin delete comments" on comments for delete
+  using (exists (select 1 from profiles p where p.id = auth.uid() and p.is_admin));
+create policy "admin update comments" on comments for update
+  using (exists (select 1 from profiles p where p.id = auth.uid() and p.is_admin));
+create policy "admin delete reviews" on reviews for delete
+  using (exists (select 1 from profiles p where p.id = auth.uid() and p.is_admin));
+create policy "admin update reviews" on reviews for update
+  using (exists (select 1 from profiles p where p.id = auth.uid() and p.is_admin));
+
 -- =====================================================================
 --  Data API grants
 --  Expose the public tables to the PostgREST roles used by supabase-js.

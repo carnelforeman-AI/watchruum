@@ -12,6 +12,7 @@ import {
   User,
   PlayCircle,
   ChevronRight,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Poster } from "@/components/media/poster";
@@ -39,7 +40,7 @@ export function Sidebar({
   watchlist = [],
 }: {
   signedIn?: boolean;
-  profile?: { display_name: string; avatar_url: string | null } | null;
+  profile?: { display_name: string; avatar_url: string | null; is_admin?: boolean } | null;
   continueWatching?: LibraryItem[];
   watchlist?: MediaItem[];
 }) {
@@ -83,6 +84,20 @@ export function Sidebar({
             </Link>
           );
         })}
+        {profile?.is_admin && (
+          <Link
+            href="/admin"
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+              pathname.startsWith("/admin")
+                ? "bg-danger/15 text-foreground ring-1 ring-danger/30"
+                : "text-muted hover:bg-white/5 hover:text-foreground",
+            )}
+          >
+            <ShieldAlert className="size-[18px] text-danger" />
+            Moderation
+          </Link>
+        )}
       </nav>
 
       <div className="mt-6 flex-1 overflow-y-auto px-3 no-scrollbar">
