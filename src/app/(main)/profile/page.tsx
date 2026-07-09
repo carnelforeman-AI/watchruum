@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ReviewCard } from "@/components/feed/review-card";
 import { MediaCard } from "@/components/media/media-card";
-import { getCurrentProfile } from "@/lib/supabase/server";
-import { CURRENT_USER, CONTINUE_WATCHING, POPULAR_REVIEWS } from "@/lib/mock-data";
+import { getUserLibrary, getSampleContent } from "@/lib/queries";
+import { CURRENT_USER } from "@/lib/mock-data";
 
 export const metadata = { title: "Profile · Watchruum" };
 
@@ -19,12 +19,13 @@ const STATS = [
 const BADGES = ["Spoiler Guardian", "Finale Survivor", "Binge Master", "Early Watcher"];
 
 export default async function ProfilePage() {
-  const profile = (await getCurrentProfile()) ?? CURRENT_USER;
-  const name = profile.display_name ?? CURRENT_USER.display_name;
-  const username = profile.username ?? CURRENT_USER.username;
-  const genres: string[] = profile.favorite_genres?.length
-    ? profile.favorite_genres
-    : CURRENT_USER.favorite_genres;
+  const [lib, sample] = await Promise.all([getUserLibrary(), getSampleContent()]);
+  const signedIn = !!lib;
+
+  const name = lib?.profile?.display_name ?? CURRENT_USER.display_name;
+  const username = lib?.profile?.username ?? CURRENT_USER.username;
+  const genres: string[] = CURRENT_USER.favorite_genres;
+  const watching = signedIn && lib!.continueWatching.length ? lib!.continueWatching : sample.continueWatching;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 md:px-6">
@@ -32,7 +33,7 @@ export default async function ProfilePage() {
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-primary/30 via-accent/20 to-transparent" />
         <div className="relative p-6 pt-10">
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
-            <Avatar name={name} size="lg" className="size-20 text-2xl ring-4 ring-bg" />
+            <Avatar name={name} src={lib?.profile?.avatar_url} size="lg" className="size-20 text-2xl ring-4 ring-bg" />
             <div className="flex-1">
               <h1 className="text-2xl font-extrabold tracking-tight">{name}</h1>
               <p className="text-sm text-muted">@{username}</p>
@@ -75,7 +76,7 @@ export default async function ProfilePage() {
       <section className="mt-8">
         <h2 className="mb-3 text-lg font-bold">Currently watching</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {CONTINUE_WATCHING.map((c) => (
+          {watching.map((c) => (
             <MediaCard key={c.media.id} media={c.media} />
           ))}
         </div>
@@ -84,7 +85,7 @@ export default async function ProfilePage() {
       <section className="mt-8">
         <h2 className="mb-3 text-lg font-bold">Recent reviews</h2>
         <div className="grid gap-3 md:grid-cols-2">
-          {POPULAR_REVIEWS.map((r) => (
+          {sample.reviews.map((r) => (
             <ReviewCard key={r.id} review={r} />
           ))}
         </div>

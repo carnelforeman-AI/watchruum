@@ -1,19 +1,22 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/topbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
-import { getUserLibrary } from "@/lib/queries";
+import { getUserLibrary, getSampleContent } from "@/lib/queries";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const lib = await getUserLibrary();
   const signedIn = !!lib;
+
+  // Logged-out visitors see sample content built from real TMDb titles.
+  const sample = signedIn ? null : await getSampleContent();
 
   return (
     <div className="flex min-h-screen">
       <Sidebar
         signedIn={signedIn}
         profile={lib?.profile ?? null}
-        continueWatching={lib?.continueWatching ?? []}
-        watchlist={lib?.watchlist ?? []}
+        continueWatching={signedIn ? lib!.continueWatching : sample!.continueWatching}
+        watchlist={signedIn ? lib!.watchlist : sample!.watchlist}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar profile={lib?.profile ?? null} />

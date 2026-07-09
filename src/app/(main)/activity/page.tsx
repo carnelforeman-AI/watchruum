@@ -1,19 +1,19 @@
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
-import { FRIEND_ACTIVITY } from "@/lib/mock-data";
+import { getSampleContent } from "@/lib/queries";
 import { timeAgo } from "@/lib/utils";
 
 export const metadata = { title: "Activity · Watchruum" };
 
-// A slightly longer feed built from the same shape as friend activity.
-const FEED = [...FRIEND_ACTIVITY, ...FRIEND_ACTIVITY.map((a) => ({ ...a, id: a.id + "_b" }))];
+export default async function ActivityPage() {
+  const { friendActivity } = await getSampleContent();
+  const feed = [...friendActivity, ...friendActivity.map((a) => ({ ...a, id: a.id + "_b" }))];
 
-export default function ActivityPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 md:px-6">
       <h1 className="mb-4 text-2xl font-extrabold tracking-tight">Activity</h1>
       <Card className="divide-y divide-border-soft p-0">
-        {FEED.map((a) => (
+        {feed.map((a) => (
           <div key={a.id} className="flex items-start gap-3 p-4">
             <Avatar name={a.actor.display_name} />
             <div className="min-w-0 flex-1">

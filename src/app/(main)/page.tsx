@@ -4,11 +4,15 @@ import { RoomCard } from "@/components/feed/room-card";
 import { DiscussionCard } from "@/components/feed/discussion-card";
 import { ReviewCard } from "@/components/feed/review-card";
 import { RightRail } from "@/components/layout/right-rail";
-import { TOP_DISCUSSIONS, POPULAR_REVIEWS } from "@/lib/mock-data";
-import { getUserLibrary, getTrendingRooms } from "@/lib/queries";
+import { getUserLibrary, getTrendingRooms, getSampleContent } from "@/lib/queries";
 
 export default async function HomePage() {
-  const [lib, rooms] = await Promise.all([getUserLibrary(), getTrendingRooms(6)]);
+  const [lib, rooms, sample] = await Promise.all([
+    getUserLibrary(),
+    getTrendingRooms(6),
+    getSampleContent(),
+  ]);
+  const signedIn = !!lib;
 
   return (
     <div className="flex gap-6">
@@ -27,7 +31,7 @@ export default async function HomePage() {
         <section>
           <SectionHeader title="Top Episode Discussions" href="/rooms" />
           <div className="grid gap-3 md:grid-cols-2">
-            {TOP_DISCUSSIONS.map((d) => (
+            {sample.discussions.map((d) => (
               <DiscussionCard key={d.id} d={d} />
             ))}
           </div>
@@ -36,7 +40,7 @@ export default async function HomePage() {
         <section>
           <SectionHeader title="Popular Reviews" href="/explore" />
           <div className="grid gap-3 md:grid-cols-2">
-            {POPULAR_REVIEWS.map((r) => (
+            {sample.reviews.map((r) => (
               <ReviewCard key={r.id} review={r} />
             ))}
           </div>
@@ -44,9 +48,10 @@ export default async function HomePage() {
       </div>
 
       <RightRail
-        signedIn={!!lib}
-        progress={lib?.continueWatching ?? []}
-        furthest={lib?.furthest ?? null}
+        progress={signedIn ? lib!.continueWatching : sample.progress}
+        friendActivity={sample.friendActivity}
+        safeUpTo={signedIn ? (lib!.furthest ? `${lib!.furthest.media.title} ${lib!.furthest.label.replace(" · ", " ")}` : null) : sample.safeUpTo}
+        signedIn={signedIn}
       />
     </div>
   );

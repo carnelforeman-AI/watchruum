@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { Poster } from "@/components/media/poster";
 import { Progress } from "@/components/ui/progress";
 import { Avatar } from "@/components/ui/avatar";
-import { CONTINUE_WATCHING, WATCHLIST, CURRENT_USER } from "@/lib/mock-data";
+import { CURRENT_USER } from "@/lib/mock-data";
 import { WatchruumLogo } from "./logo";
 import type { LibraryItem } from "@/lib/queries";
 import type { MediaItem } from "@/lib/types";
@@ -46,17 +46,9 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
 
-  // Signed-in → real data (may be empty). Logged out → sample data.
-  const cw: LibraryItem[] = signedIn
-    ? continueWatching
-    : CONTINUE_WATCHING.map((c) => ({
-        media: c.media,
-        season_number: c.season_number,
-        episode_number: c.episode_number,
-        label: c.label,
-        percent: c.percent,
-      }));
-  const wl: MediaItem[] = signedIn ? watchlist : WATCHLIST.map((w) => w.media);
+  // The layout supplies real data when signed in, sample TMDb data otherwise.
+  const cw = continueWatching;
+  const wl = watchlist;
   const displayName = profile?.display_name ?? CURRENT_USER.display_name;
 
   return (
