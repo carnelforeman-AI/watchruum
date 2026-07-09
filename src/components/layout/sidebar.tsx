@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { Poster } from "@/components/media/poster";
 import { Progress } from "@/components/ui/progress";
 import { Avatar } from "@/components/ui/avatar";
+import { ProfileMenu } from "./profile-menu";
 import { CURRENT_USER } from "@/lib/mock-data";
 import { WatchruumLogo } from "./logo";
 import type { LibraryItem } from "@/lib/queries";
@@ -40,7 +41,7 @@ export function Sidebar({
   watchlist = [],
 }: {
   signedIn?: boolean;
-  profile?: { display_name: string; avatar_url: string | null; is_admin?: boolean } | null;
+  profile?: { display_name: string; username?: string | null; avatar_url: string | null; is_admin?: boolean } | null;
   continueWatching?: LibraryItem[];
   watchlist?: MediaItem[];
 }) {
@@ -163,17 +164,21 @@ export function Sidebar({
         </Link>
       )}
 
-      <Link
-        href="/profile"
-        className="m-3 flex items-center gap-3 rounded-xl border border-border-soft bg-white/[0.03] p-2.5 hover:bg-white/5"
-      >
-        <Avatar name={displayName} src={profile?.avatar_url} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{displayName}</p>
-          <p className="text-[11px] text-primary">{signedIn ? "View Profile" : "Sign in"}</p>
-        </div>
-        <ChevronRight className="size-4 text-muted-2" />
-      </Link>
+      <div className="m-3">
+        <ProfileMenu
+          signedIn={signedIn}
+          profile={profile}
+          placement="up-left"
+          triggerClassName="flex w-full items-center gap-3 rounded-xl border border-border-soft bg-white/[0.03] p-2.5 text-left hover:bg-white/5"
+        >
+          <Avatar name={displayName} src={profile?.avatar_url} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{displayName}</p>
+            <p className="text-[11px] text-primary">{signedIn ? "View Profile" : "Sign in"}</p>
+          </div>
+          <ChevronRight className="size-4 text-muted-2" />
+        </ProfileMenu>
+      </div>
     </aside>
   );
 }

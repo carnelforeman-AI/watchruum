@@ -4,13 +4,16 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Search, Bell, Mail } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { ProfileMenu } from "./profile-menu";
 import { WatchruumLogo } from "./logo";
 import { CURRENT_USER } from "@/lib/mock-data";
 
 export function TopBar({
   profile = null,
+  signedIn = false,
 }: {
-  profile?: { display_name: string; avatar_url: string | null } | null;
+  profile?: { display_name: string; username?: string | null; avatar_url: string | null; is_admin?: boolean } | null;
+  signedIn?: boolean;
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -48,7 +51,14 @@ export function TopBar({
           <Mail className="size-[18px]" />
         </IconBtn>
         <div className="ml-1">
-          <Avatar name={displayName} src={profile?.avatar_url} size="sm" />
+          <ProfileMenu
+            signedIn={signedIn}
+            profile={profile}
+            placement="down-right"
+            triggerClassName="grid place-items-center rounded-full ring-2 ring-transparent transition hover:ring-primary/40"
+          >
+            <Avatar name={displayName} src={profile?.avatar_url} size="sm" />
+          </ProfileMenu>
         </div>
       </div>
     </header>

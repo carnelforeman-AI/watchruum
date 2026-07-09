@@ -32,7 +32,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         watchlist={signedIn ? lib!.watchlist : sample!.watchlist}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar profile={lib?.profile ?? null} />
+        <TopBar profile={lib?.profile ?? null} signedIn={signedIn} />
         <main className="flex-1 pb-24 lg:pb-0">{children}</main>
       </div>
       <MobileNav />
