@@ -26,10 +26,12 @@ import {
   Send,
   Save,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { createInvite } from "@/app/admin/invite-actions";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -55,7 +57,7 @@ function fmtDate(d: Date) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function InvitesComposer({ nowIso }: { nowIso: string }) {
+export function InvitesComposer({ nowIso, token, baseUrl }: { nowIso: string; token: string; baseUrl: string }) {
   const now = useMemo(() => new Date(nowIso), [nowIso]);
 
   const expireOptions = useMemo(() => {
@@ -78,7 +80,7 @@ export function InvitesComposer({ nowIso }: { nowIso: string }) {
   const [showVars, setShowVars] = useState(false);
   const messageRef = useRef<HTMLTextAreaElement>(null);
 
-  const [link] = useState("https://watchruum.app/join/abc123xyz");
+  const link = `${baseUrl}/join/${token}`;
   const [copied, setCopied] = useState(false);
   const [expire, setExpire] = useState("14");
   const [maxUsesOn, setMaxUsesOn] = useState(false);
@@ -441,6 +443,23 @@ export function InvitesComposer({ nowIso }: { nowIso: string }) {
       {review && (
         <ReviewModal
           onClose={() => setReview(false)}
+          onSend={() =>
+            createInvite({
+              token,
+              name,
+              type,
+              audience: AUDIENCES.find((a) => a.key === audience)?.label ?? audience,
+              subject,
+              message,
+              expiresDays: expire === "never" ? null : Number(expire),
+              maxUses: maxUsesOn ? Number(maxUses) || null : null,
+              allowForward: opts.allowForward,
+              track: opts.trackOpens,
+              requireVerify: opts.requireVerify,
+              sendNow: opts.sendNow,
+              baseUrl,
+            })
+          }
           summary={{
             name,
             type,
@@ -563,12 +582,36 @@ function Sep() {
 
 function ReviewModal({
   onClose,
+  onSend,
   summary,
 }: {
   onClose: () => void;
+  onSend: () => Promise<{ ok: boolean; url?: string; error?: string }>;
   summary: { name: string; type: string; audience: string; recipients: number | null; subject: string; expire: string };
 }) {
-  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ url?: string; error?: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const send = async () => {
+    setSending(true);
+    const res = await onSend();
+    setSending(false);
+    if (res.ok) setResult({ url: res.url });
+    else setResult({ error: res.error ?? "Couldn't create the invite." });
+  };
+
+  const copy = async () => {
+    if (!result?.url) return;
+    try {
+      await navigator.clipboard.writeText(result.url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
       <div className="glass w-full max-w-md rounded-2xl p-5" onClick={(e) => e.stopPropagation()}>
@@ -579,13 +622,25 @@ function ReviewModal({
           </button>
         </div>
 
-        {sent ? (
-          <div className="py-8 text-center">
+        {result?.url ? (
+          <div className="py-6 text-center">
             <Check className="mx-auto size-10 rounded-full bg-safe/15 p-2 text-safe" />
-            <p className="mt-3 font-semibold">Invite ready to send</p>
+            <p className="mt-3 font-semibold">Invite link is live</p>
             <p className="mx-auto mt-1 max-w-sm text-sm text-muted-2">
-              This is a preview — invites aren&apos;t connected to a mail provider yet. Everything is validated and ready
-              to go once delivery is wired up.
+              Your invite is saved and this link now works — anyone who opens it can accept and sign up.
+            </p>
+            <div className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-white/[0.03] p-2">
+              <span className="truncate px-2 text-[13px]">{result.url}</span>
+              <button
+                onClick={copy}
+                className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white/[0.03] px-3 py-1.5 text-[12px] font-semibold text-muted transition hover:text-foreground"
+              >
+                {copied ? <Check className="size-3.5 text-safe" /> : <Copy className="size-3.5" />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <p className="mx-auto mt-3 max-w-sm text-[12px] text-muted-2">
+              Email delivery still needs a provider — for now, share this link directly.
             </p>
             <div className="mt-5 flex justify-center">
               <Button size="sm" onClick={onClose}>
@@ -603,12 +658,14 @@ function ReviewModal({
               <Row label="Subject" value={summary.subject} />
               <Row label="Expires" value={summary.expire} />
             </dl>
+            {result?.error && <p className="mt-3 text-[13px] font-medium text-danger">{result.error}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={onClose}>
+              <Button variant="secondary" size="sm" onClick={onClose} disabled={sending}>
                 Back
               </Button>
-              <Button size="sm" onClick={() => setSent(true)}>
-                <Send className="size-4" /> Send Invites
+              <Button size="sm" onClick={send} disabled={sending}>
+                {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                Create Invite Link
               </Button>
             </div>
           </>

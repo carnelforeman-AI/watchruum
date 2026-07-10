@@ -33,7 +33,8 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
-  const isPublic = isAuthRoute || pathname.startsWith("/auth");
+  // Invite accept pages are public — invitees don't have accounts yet.
+  const isPublic = isAuthRoute || pathname.startsWith("/auth") || pathname.startsWith("/join");
 
   // Gate the app: unauthenticated users can only reach the auth pages.
   if (!user && !isPublic) {
