@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "./supabase/server";
 import { getShowEpisodeCount, trending } from "./tmdb";
-import { routeId } from "./utils";
+import { routeId, timeAgo } from "./utils";
 import type { MediaItem, Room, Review, ActivityEvent, SpoilerScope } from "./types";
 import { type DiscussionCard, PROFILES } from "./mock-data";
 
@@ -476,7 +476,43 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       official: true,
     },
   ];
-  const messages: MessageItem[] = rawMessages.map((m, i) => ({ ...m, id: `m${i}` }));
+  // Real admin→member messages for the signed-in user, newest first, shown
+  // above the sample/official messages. Falls back silently if the table
+  // isn't present yet.
+  let realMessages: MessageItem[] = [];
+  try {
+    const supabase = await createClient();
+    if (supabase) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("user_messages")
+          .select("id, sender_name, subject, body, official, read_at, created_at")
+          .eq("recipient_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(100);
+        realMessages = ((data as RawUserMessage[] | null) ?? []).map((r) => ({
+          id: `db_${r.id}`,
+          kind: "admin" as MessageKind,
+          from: r.sender_name || "Watchruum Team",
+          to: "you",
+          subject: r.subject,
+          preview: r.body.length > 140 ? `${r.body.slice(0, 140)}…` : r.body,
+          body: r.body,
+          time: timeAgo(r.created_at),
+          unread: !r.read_at,
+          isNew: !r.read_at,
+          official: r.official ?? true,
+        }));
+      }
+    }
+  } catch {
+    /* user_messages table optional (pre-migration) */
+  }
+
+  const messages: MessageItem[] = [...realMessages, ...rawMessages.map((m, i) => ({ ...m, id: `m${i}` }))];
 
   return {
     notifications,
@@ -485,6 +521,16 @@ export const getInbox = cache(async (): Promise<InboxData> => {
     unreadMessages: messages.filter((m) => m.unread).length,
   };
 });
+
+interface RawUserMessage {
+  id: string;
+  sender_name: string | null;
+  subject: string;
+  body: string;
+  official: boolean | null;
+  read_at: string | null;
+  created_at: string;
+}
 
 /** A single notification by id (or null). */
 export const getNotification = cache(async (id: string): Promise<NotificationItem | null> => {

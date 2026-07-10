@@ -25,23 +25,25 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
-import { changeRole, setUserStatus, addAdminNote, warnUser } from "@/app/admin-actions";
+import { changeRole, setUserStatus, addAdminNote, warnUser, sendUserMessage } from "@/app/admin-actions";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type ActionResult = { ok: boolean; error?: string };
 
 type ModalState = {
-  mode: "confirm" | "text" | "info";
+  mode: "confirm" | "text" | "info" | "message";
   title: string;
   message?: string;
   confirmLabel?: string;
   requireText?: boolean;
   textLabel?: string;
+  /** placeholder for the body field (message mode) */
+  bodyPlaceholder?: string;
   destructive?: boolean;
   link?: { href: string; label: string; external?: boolean };
-  run: (text: string) => Promise<ActionResult>;
+  run: (text: string, subject?: string) => Promise<ActionResult>;
 };
 
 export interface UserActionsMenuUser {
@@ -220,12 +222,12 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
                   label="Send Message"
                   onClick={() =>
                     openModal({
-                      mode: "info",
-                      title: "Send Message",
-                      message:
-                        "Direct messaging isn't built yet. In the meantime, you can compose emails to members from the Email Templates section.",
-                      link: { href: "/admin/email-templates", label: "Go to Email Templates" },
-                      run: noop,
+                      mode: "message",
+                      title: `Message ${user.display_name}`,
+                      message: "This lands in the member's inbox from your admin account.",
+                      confirmLabel: "Send Message",
+                      bodyPlaceholder: "Write your message…",
+                      run: (body, subject) => sendUserMessage(user.id, body, subject),
                     })
                   }
                 />
@@ -454,12 +456,13 @@ function ActionModal({
 }) {
   const [pending, startTransition] = useTransition();
   const [text, setText] = useState("");
+  const [subject, setSubject] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const submit = (value: string) => {
     setError(null);
     startTransition(async () => {
-      const res = await modal.run(value.trim());
+      const res = await modal.run(value.trim(), subject.trim());
       if (res.ok) {
         onDone();
       } else {
@@ -468,7 +471,8 @@ function ActionModal({
     });
   };
 
-  const textDisabled = pending || (modal.requireText === true && text.trim().length === 0);
+  const textDisabled =
+    pending || ((modal.requireText === true || modal.mode === "message") && text.trim().length === 0);
   const confirmVariant = modal.destructive ? "danger" : "default";
 
   return (
@@ -494,6 +498,27 @@ function ActionModal({
               autoFocus
               placeholder="Type here…"
               className="mt-1.5"
+            />
+          </>
+        ) : modal.mode === "message" ? (
+          <>
+            {modal.message && <p className="mt-1 text-[13px] text-muted-2">{modal.message}</p>}
+            <label className="mt-3 block text-[12px] font-semibold text-muted">Subject (optional)</label>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              disabled={pending}
+              autoFocus
+              placeholder="A message from the Watchruum team"
+              className="mt-1.5"
+            />
+            <label className="mt-3 block text-[12px] font-semibold text-muted">Message</label>
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              disabled={pending}
+              placeholder={modal.bodyPlaceholder ?? "Write your message…"}
+              className="mt-1.5 min-h-28"
             />
           </>
         ) : (

@@ -137,6 +137,34 @@ export async function addAdminNote(userId: string, body: string): Promise<Result
   return { ok: !error, error: error?.message };
 }
 
+/** Send a direct message to a member; lands in their envelope inbox. */
+export async function sendUserMessage(userId: string, body: string, subject?: string): Promise<Result> {
+  const ctx = await adminContext();
+  if (!ctx) return { ok: false, error: "Not authorized" };
+  const text = body.trim();
+  if (!text) return { ok: false, error: "Message body is required" };
+  const subj = (subject ?? "").trim() || "A message from the Watchruum team";
+
+  // Prefer the sending admin's display name so the member sees who wrote them.
+  const { data: me } = await ctx.supabase
+    .from("profiles")
+    .select("display_name, username")
+    .eq("id", ctx.userId)
+    .maybeSingle();
+  const senderName = (me?.display_name || me?.username || "Watchruum Team") as string;
+
+  const { error } = await ctx.supabase.from("user_messages").insert({
+    recipient_id: userId,
+    sender_id: ctx.userId,
+    sender_name: senderName,
+    subject: subj,
+    body: text,
+    official: true,
+  });
+  revalidateUser(userId);
+  return { ok: !error, error: error?.message };
+}
+
 /** Issue a warning to a user. */
 export async function warnUser(userId: string, reason: string): Promise<Result> {
   const ctx = await adminContext();
