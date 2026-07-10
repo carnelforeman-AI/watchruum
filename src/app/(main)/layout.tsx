@@ -4,6 +4,7 @@ import { TopBar } from "@/components/layout/topbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { getUserLibrary, getSampleContent, getInbox } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
+import { TrailerProvider } from "@/components/calendar/trailer-modal";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const lib = await getUserLibrary();
@@ -39,7 +40,9 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           notifications={inbox.notifications}
           messages={inbox.messages}
         />
-        <main className="flex-1 pb-24 lg:pb-0">{children}</main>
+        <main className="flex-1 pb-24 lg:pb-0">
+          <TrailerProvider>{children}</TrailerProvider>
+        </main>
       </div>
       <MobileNav />
     </div>
