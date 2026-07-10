@@ -212,17 +212,37 @@ export type MessageKind =
   | "report"
   | "feature";
 
+export interface MessageQuickLink {
+  label: string;
+  href: string;
+  icon: "bug" | "feedback" | "guide" | "link";
+}
+
 export interface MessageItem {
   id: string;
   /** icon key — maps to a lucide icon in the UI */
   kind: MessageKind;
   from: string;
+  /** recipient line ("you") */
+  to?: string;
   subject: string;
   preview: string;
-  /** full message body shown on the detail page */
+  /** full message body shown on the detail / reading pane */
   body: string;
+  /** optional intro line above the checklist ("Here's what you can do now:") */
+  checklistIntro?: string;
+  /** optional bulleted checklist */
+  checklist?: string[];
+  /** optional body text rendered after the checklist */
+  bodyAfter?: string;
+  /** optional quick-link buttons at the foot of the message */
+  quickLinks?: MessageQuickLink[];
   time: string;
   unread: boolean;
+  /** brand-new message → "New" badge */
+  isNew?: boolean;
+  /** starred / important */
+  starred?: boolean;
   /** official/system sender styling */
   official?: boolean;
 }
@@ -379,80 +399,78 @@ export const getInbox = cache(async (): Promise<InboxData> => {
 
   const rawMessages: Omit<MessageItem, "id">[] = [
     {
+      kind: "admin",
+      from: "Watchruum Team",
+      to: "you",
+      subject: "Welcome to the Beta!",
+      preview: "Thanks for joining us as a beta tester. Here's everything you need to know…",
+      body: "Welcome aboard!\n\nWe're thrilled to have you as part of our beta testing community. Your feedback is incredibly valuable as we build the best experience for movie and TV lovers.",
+      checklistIntro: "Here's what you can do now:",
+      checklist: ["Explore rooms and features", "Share your honest feedback", "Report any bugs you encounter"],
+      bodyAfter:
+        "If you run into any issues, just hit reply to this message. We read every message!\n\nThanks again for being here and helping us build something awesome.\n\n– The Watchruum Team",
+      quickLinks: [
+        { label: "Report a Bug", href: "/settings", icon: "bug" },
+        { label: "Give Feedback", href: "/settings", icon: "feedback" },
+        { label: "Beta Guide", href: "/explore", icon: "guide" },
+      ],
+      time: "2m ago",
+      unread: true,
+      isNew: true,
+      official: true,
+    },
+    {
       kind: "moderator",
-      from: "Moderation Team",
-      subject: "Heads up: spoiler tag reminder",
-      preview: "A recent post was retagged. Please mark season-ending reveals as major spoilers so rooms stay safe for everyone.",
-      body: "Hi there,\n\nWe retagged one of your recent posts because it referenced a season-ending reveal without a major-spoiler tag. No harm done — we've fixed it for you.\n\nGoing forward, please tag anything that discusses finales or big twists as a major spoiler so it stays hidden for people who aren't caught up yet. Keeping rooms spoiler-safe is what makes Watchruum work.\n\nThanks for being part of the community.\n— The Moderation Team",
+      from: "Moderator Team",
+      to: "you",
+      subject: "Spoiler Policy Reminder",
+      preview: "Hi Carnel, just a reminder to please use spoiler tags when discussing recent episodes…",
+      body: "Hi Carnel,\n\nJust a friendly reminder to please use spoiler tags when discussing recent episodes. A couple of recent posts referenced late-season moments without a tag.\n\nTagging finales and big twists keeps rooms safe for people who aren't caught up yet — it's what makes Watchruum work.\n\nThanks for helping keep the community spoiler-safe.\n— The Moderator Team",
       time: "1h ago",
       unread: true,
       official: true,
     },
     {
       kind: "report",
-      from: "Moderation Team",
-      subject: "Decision on your report",
-      preview: "We reviewed the review you flagged and applied a spoiler blur. Thanks for the report — it helped.",
-      body: "Thanks for your report.\n\nAfter review, we agreed the flagged review contained spoilers that weren't tagged. We've applied a spoiler blur so it stays hidden until readers choose to reveal it.\n\nReports like yours keep every room safe for people who haven't caught up. We appreciate you taking the time.\n\n— The Moderation Team",
+      from: "Support",
+      to: "you",
+      subject: "Your report has been updated",
+      preview: "Good news! The content you reported has been reviewed and action has been taken.",
+      body: "Good news!\n\nThe content you reported has been reviewed and action has been taken. We applied a spoiler blur so it stays hidden until readers choose to reveal it.\n\nReports like yours keep every room safe for people who haven't caught up. Thanks for taking the time.\n\n— Watchruum Support",
       time: "3h ago",
       unread: true,
       official: true,
     },
     {
-      kind: "invite",
-      from: "Tom Hale",
-      subject: `Come join the ${pick(3)?.title ?? "Watch Room"} room`,
-      preview: "We're right at the mid-season turn and it's getting wild. Set your progress and jump in when you're caught up.",
-      body: `Hey! We're right at the mid-season turn in the ${pick(3)?.title ?? "Watch Room"} room and it is getting wild.\n\nSet your progress to where you're at and jump in — the room only shows you posts up to your episode, so you won't get spoiled. Would love to hear your takes.\n\n— Tom`,
-      time: "4h ago",
-      unread: true,
-    },
-    {
-      kind: "announcement",
-      from: "Watchruum",
-      subject: "New: Genre browsing with A–Z filters",
-      preview: "You can now browse every genre with infinite scroll and search within a genre. Find your next room faster.",
-      body: "Finding your next room just got easier.\n\nYou can now browse every genre with infinite scroll, filter titles A–Z, toggle between Movies and Shows, and search within a genre. Head to Genres in the sidebar to try it out.\n\nHappy watching.\n— The Watchruum Team",
-      time: "1d ago",
-      unread: false,
-      official: true,
-    },
-    {
-      kind: "room",
-      from: `${pick(0)?.title ?? "Watch Room"} · Room Update`,
-      subject: "Finale room is now open",
-      preview: "The finale discussion room just unlocked. It stays hidden until you mark the finale watched — no accidental spoilers.",
-      body: `The finale discussion room for ${pick(0)?.title ?? "this show"} just unlocked.\n\nIt stays completely hidden until you mark the finale watched, so there's no risk of an accidental spoiler on your way in. Once you're done, come share your reaction with everyone who made it to the end.`,
-      time: "1d ago",
-      unread: false,
-    },
-    {
       kind: "feature",
-      from: "Watchruum",
-      subject: "Spoiler protection got smarter",
-      preview: "Posts beyond your progress now blur automatically with a one-tap reveal. You're always in control of what you see.",
-      body: "We've upgraded spoiler protection.\n\nPosts and reviews beyond your current progress now blur automatically, with a one-tap reveal when you're ready. You're always in control of what you see — the default is to keep you safe.\n\n— The Watchruum Team",
-      time: "2d ago",
+      from: "Watchruum Team",
+      to: "you",
+      subject: "New Feature: Episode Rooms",
+      preview: "We just launched Episode Rooms! Check it out and let us know what you think.",
+      body: "We just launched Episode Rooms!\n\nEvery show now has a dedicated room for each episode, so you can talk about exactly what you watched without spoiling anyone ahead — or behind — you.\n\nJump into any show, pick your episode, and dive in. Let us know what you think.\n\n— The Watchruum Team",
+      time: "Yesterday",
       unread: false,
       official: true,
     },
     {
-      kind: "security",
-      from: "Watchruum Security",
-      subject: "New sign-in to your account",
-      preview: "We noticed a new sign-in. If this was you, no action is needed. If not, secure your account from Settings.",
-      body: "We noticed a new sign-in to your Watchruum account.\n\nIf this was you, no action is needed. If you don't recognize this activity, head to Settings to review your account security and sign out of other sessions.\n\n— Watchruum Security",
-      time: "3d ago",
+      kind: "admin",
+      from: "Admin",
+      to: "you",
+      subject: "Beta Tester Update – May 12",
+      preview: "We've made some improvements based on your feedback. See what's new in this update.",
+      body: "Here's what's new this week, based on your feedback:\n\n• Faster room loading and smoother scrolling\n• Clearer spoiler badges on every post\n• Genre browsing with A–Z filters and in-genre search\n• A redesigned notifications panel\n\nKeep the feedback coming — it genuinely shapes what we build next.\n\n— The Watchruum Team",
+      time: "May 12",
       unread: false,
       official: true,
     },
     {
       kind: "support",
       from: "Support",
-      subject: "Re: your question about progress tracking",
-      preview: "Thanks for reaching out! Your watch progress syncs across devices automatically. Let us know if anything looks off.",
-      body: "Thanks for reaching out!\n\nYour watch progress syncs across every device automatically — mark an episode watched on your phone and it'll be there on the web. If anything ever looks out of sync, just reply here and we'll take a look.\n\n— Watchruum Support",
-      time: "4d ago",
+      to: "you",
+      subject: "Re: Unable to upload avatar",
+      preview: "Thanks for reaching out! This issue should be resolved now. Try clearing your cache if you still see problems.",
+      body: "Thanks for reaching out!\n\nThis issue should be resolved now. If you still see problems uploading your avatar, try clearing your browser cache and giving it another go.\n\nStill stuck? Just reply here and we'll dig in.\n\n— Watchruum Support",
+      time: "May 10",
       unread: false,
       official: true,
     },

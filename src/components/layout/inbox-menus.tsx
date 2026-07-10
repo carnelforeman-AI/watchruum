@@ -347,7 +347,7 @@ export function MessageInbox({ messages }: { messages: MessageItem[] }) {
                     className={cn("flex items-start pr-2 transition-colors hover:bg-white/5", isUnread && "bg-primary/[0.06]")}
                   >
                     <Link
-                      href={`/inbox/${m.id}`}
+                      href={`/inbox?m=${m.id}`}
                       onClick={() => {
                         setReadIds((prev) => new Set(prev).add(m.id));
                         close();
