@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, Bookmark, Settings, ShieldAlert, LogOut, LogIn, UserPlus } from "lucide-react";
@@ -22,6 +22,24 @@ export function ProfileMenu({ signedIn, profile, placement, children, triggerCla
   const supabase = createClient();
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Collapse when clicking anywhere outside the menu, or on Escape.
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(e: PointerEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) close();
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const displayName = profile?.display_name ?? "You";
   const username = profile?.username ?? null;
@@ -37,14 +55,13 @@ export function ProfileMenu({ signedIn, profile, placement, children, triggerCla
     placement === "up-left" ? "bottom-full left-0 mb-2 origin-bottom" : "right-0 top-full mt-2 origin-top-right";
 
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <button type="button" onClick={() => setOpen((v) => !v)} className={triggerClassName} aria-haspopup="menu" aria-expanded={open}>
         {children}
       </button>
 
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={close} />
           <div
             className={cn(
               "panel absolute z-50 w-60 overflow-hidden rounded-2xl border border-border p-1.5 shadow-2xl",
