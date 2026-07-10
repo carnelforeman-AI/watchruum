@@ -47,7 +47,7 @@ export function ProfileMenu({ signedIn, profile, placement, children, triggerCla
           <div className="fixed inset-0 z-40" onClick={close} />
           <div
             className={cn(
-              "glass absolute z-50 w-60 overflow-hidden rounded-2xl border border-border p-1.5 shadow-2xl",
+              "panel absolute z-50 w-60 overflow-hidden rounded-2xl border border-border p-1.5 shadow-2xl",
               pos,
             )}
             role="menu"

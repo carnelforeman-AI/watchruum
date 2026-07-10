@@ -67,6 +67,14 @@
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Solid, opaque card — same silhouette as .glass but with a real
+   background instead of a see-through frosted layer. */
+@utility panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 10px 40px -20px rgba(0, 0, 0, 0.85);
+}
+
 @utility brand-gradient {
   background: linear-gradient(92deg, #a78bfa 0%, #8b5cf6 40%, #3b82f6 100%);
   -webkit-background-clip: text;

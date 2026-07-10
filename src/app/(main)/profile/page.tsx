@@ -2,7 +2,6 @@ import { ShieldCheck, Star, MessageCircle, Users, Award } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarUploader } from "@/components/profile/avatar-uploader";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { ReviewCard } from "@/components/feed/review-card";
 import { MediaCard } from "@/components/media/media-card";
 import { getUserLibrary, getSampleContent } from "@/lib/queries";
@@ -30,7 +29,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 md:px-6">
-      <Card className="relative overflow-hidden">
+      <div className="panel relative overflow-hidden rounded-2xl">
         <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-primary/30 via-accent/20 to-transparent" />
         <div className="relative p-6 pt-10">
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
@@ -57,7 +56,7 @@ export default async function ProfilePage() {
 
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {STATS.map((s) => (
-              <div key={s.label} className="rounded-xl border border-border-soft bg-white/[0.03] p-3">
+              <div key={s.label} className="rounded-xl border border-border-soft bg-bg-elevated p-3">
                 <s.icon className="size-4 text-primary" />
                 <p className="mt-1.5 text-xl font-extrabold">{s.value}</p>
                 <p className="text-[12px] text-muted-2">{s.label}</p>
@@ -65,7 +64,7 @@ export default async function ProfilePage() {
             ))}
           </div>
         </div>
-      </Card>
+      </div>
 
       <section className="mt-8">
         <h2 className="mb-3 text-lg font-bold">Badges</h2>

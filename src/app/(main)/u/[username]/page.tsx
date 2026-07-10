@@ -95,7 +95,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   if (data.restricted) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
-        <div className="glass overflow-hidden rounded-2xl">
+        <div className="panel overflow-hidden rounded-2xl">
           <div className="h-28 w-full" style={{ background: posterGradient(profile.username) }} />
           <div className="px-5 pb-6">
             <div className="-mt-8 flex items-end gap-4">
@@ -143,7 +143,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
       {/* Header */}
-      <div className="glass overflow-hidden rounded-2xl">
+      <div className="panel overflow-hidden rounded-2xl">
         <div className="h-28 w-full" style={{ background: posterGradient(profile.username) }} />
         <div className="px-5 pb-5">
           <div className="-mt-8 flex items-end gap-4">
@@ -184,7 +184,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       {/* Stat tiles */}
       <div className="mt-5 grid grid-cols-3 gap-3 sm:grid-cols-5">
         {statTiles.map((t) => (
-          <div key={t.label} className="glass rounded-2xl p-4">
+          <div key={t.label} className="panel rounded-2xl p-4">
             <p className="text-2xl font-extrabold">{t.value}</p>
             <p className="text-[12px] text-muted-2">{t.label}</p>
           </div>
@@ -195,13 +195,13 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       <section className="mt-8">
         <h2 className="mb-3 text-lg font-bold">Recent reviews</h2>
         {recentReviews.length === 0 ? (
-          <div className="glass rounded-2xl p-6 text-center">
+          <div className="panel rounded-2xl p-6 text-center">
             <p className="text-[13px] text-muted-2">No reviews yet.</p>
           </div>
         ) : (
           <div className="grid gap-3">
             {recentReviews.map((r) => (
-              <div key={r.id} className="glass rounded-2xl p-4">
+              <div key={r.id} className="panel rounded-2xl p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-[14px] font-semibold text-foreground">{mediaTitle(r.media)}</p>
