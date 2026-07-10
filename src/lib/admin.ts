@@ -988,17 +988,62 @@ export const getAdminRooms = cache(async (params: AdminRoomsParams = {}): Promis
     topShows.push(...showRoomCounts.sort((a, b) => b.rooms - a.rooms).slice(0, 5));
   }
 
-  // Recent room activity (illustrative, drawn from the derived rooms).
-  const recentActivity: RoomActivity[] = [...visible]
-    .sort((a, b) => (a.last_active < b.last_active ? 1 : -1))
-    .slice(0, 6)
-    .map((r) => ({
-      id: `ra_${r.id}`,
-      actor: r.creator,
-      verb: r.status === "trending" ? "sparked a discussion in" : "joined",
-      target: `${r.title}${r.scope_label !== "Movie" && r.scope_label !== "Show" ? ` · ${r.scope_label}` : ""}`,
-      created_at: r.last_active,
-    }));
+  // Recent room activity — real discussion posts (comments) + reviews, mapped
+  // to their room (title + episode scope) and author handle.
+  let recentActivity: RoomActivity[] = [];
+  try {
+    const [{ data: recentComments }, { data: recentReviews }] = await Promise.all([
+      supabase
+        .from("comments")
+        .select("id, created_at, season_number, episode_number, author:profiles(username, display_name), media:media_items(title)")
+        .order("created_at", { ascending: false })
+        .limit(8),
+      supabase
+        .from("reviews")
+        .select("id, created_at, score, season_number, episode_number, author:profiles(username, display_name), media:media_items(title)")
+        .order("created_at", { ascending: false })
+        .limit(8),
+    ]);
+
+    const scopeOf = (s: number | null, e: number | null) => (s ? ` · S${s}${e ? ` E${e}` : ""}` : "");
+    const acts: RoomActivity[] = [];
+    for (const c of (recentComments ?? []) as any[]) {
+      acts.push({
+        id: `c_${c.id}`,
+        actor: c.author?.username ?? c.author?.display_name ?? "member",
+        verb: "posted in",
+        target: `${c.media?.title ?? "a room"}${scopeOf(c.season_number, c.episode_number)}`,
+        created_at: c.created_at,
+      });
+    }
+    for (const v of (recentReviews ?? []) as any[]) {
+      acts.push({
+        id: `v_${v.id}`,
+        actor: v.author?.username ?? v.author?.display_name ?? "member",
+        verb: v.score ? `reviewed (${v.score}/10)` : "reviewed",
+        target: `${v.media?.title ?? "a title"}${scopeOf(v.season_number, v.episode_number)}`,
+        created_at: v.created_at,
+      });
+    }
+    acts.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    recentActivity = acts.slice(0, 6);
+  } catch {
+    /* comments/reviews tables optional */
+  }
+
+  // Fall back to a derived list so the panel isn't empty before real activity exists.
+  if (recentActivity.length === 0) {
+    recentActivity = [...visible]
+      .sort((a, b) => (a.last_active < b.last_active ? 1 : -1))
+      .slice(0, 6)
+      .map((r) => ({
+        id: `ra_${r.id}`,
+        actor: r.creator,
+        verb: r.status === "trending" ? "sparked a discussion in" : "joined",
+        target: `${r.title}${r.scope_label !== "Movie" && r.scope_label !== "Show" ? ` · ${r.scope_label}` : ""}`,
+        created_at: r.last_active,
+      }));
+  }
 
   // Filter.
   const tab = params.tab ?? "all";
