@@ -1,87 +1,137 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Search, LayoutGrid, Film, Tv, Loader2 } from "lucide-react";
 import { MediaGrid } from "@/components/media/media-card";
-import { loadGenre } from "@/app/genre-actions";
+import { loadGenre, searchGenre } from "@/app/genre-actions";
 import { cn } from "@/lib/utils";
 import type { MediaItem } from "@/lib/types";
+import type { GenreType } from "@/lib/tmdb";
 
 const MAX_PAGES = 20;
 const LETTERS = ["All", ...("ABCDEFGHIJKLMNOPQRSTUVWXYZ#".split(""))];
 
-type MediaFilter = "all" | "movie" | "tv";
+/** First letter for A–Z filing: ignores a leading article and uppercases. */
+function fileLetter(title: string): string {
+  const t = title.replace(/^(the|a|an)\s+/i, "").trim();
+  return (t[0] || "").toUpperCase();
+}
 
 export function GenreBrowser({
   genre,
   genres,
   initial,
   totalPages,
+  hasMovie = true,
+  hasTv = true,
 }: {
   genre: string;
   genres: string[];
   initial: MediaItem[];
   totalPages: number;
+  hasMovie?: boolean;
+  hasTv?: boolean;
 }) {
   const [items, setItems] = useState<MediaItem[]>(initial);
   const [page, setPage] = useState(1);
+  const [totalP, setTotalP] = useState(totalPages);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(initial.length === 0 || totalPages <= 1);
-  const [type, setType] = useState<MediaFilter>("all");
+  const [type, setType] = useState<GenreType>("all");
   const [letter, setLetter] = useState("All");
   const [query, setQuery] = useState("");
+  const [debounced, setDebounced] = useState("");
 
   const sentinel = useRef<HTMLDivElement>(null);
   const seen = useRef<Set<string>>(new Set(initial.map((m) => m.id)));
+  const firstRun = useRef(true);
+  const reqId = useRef(0);
+
+  const searching = debounced.trim().length > 0;
+
+  // Debounce the search box so we query on pause, not per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const fetchAt = useCallback(
+    (p: number) => (searching ? searchGenre(genre, debounced, p, type) : loadGenre(genre, p, type)),
+    [genre, debounced, type, searching],
+  );
+
+  // Whenever the source changes (type or search term), reset and refetch page 1
+  // from the server so results are complete — not filtered from a loaded slice.
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    const id = ++reqId.current;
+    setLoading(true);
+    fetchAt(1)
+      .then(({ items: first, totalPages: tp }) => {
+        if (id !== reqId.current) return;
+        seen.current = new Set(first.map((m) => m.id));
+        setItems(first);
+        setPage(1);
+        setTotalP(tp);
+        setDone(first.length === 0 || tp <= 1);
+      })
+      .finally(() => {
+        if (id === reqId.current) setLoading(false);
+      });
+  }, [fetchAt]);
 
   const loadMore = useCallback(async () => {
     if (loading || done) return;
     setLoading(true);
+    const id = reqId.current;
     const next = page + 1;
     try {
-      const more = await loadGenre(genre, next);
+      const { items: more, totalPages: tp } = await fetchAt(next);
+      if (id !== reqId.current) return; // a reset happened; drop stale page
       const fresh = more.filter((m) => !seen.current.has(m.id));
       fresh.forEach((m) => seen.current.add(m.id));
       setItems((prev) => [...prev, ...fresh]);
       setPage(next);
-      if (more.length === 0 || next >= Math.min(totalPages, MAX_PAGES)) setDone(true);
+      if (more.length === 0 || next >= Math.min(tp, MAX_PAGES)) setDone(true);
     } finally {
-      setLoading(false);
+      if (id === reqId.current) setLoading(false);
     }
-  }, [genre, page, loading, done, totalPages]);
+  }, [fetchAt, page, loading, done]);
 
   // Infinite scroll.
   useEffect(() => {
     const el = sentinel.current;
     if (!el) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore();
-      },
-      { rootMargin: "700px" },
-    );
+    const obs = new IntersectionObserver((entries) => entries[0].isIntersecting && loadMore(), {
+      rootMargin: "700px",
+    });
     obs.observe(el);
     return () => obs.disconnect();
   }, [loadMore]);
 
-  const filtered = items.filter((m) => {
-    if (type !== "all" && m.media_type !== type) return false;
-    if (letter !== "All") {
-      const first = (m.title[0] || "").toUpperCase();
-      if (letter === "#") {
-        if (/[A-Z]/.test(first)) return false;
-      } else if (first !== letter) return false;
-    }
-    if (query.trim() && !m.title.toLowerCase().includes(query.trim().toLowerCase())) return false;
-    return true;
-  });
+  // A–Z is a client index over what's loaded (TMDb has no starts-with filter).
+  const filtered = useMemo(() => {
+    if (letter === "All") return items;
+    return items.filter((m) => {
+      const first = fileLetter(m.title);
+      return letter === "#" ? !/[A-Z]/.test(first) : first === letter;
+    });
+  }, [items, letter]);
 
-  // When a filter thins the visible set, keep pulling pages so browsing an
-  // uncommon letter / query still fills up.
+  // Keep pulling pages while an active letter thins the visible set.
   useEffect(() => {
-    if (!done && !loading && filtered.length < 12) loadMore();
-  }, [filtered.length, done, loading, loadMore]);
+    if (letter !== "All" && !done && !loading && filtered.length < 12) loadMore();
+  }, [letter, filtered.length, done, loading, loadMore]);
+
+  const TYPES: { key: GenreType; label: string; icon: typeof Film; enabled: boolean }[] = [
+    { key: "all", label: "All", icon: LayoutGrid, enabled: hasMovie || hasTv },
+    { key: "movie", label: "Movies", icon: Film, enabled: hasMovie },
+    { key: "tv", label: "Shows", icon: Tv, enabled: hasTv },
+  ];
 
   return (
     <div>
@@ -121,19 +171,15 @@ export function GenreBrowser({
           />
         </div>
         <div className="flex items-center gap-1 rounded-xl border border-border bg-white/[0.03] p-1">
-          {(
-            [
-              { key: "all", label: "All", icon: LayoutGrid },
-              { key: "movie", label: "Movies", icon: Film },
-              { key: "tv", label: "Shows", icon: Tv },
-            ] as const
-          ).map((t) => (
+          {TYPES.map((t) => (
             <button
               key={t.key}
+              disabled={!t.enabled}
               onClick={() => setType(t.key)}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors",
                 type === t.key ? "bg-primary text-white" : "text-muted hover:text-foreground",
+                !t.enabled && "cursor-not-allowed opacity-30 hover:text-muted",
               )}
             >
               <t.icon className="size-3.5" /> {t.label}
@@ -166,7 +212,9 @@ export function GenreBrowser({
           <div className="glass rounded-2xl p-10 text-center">
             <p className="font-semibold">Nothing here yet</p>
             <p className="mt-1 text-sm text-muted">
-              No {type === "movie" ? "movies" : type === "tv" ? "shows" : "titles"} match this filter in {genre}.
+              {searching
+                ? `No ${type === "movie" ? "movies" : type === "tv" ? "shows" : "titles"} match “${debounced}” in ${genre}.`
+                : `No ${type === "movie" ? "movies" : type === "tv" ? "shows" : "titles"} match this filter in ${genre}.`}
             </p>
           </div>
         )
@@ -180,7 +228,9 @@ export function GenreBrowser({
         </div>
       )}
       {done && filtered.length > 0 && (
-        <p className="py-4 text-center text-[13px] text-muted-2">That&apos;s everything in {genre}.</p>
+        <p className="py-4 text-center text-[13px] text-muted-2">
+          {searching ? `That's every match in ${genre}.` : `That's everything in ${genre}.`}
+        </p>
       )}
     </div>
   );

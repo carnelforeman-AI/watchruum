@@ -37,7 +37,15 @@ export default async function GenresPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
-      <GenreBrowser genre={match.name} genres={genreNames} initial={items} totalPages={totalPages} />
+      <GenreBrowser
+        key={match.name}
+        genre={match.name}
+        genres={genreNames}
+        initial={items}
+        totalPages={totalPages}
+        hasMovie={!!match.movie}
+        hasTv={!!match.tv}
+      />
     </div>
   );
 }

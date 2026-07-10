@@ -181,26 +181,47 @@ export const GENRES_BROWSE: { name: string; movie?: number; tv?: number }[] = [
 
 export const GENRE_MAX_PAGES = 20;
 
-/** Titles in a genre, paginated (merges discover/movie + discover/tv). */
+export type GenreType = "all" | "movie" | "tv";
+
+/** Surface the browsed genre first so the card's genre label matches the filter. */
+function genreFirst(item: MediaItem, genreName: string): MediaItem {
+  if (item.genres.includes(genreName)) {
+    item.genres = [genreName, ...item.genres.filter((g) => g !== genreName)];
+  }
+  return item;
+}
+
+/**
+ * Titles in a genre, paginated. `type` decides which TMDb catalogs are queried
+ * so that Movies / Shows views are each complete rather than filtered from a
+ * merged popularity feed.
+ */
 export const discoverByGenre = cache(
-  async (name: string, page = 1): Promise<{ items: MediaItem[]; totalPages: number }> => {
+  async (name: string, page = 1, type: GenreType = "all"): Promise<{ items: MediaItem[]; totalPages: number }> => {
     const def = GENRES_BROWSE.find((g) => g.name.toLowerCase() === name.toLowerCase());
     if (!def) return { items: [], totalPages: 1 };
     if (!isTmdbConfigured) {
-      return { items: MEDIA.filter((m) => m.genres.includes(def.name)), totalPages: 1 };
+      return {
+        items: MEDIA.filter(
+          (m) => m.genres.includes(def.name) && (type === "all" || m.media_type === type),
+        ),
+        totalPages: 1,
+      };
     }
 
     const p = String(Math.max(1, Math.min(page, GENRE_MAX_PAGES)));
     const empty = { results: [] as any[], total_pages: 1 };
+    const wantMovie = type !== "tv" && !!def.movie;
+    const wantTv = type !== "movie" && !!def.tv;
     const [mv, tv] = await Promise.all([
-      def.movie
+      wantMovie
         ? tmdb<{ results: any[]; total_pages: number }>("/discover/movie", {
             with_genres: String(def.movie),
             sort_by: "popularity.desc",
             page: p,
           }).catch(() => empty)
         : Promise.resolve(empty),
-      def.tv
+      wantTv
         ? tmdb<{ results: any[]; total_pages: number }>("/discover/tv", {
             with_genres: String(def.tv),
             sort_by: "popularity.desc",
@@ -216,19 +237,79 @@ export const discoverByGenre = cache(
       const key = `${t}_${r.id}`;
       if (seen.has(key)) return;
       seen.add(key);
-      const item = mapMedia(r, t);
-      // Every result genuinely belongs to the browsed genre (TMDb filters by
-      // with_genres). A title can carry several genres, and the card shows the
-      // first one — so surface the browsed genre first, otherwise a Drama
-      // browse can show cards labelled "Comedy", "Music", etc. and look like
-      // the filter isn't working.
-      if (item.genres.includes(def.name)) {
-        item.genres = [def.name, ...item.genres.filter((g) => g !== def.name)];
-      }
-      items.push(item);
+      items.push(genreFirst(mapMedia(r, t), def.name));
     };
     for (const r of mv.results) push(r, "movie");
     for (const r of tv.results) push(r, "tv");
+
+    const totalPages = Math.min(GENRE_MAX_PAGES, Math.max(mv.total_pages ?? 1, tv.total_pages ?? 1));
+    return { items: items.filter((m) => m.poster_url), totalPages };
+  },
+);
+
+/**
+ * Search titles by text, restricted to a genre. Uses TMDb's /search endpoints
+ * (which cover the whole catalog, not a popularity slice) and keeps only
+ * results whose genre_ids include the browsed genre — so searching within a
+ * genre finds any matching title, not just ones already loaded.
+ */
+export const searchInGenre = cache(
+  async (
+    name: string,
+    query: string,
+    page = 1,
+    type: GenreType = "all",
+  ): Promise<{ items: MediaItem[]; totalPages: number }> => {
+    const def = GENRES_BROWSE.find((g) => g.name.toLowerCase() === name.toLowerCase());
+    const q = query.trim();
+    if (!def || !q) return { items: [], totalPages: 1 };
+    if (!isTmdbConfigured) {
+      const lq = q.toLowerCase();
+      return {
+        items: MEDIA.filter(
+          (m) =>
+            m.genres.includes(def.name) &&
+            m.title.toLowerCase().includes(lq) &&
+            (type === "all" || m.media_type === type),
+        ),
+        totalPages: 1,
+      };
+    }
+
+    const p = String(Math.max(1, Math.min(page, GENRE_MAX_PAGES)));
+    const empty = { results: [] as any[], total_pages: 1 };
+    const wantMovie = type !== "tv" && !!def.movie;
+    const wantTv = type !== "movie" && !!def.tv;
+    const [mv, tv] = await Promise.all([
+      wantMovie
+        ? tmdb<{ results: any[]; total_pages: number }>("/search/movie", {
+            query: q,
+            include_adult: "false",
+            page: p,
+          }).catch(() => empty)
+        : Promise.resolve(empty),
+      wantTv
+        ? tmdb<{ results: any[]; total_pages: number }>("/search/tv", {
+            query: q,
+            include_adult: "false",
+            page: p,
+          }).catch(() => empty)
+        : Promise.resolve(empty),
+    ]);
+
+    const items: MediaItem[] = [];
+    const seen = new Set<string>();
+    const push = (r: any, t: "movie" | "tv", genreId?: number) => {
+      if (!r?.id) return;
+      const gids: number[] = r.genre_ids ?? [];
+      if (genreId && !gids.includes(genreId)) return; // keep only in-genre hits
+      const key = `${t}_${r.id}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      items.push(genreFirst(mapMedia(r, t), def.name));
+    };
+    for (const r of mv.results) push(r, "movie", def.movie);
+    for (const r of tv.results) push(r, "tv", def.tv);
 
     const totalPages = Math.min(GENRE_MAX_PAGES, Math.max(mv.total_pages ?? 1, tv.total_pages ?? 1));
     return { items: items.filter((m) => m.poster_url), totalPages };
