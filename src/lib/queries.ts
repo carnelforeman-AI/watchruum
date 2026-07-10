@@ -148,6 +148,179 @@ export const getSampleContent = cache(async (): Promise<SampleContent> => {
   };
 });
 
+/* ------------------------------------------------------------------ inbox */
+
+export interface NotificationItem {
+  /** icon key — maps to a lucide icon in the UI */
+  type:
+    | "reply"
+    | "like"
+    | "mention"
+    | "follow"
+    | "invite"
+    | "pinned"
+    | "episode"
+    | "hidden"
+    | "reaction"
+    | "report"
+    | "warning"
+    | "trending"
+    | "friend"
+    | "poll";
+  text: string;
+  time: string;
+  unread: boolean;
+  href: string;
+}
+
+export interface MessageItem {
+  /** icon key — maps to a lucide icon in the UI */
+  kind:
+    | "admin"
+    | "moderator"
+    | "warning"
+    | "announcement"
+    | "security"
+    | "invite"
+    | "room"
+    | "support"
+    | "report"
+    | "feature";
+  from: string;
+  subject: string;
+  preview: string;
+  time: string;
+  unread: boolean;
+  /** official/system sender styling */
+  official?: boolean;
+}
+
+export interface InboxData {
+  notifications: NotificationItem[];
+  messages: MessageItem[];
+  unreadNotifications: number;
+  unreadMessages: number;
+}
+
+/**
+ * Bell (activity notifications) + envelope (messages / official inbox) feed.
+ * Built from sample TMDb titles so it looks alive; structured so real rows can
+ * replace it later without touching the UI.
+ */
+export const getInbox = cache(async (): Promise<InboxData> => {
+  let items: MediaItem[] = [];
+  try {
+    items = await trending();
+  } catch {
+    items = [];
+  }
+  const pick = (i: number) => items[i % Math.max(1, items.length)];
+  const t = (i: number) => {
+    const m = pick(i);
+    return m ? `${m.title} ${scope(m, i)}` : "a title";
+  };
+  const link = (i: number) => {
+    const m = pick(i);
+    return m ? `/title/${m.id}` : "/notifications";
+  };
+
+  const notifications: NotificationItem[] = [
+    { type: "reply", text: `Sarah Kim replied to your comment in ${t(0)}`, time: "2m ago", unread: true, href: link(0) },
+    { type: "mention", text: `Mike Boone mentioned you in ${t(1)}`, time: "12m ago", unread: true, href: link(1) },
+    { type: "like", text: `Jess Rivera liked your review of ${t(2)}`, time: "34m ago", unread: true, href: link(2) },
+    { type: "invite", text: `Tom Hale invited you to the Watch Room for ${t(3)}`, time: "1h ago", unread: true, href: link(3) },
+    { type: "hidden", text: `A comment was hidden to protect you from a spoiler in ${t(4)}`, time: "2h ago", unread: false, href: link(4) },
+    { type: "report", text: "Your report was reviewed — thanks for keeping rooms safe.", time: "3h ago", unread: false, href: "/notifications" },
+    { type: "follow", text: "Maya Diaz started following you", time: "5h ago", unread: false, href: "/u/mayad" },
+    { type: "episode", text: `A new episode room opened for ${t(5)}`, time: "6h ago", unread: false, href: link(5) },
+    { type: "reaction", text: `Drew Park reacted to your rating of ${t(6)}`, time: "8h ago", unread: false, href: link(6) },
+    { type: "pinned", text: `A room you joined posted a new pinned update: ${t(7)}`, time: "10h ago", unread: false, href: link(7) },
+    { type: "poll", text: `Results are in for a poll you voted on in ${t(8)}`, time: "12h ago", unread: false, href: link(8) },
+    { type: "friend", text: `Sarah Kim reviewed ${t(9)} — an episode you watched`, time: "14h ago", unread: false, href: link(9) },
+    { type: "trending", text: `${t(10)} is trending on your watchlist — fans are discussing`, time: "18h ago", unread: false, href: link(10) },
+  ];
+
+  const messages: MessageItem[] = [
+    {
+      kind: "moderator",
+      from: "Moderation Team",
+      subject: "Heads up: spoiler tag reminder",
+      preview: "A recent post was retagged. Please mark season-ending reveals as major spoilers so rooms stay safe for everyone.",
+      time: "1h ago",
+      unread: true,
+      official: true,
+    },
+    {
+      kind: "report",
+      from: "Moderation Team",
+      subject: "Decision on your report",
+      preview: "We reviewed the review you flagged and applied a spoiler blur. Thanks for the report — it helped.",
+      time: "3h ago",
+      unread: true,
+      official: true,
+    },
+    {
+      kind: "invite",
+      from: "Tom Hale",
+      subject: `Come join the ${pick(3)?.title ?? "Watch Room"} room`,
+      preview: "We're right at the mid-season turn and it's getting wild. Set your progress and jump in when you're caught up.",
+      time: "4h ago",
+      unread: true,
+    },
+    {
+      kind: "announcement",
+      from: "Watchruum",
+      subject: "New: Genre browsing with A–Z filters",
+      preview: "You can now browse every genre with infinite scroll and search within a genre. Find your next room faster.",
+      time: "1d ago",
+      unread: false,
+      official: true,
+    },
+    {
+      kind: "room",
+      from: `${pick(0)?.title ?? "Watch Room"} · Room Update`,
+      subject: "Finale room is now open",
+      preview: "The finale discussion room just unlocked. It stays hidden until you mark the finale watched — no accidental spoilers.",
+      time: "1d ago",
+      unread: false,
+    },
+    {
+      kind: "feature",
+      from: "Watchruum",
+      subject: "Spoiler protection got smarter",
+      preview: "Posts beyond your progress now blur automatically with a one-tap reveal. You're always in control of what you see.",
+      time: "2d ago",
+      unread: false,
+      official: true,
+    },
+    {
+      kind: "security",
+      from: "Watchruum Security",
+      subject: "New sign-in to your account",
+      preview: "We noticed a new sign-in. If this was you, no action is needed. If not, secure your account from Settings.",
+      time: "3d ago",
+      unread: false,
+      official: true,
+    },
+    {
+      kind: "support",
+      from: "Support",
+      subject: "Re: your question about progress tracking",
+      preview: "Thanks for reaching out! Your watch progress syncs across devices automatically. Let us know if anything looks off.",
+      time: "4d ago",
+      unread: false,
+      official: true,
+    },
+  ];
+
+  return {
+    notifications,
+    messages,
+    unreadNotifications: notifications.filter((n) => n.unread).length,
+    unreadMessages: messages.filter((m) => m.unread).length,
+  };
+});
+
 /* ------------------------------------------------------------------ reviews */
 
 export interface DisplayReview {

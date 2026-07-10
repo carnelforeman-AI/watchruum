@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/topbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
-import { getUserLibrary, getSampleContent } from "@/lib/queries";
+import { getUserLibrary, getSampleContent, getInbox } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
@@ -22,6 +22,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
   // Logged-out visitors see sample content built from real TMDb titles.
   const sample = signedIn ? null : await getSampleContent();
+  const inbox = await getInbox();
 
   return (
     <div className="flex min-h-screen">
@@ -32,7 +33,12 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         watchlist={signedIn ? lib!.watchlist : sample!.watchlist}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar profile={lib?.profile ?? null} signedIn={signedIn} />
+        <TopBar
+          profile={lib?.profile ?? null}
+          signedIn={signedIn}
+          notifications={inbox.notifications}
+          messages={inbox.messages}
+        />
         <main className="flex-1 pb-24 lg:pb-0">{children}</main>
       </div>
       <MobileNav />

@@ -2,18 +2,24 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Search, Bell, Mail } from "lucide-react";
+import { Search } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { ProfileMenu } from "./profile-menu";
+import { NotificationBell, MessageInbox } from "./inbox-menus";
 import { WatchruumLogo } from "./logo";
 import { CURRENT_USER } from "@/lib/mock-data";
+import type { NotificationItem, MessageItem } from "@/lib/queries";
 
 export function TopBar({
   profile = null,
   signedIn = false,
+  notifications = [],
+  messages = [],
 }: {
   profile?: { display_name: string; username?: string | null; avatar_url: string | null; is_admin?: boolean } | null;
   signedIn?: boolean;
+  notifications?: NotificationItem[];
+  messages?: MessageItem[];
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -44,12 +50,8 @@ export function TopBar({
       </form>
 
       <div className="flex items-center gap-1">
-        <IconBtn label="Notifications" dot>
-          <Bell className="size-[18px]" />
-        </IconBtn>
-        <IconBtn label="Messages">
-          <Mail className="size-[18px]" />
-        </IconBtn>
+        <NotificationBell notifications={notifications} />
+        <MessageInbox messages={messages} />
         <div className="ml-1">
           <ProfileMenu
             signedIn={signedIn}
@@ -62,25 +64,5 @@ export function TopBar({
         </div>
       </div>
     </header>
-  );
-}
-
-function IconBtn({
-  children,
-  label,
-  dot,
-}: {
-  children: React.ReactNode;
-  label: string;
-  dot?: boolean;
-}) {
-  return (
-    <button
-      aria-label={label}
-      className="relative grid size-10 place-items-center rounded-xl text-muted transition-colors hover:bg-white/5 hover:text-foreground"
-    >
-      {children}
-      {dot && <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-primary ring-2 ring-bg" />}
-    </button>
   );
 }
