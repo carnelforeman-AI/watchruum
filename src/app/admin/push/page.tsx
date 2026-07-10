@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Send, Mail, CheckCircle2, MousePointerClick, FileText, MoreVertical, ArrowRight } from "lucide-react";
+import { Send, Mail, CheckCircle2, MousePointerClick, FileText, ArrowRight } from "lucide-react";
 import { Poster } from "@/components/media/poster";
 import { PushComposer } from "@/components/admin/push-composer";
+import { SendMenu } from "@/components/admin/send-menu";
 import { getPushOverview, type PushStat, type PushRow } from "@/lib/admin";
 
 export const metadata = { title: "Admin · Push Notifications · Watchruum" };
@@ -135,12 +136,7 @@ function PushTableRow({ row }: { row: PushRow }) {
         </span>
       </td>
       <td className="px-3 py-3">
-        <button
-          aria-label="Row actions"
-          className="grid size-7 place-items-center rounded-lg text-muted-2 transition hover:bg-white/5 hover:text-foreground"
-        >
-          <MoreVertical className="size-4" />
-        </button>
+        <SendMenu subject={row.title} body={row.subtitle} />
       </td>
     </tr>
   );

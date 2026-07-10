@@ -9,7 +9,6 @@ import {
   Filter,
   Eye,
   Pencil,
-  MoreVertical,
   X,
   ArrowRight,
   Mail,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { SendMenu } from "@/components/admin/send-menu";
 import { cn } from "@/lib/utils";
 
 export interface EmailTemplate {
@@ -206,9 +206,7 @@ export function EmailTemplatesView({ templates }: { templates: EmailTemplate[] }
                         <IconBtn label="Edit" onClick={() => setShowNew(true)}>
                           <Pencil className="size-4" />
                         </IconBtn>
-                        <IconBtn label="More">
-                          <MoreVertical className="size-4" />
-                        </IconBtn>
+                        <SendMenu subject={t.subject} body={t.body} />
                       </div>
                     </td>
                   </tr>

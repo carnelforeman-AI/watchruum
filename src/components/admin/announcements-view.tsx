@@ -8,7 +8,6 @@ import {
   Filter,
   Eye,
   Pencil,
-  MoreVertical,
   X,
   ArrowRight,
   Megaphone,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { SendMenu } from "@/components/admin/send-menu";
 import { cn } from "@/lib/utils";
 
 export type Priority = "High" | "Medium" | "Low";
@@ -196,9 +196,7 @@ export function AnnouncementsView({ announcements }: { announcements: Announceme
                         <IconBtn label="Edit" onClick={() => setShowNew(true)}>
                           <Pencil className="size-4" />
                         </IconBtn>
-                        <IconBtn label="More">
-                          <MoreVertical className="size-4" />
-                        </IconBtn>
+                        <SendMenu subject={a.title} body={a.body} />
                       </div>
                     </td>
                   </tr>
