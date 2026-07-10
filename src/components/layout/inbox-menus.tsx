@@ -129,7 +129,7 @@ export function NotificationBell({ notifications }: { notifications: Notificatio
               return (
                 <Link
                   key={i}
-                  href={n.href}
+                  href={`/notifications/${n.id}`}
                   onClick={() => {
                     setRead((prev) => prev.map((r, j) => (j === i ? true : r)));
                     close();
@@ -225,7 +225,7 @@ export function MessageInbox({ messages }: { messages: MessageItem[] }) {
               return (
                 <Link
                   key={i}
-                  href="/inbox"
+                  href={`/inbox/${m.id}`}
                   onClick={() => {
                     setRead((prev) => prev.map((r, j) => (j === i ? true : r)));
                     close();

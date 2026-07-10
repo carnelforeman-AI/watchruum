@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Shield,
   ShieldAlert,
@@ -48,7 +49,14 @@ export default async function InboxPage() {
         {messages.map((m, i) => {
           const Icon = ICONS[m.kind] ?? Mail;
           return (
-            <div key={i} className={cn("flex items-start gap-3 p-4", m.unread && "bg-primary/[0.06]")}>
+            <Link
+              key={i}
+              href={`/inbox/${m.id}`}
+              className={cn(
+                "flex items-start gap-3 p-4 transition-colors hover:bg-white/5",
+                m.unread && "bg-primary/[0.06]",
+              )}
+            >
               <span
                 className={cn(
                   "mt-0.5 grid size-10 shrink-0 place-items-center rounded-xl",
@@ -71,7 +79,7 @@ export default async function InboxPage() {
                 <p className="mt-1 text-[13px] leading-relaxed text-muted">{m.preview}</p>
               </div>
               {m.unread && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" />}
-            </div>
+            </Link>
           );
         })}
       </div>

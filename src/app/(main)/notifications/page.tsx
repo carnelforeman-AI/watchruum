@@ -58,7 +58,7 @@ export default async function NotificationsPage() {
           return (
             <Link
               key={i}
-              href={n.href}
+              href={`/notifications/${n.id}`}
               className={cn(
                 "flex items-center gap-3 p-4 transition-colors hover:bg-white/5",
                 n.unread && "bg-primary/[0.06]",

@@ -150,45 +150,54 @@ export const getSampleContent = cache(async (): Promise<SampleContent> => {
 
 /* ------------------------------------------------------------------ inbox */
 
+export type NotificationType =
+  | "reply"
+  | "like"
+  | "mention"
+  | "follow"
+  | "invite"
+  | "pinned"
+  | "episode"
+  | "hidden"
+  | "reaction"
+  | "report"
+  | "warning"
+  | "trending"
+  | "friend"
+  | "poll";
+
 export interface NotificationItem {
+  id: string;
   /** icon key — maps to a lucide icon in the UI */
-  type:
-    | "reply"
-    | "like"
-    | "mention"
-    | "follow"
-    | "invite"
-    | "pinned"
-    | "episode"
-    | "hidden"
-    | "reaction"
-    | "report"
-    | "warning"
-    | "trending"
-    | "friend"
-    | "poll";
+  type: NotificationType;
   text: string;
   time: string;
   unread: boolean;
+  /** deep link to the related content (title/room) */
   href: string;
 }
 
+export type MessageKind =
+  | "admin"
+  | "moderator"
+  | "warning"
+  | "announcement"
+  | "security"
+  | "invite"
+  | "room"
+  | "support"
+  | "report"
+  | "feature";
+
 export interface MessageItem {
+  id: string;
   /** icon key — maps to a lucide icon in the UI */
-  kind:
-    | "admin"
-    | "moderator"
-    | "warning"
-    | "announcement"
-    | "security"
-    | "invite"
-    | "room"
-    | "support"
-    | "report"
-    | "feature";
+  kind: MessageKind;
   from: string;
   subject: string;
   preview: string;
+  /** full message body shown on the detail page */
+  body: string;
   time: string;
   unread: boolean;
   /** official/system sender styling */
@@ -224,7 +233,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
     return m ? `/title/${m.id}` : "/notifications";
   };
 
-  const notifications: NotificationItem[] = [
+  const rawNotifications: Omit<NotificationItem, "id">[] = [
     { type: "reply", text: `Sarah Kim replied to your comment in ${t(0)}`, time: "2m ago", unread: true, href: link(0) },
     { type: "mention", text: `Mike Boone mentioned you in ${t(1)}`, time: "12m ago", unread: true, href: link(1) },
     { type: "like", text: `Jess Rivera liked your review of ${t(2)}`, time: "34m ago", unread: true, href: link(2) },
@@ -239,13 +248,15 @@ export const getInbox = cache(async (): Promise<InboxData> => {
     { type: "friend", text: `Sarah Kim reviewed ${t(9)} — an episode you watched`, time: "14h ago", unread: false, href: link(9) },
     { type: "trending", text: `${t(10)} is trending on your watchlist — fans are discussing`, time: "18h ago", unread: false, href: link(10) },
   ];
+  const notifications: NotificationItem[] = rawNotifications.map((n, i) => ({ ...n, id: `n${i}` }));
 
-  const messages: MessageItem[] = [
+  const rawMessages: Omit<MessageItem, "id">[] = [
     {
       kind: "moderator",
       from: "Moderation Team",
       subject: "Heads up: spoiler tag reminder",
       preview: "A recent post was retagged. Please mark season-ending reveals as major spoilers so rooms stay safe for everyone.",
+      body: "Hi there,\n\nWe retagged one of your recent posts because it referenced a season-ending reveal without a major-spoiler tag. No harm done — we've fixed it for you.\n\nGoing forward, please tag anything that discusses finales or big twists as a major spoiler so it stays hidden for people who aren't caught up yet. Keeping rooms spoiler-safe is what makes Watchruum work.\n\nThanks for being part of the community.\n— The Moderation Team",
       time: "1h ago",
       unread: true,
       official: true,
@@ -255,6 +266,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       from: "Moderation Team",
       subject: "Decision on your report",
       preview: "We reviewed the review you flagged and applied a spoiler blur. Thanks for the report — it helped.",
+      body: "Thanks for your report.\n\nAfter review, we agreed the flagged review contained spoilers that weren't tagged. We've applied a spoiler blur so it stays hidden until readers choose to reveal it.\n\nReports like yours keep every room safe for people who haven't caught up. We appreciate you taking the time.\n\n— The Moderation Team",
       time: "3h ago",
       unread: true,
       official: true,
@@ -264,6 +276,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       from: "Tom Hale",
       subject: `Come join the ${pick(3)?.title ?? "Watch Room"} room`,
       preview: "We're right at the mid-season turn and it's getting wild. Set your progress and jump in when you're caught up.",
+      body: `Hey! We're right at the mid-season turn in the ${pick(3)?.title ?? "Watch Room"} room and it is getting wild.\n\nSet your progress to where you're at and jump in — the room only shows you posts up to your episode, so you won't get spoiled. Would love to hear your takes.\n\n— Tom`,
       time: "4h ago",
       unread: true,
     },
@@ -272,6 +285,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       from: "Watchruum",
       subject: "New: Genre browsing with A–Z filters",
       preview: "You can now browse every genre with infinite scroll and search within a genre. Find your next room faster.",
+      body: "Finding your next room just got easier.\n\nYou can now browse every genre with infinite scroll, filter titles A–Z, toggle between Movies and Shows, and search within a genre. Head to Genres in the sidebar to try it out.\n\nHappy watching.\n— The Watchruum Team",
       time: "1d ago",
       unread: false,
       official: true,
@@ -281,6 +295,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       from: `${pick(0)?.title ?? "Watch Room"} · Room Update`,
       subject: "Finale room is now open",
       preview: "The finale discussion room just unlocked. It stays hidden until you mark the finale watched — no accidental spoilers.",
+      body: `The finale discussion room for ${pick(0)?.title ?? "this show"} just unlocked.\n\nIt stays completely hidden until you mark the finale watched, so there's no risk of an accidental spoiler on your way in. Once you're done, come share your reaction with everyone who made it to the end.`,
       time: "1d ago",
       unread: false,
     },
@@ -289,6 +304,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       from: "Watchruum",
       subject: "Spoiler protection got smarter",
       preview: "Posts beyond your progress now blur automatically with a one-tap reveal. You're always in control of what you see.",
+      body: "We've upgraded spoiler protection.\n\nPosts and reviews beyond your current progress now blur automatically, with a one-tap reveal when you're ready. You're always in control of what you see — the default is to keep you safe.\n\n— The Watchruum Team",
       time: "2d ago",
       unread: false,
       official: true,
@@ -298,6 +314,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       from: "Watchruum Security",
       subject: "New sign-in to your account",
       preview: "We noticed a new sign-in. If this was you, no action is needed. If not, secure your account from Settings.",
+      body: "We noticed a new sign-in to your Watchruum account.\n\nIf this was you, no action is needed. If you don't recognize this activity, head to Settings to review your account security and sign out of other sessions.\n\n— Watchruum Security",
       time: "3d ago",
       unread: false,
       official: true,
@@ -307,11 +324,13 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       from: "Support",
       subject: "Re: your question about progress tracking",
       preview: "Thanks for reaching out! Your watch progress syncs across devices automatically. Let us know if anything looks off.",
+      body: "Thanks for reaching out!\n\nYour watch progress syncs across every device automatically — mark an episode watched on your phone and it'll be there on the web. If anything ever looks out of sync, just reply here and we'll take a look.\n\n— Watchruum Support",
       time: "4d ago",
       unread: false,
       official: true,
     },
   ];
+  const messages: MessageItem[] = rawMessages.map((m, i) => ({ ...m, id: `m${i}` }));
 
   return {
     notifications,
@@ -319,6 +338,18 @@ export const getInbox = cache(async (): Promise<InboxData> => {
     unreadNotifications: notifications.filter((n) => n.unread).length,
     unreadMessages: messages.filter((m) => m.unread).length,
   };
+});
+
+/** A single notification by id (or null). */
+export const getNotification = cache(async (id: string): Promise<NotificationItem | null> => {
+  const { notifications } = await getInbox();
+  return notifications.find((n) => n.id === id) ?? null;
+});
+
+/** A single inbox message by id (or null). */
+export const getMessage = cache(async (id: string): Promise<MessageItem | null> => {
+  const { messages } = await getInbox();
+  return messages.find((m) => m.id === id) ?? null;
 });
 
 /* ------------------------------------------------------------------ reviews */
