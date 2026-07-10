@@ -216,7 +216,16 @@ export const discoverByGenre = cache(
       const key = `${t}_${r.id}`;
       if (seen.has(key)) return;
       seen.add(key);
-      items.push(mapMedia(r, t));
+      const item = mapMedia(r, t);
+      // Every result genuinely belongs to the browsed genre (TMDb filters by
+      // with_genres). A title can carry several genres, and the card shows the
+      // first one — so surface the browsed genre first, otherwise a Drama
+      // browse can show cards labelled "Comedy", "Music", etc. and look like
+      // the filter isn't working.
+      if (item.genres.includes(def.name)) {
+        item.genres = [def.name, ...item.genres.filter((g) => g !== def.name)];
+      }
+      items.push(item);
     };
     for (const r of mv.results) push(r, "movie");
     for (const r of tv.results) push(r, "tv");
