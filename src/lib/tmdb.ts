@@ -157,36 +157,46 @@ export const discoverCatalog = cache(async (pages = 1): Promise<MediaItem[]> => 
 
 /* ------------------------------------------------------------------ genres */
 
-/** Browsable genres with their TMDb movie/tv genre ids (some are one-sided). */
-export const GENRES_BROWSE: { name: string; movie?: number; tv?: number }[] = [
-  { name: "Action", movie: 28, tv: 10759 },
-  { name: "Adventure", movie: 12, tv: 10759 },
-  { name: "Animation", movie: 16, tv: 16 },
-  { name: "Comedy", movie: 35, tv: 35 },
-  { name: "Crime", movie: 80, tv: 80 },
-  { name: "Documentary", movie: 99, tv: 99 },
-  { name: "Drama", movie: 18, tv: 18 },
-  { name: "Family", movie: 10751, tv: 10751 },
-  { name: "Fantasy", movie: 14, tv: 10765 },
-  { name: "History", movie: 36 },
-  { name: "Horror", movie: 27 },
-  { name: "Mystery", movie: 9648, tv: 9648 },
-  { name: "Reality", tv: 10764 },
-  { name: "Romance", movie: 10749 },
-  { name: "Sci-Fi", movie: 878, tv: 10765 },
-  { name: "Thriller", movie: 53 },
-  { name: "War", movie: 10752, tv: 10768 },
-  { name: "Western", movie: 37, tv: 37 },
+/**
+ * Browsable genres with their TMDb movie/tv genre ids (some are one-sided,
+ * some carry more than one id). TMDb lumps a few genres together on the TV side
+ * — "Action & Adventure" (10759), "Sci-Fi & Fantasy" (10765) and
+ * "War & Politics" (10768) — with no way to separate them. Rather than show two
+ * chips that return the same shows, those are merged into one "A / B" chip whose
+ * label makes clear the results span both.
+ */
+export const GENRES_BROWSE: { name: string; movie?: number[]; tv?: number[] }[] = [
+  { name: "Action / Adventure", movie: [28, 12], tv: [10759] },
+  { name: "Animation", movie: [16], tv: [16] },
+  { name: "Comedy", movie: [35], tv: [35] },
+  { name: "Crime", movie: [80], tv: [80] },
+  { name: "Documentary", movie: [99], tv: [99] },
+  { name: "Drama", movie: [18], tv: [18] },
+  { name: "Family", movie: [10751], tv: [10751] },
+  { name: "History", movie: [36] },
+  { name: "Horror", movie: [27] },
+  { name: "Mystery", movie: [9648], tv: [9648] },
+  { name: "Reality", tv: [10764] },
+  { name: "Romance", movie: [10749] },
+  { name: "Sci-Fi / Fantasy", movie: [878, 14], tv: [10765] },
+  { name: "Thriller", movie: [53] },
+  { name: "War / Politics", movie: [10752], tv: [10768] },
+  { name: "Western", movie: [37], tv: [37] },
 ];
 
 export const GENRE_MAX_PAGES = 20;
 
 export type GenreType = "all" | "movie" | "tv";
 
-/** Surface the browsed genre first so the card's genre label matches the filter. */
+/**
+ * Surface the browsed genre first so the card's genre label matches the filter.
+ * For a merged "A / B" genre, surfaces whichever side the title actually is.
+ */
 function genreFirst(item: MediaItem, genreName: string): MediaItem {
-  if (item.genres.includes(genreName)) {
-    item.genres = [genreName, ...item.genres.filter((g) => g !== genreName)];
+  const parts = genreName.split(" / ");
+  const match = parts.find((p) => item.genres.includes(p));
+  if (match) {
+    item.genres = [match, ...item.genres.filter((g) => g !== match)];
   }
   return item;
 }
@@ -201,9 +211,10 @@ export const discoverByGenre = cache(
     const def = GENRES_BROWSE.find((g) => g.name.toLowerCase() === name.toLowerCase());
     if (!def) return { items: [], totalPages: 1 };
     if (!isTmdbConfigured) {
+      const parts = def.name.split(" / ");
       return {
         items: MEDIA.filter(
-          (m) => m.genres.includes(def.name) && (type === "all" || m.media_type === type),
+          (m) => parts.some((pt) => m.genres.includes(pt)) && (type === "all" || m.media_type === type),
         ),
         totalPages: 1,
       };
@@ -211,19 +222,19 @@ export const discoverByGenre = cache(
 
     const p = String(Math.max(1, Math.min(page, GENRE_MAX_PAGES)));
     const empty = { results: [] as any[], total_pages: 1 };
-    const wantMovie = type !== "tv" && !!def.movie;
-    const wantTv = type !== "movie" && !!def.tv;
+    const wantMovie = type !== "tv" && !!def.movie?.length;
+    const wantTv = type !== "movie" && !!def.tv?.length;
     const [mv, tv] = await Promise.all([
       wantMovie
         ? tmdb<{ results: any[]; total_pages: number }>("/discover/movie", {
-            with_genres: String(def.movie),
+            with_genres: def.movie!.join("|"),
             sort_by: "popularity.desc",
             page: p,
           }).catch(() => empty)
         : Promise.resolve(empty),
       wantTv
         ? tmdb<{ results: any[]; total_pages: number }>("/discover/tv", {
-            with_genres: String(def.tv),
+            with_genres: def.tv!.join("|"),
             sort_by: "popularity.desc",
             page: p,
           }).catch(() => empty)
@@ -265,10 +276,11 @@ export const searchInGenre = cache(
     if (!def || !q) return { items: [], totalPages: 1 };
     if (!isTmdbConfigured) {
       const lq = q.toLowerCase();
+      const parts = def.name.split(" / ");
       return {
         items: MEDIA.filter(
           (m) =>
-            m.genres.includes(def.name) &&
+            parts.some((pt) => m.genres.includes(pt)) &&
             m.title.toLowerCase().includes(lq) &&
             (type === "all" || m.media_type === type),
         ),
@@ -278,8 +290,8 @@ export const searchInGenre = cache(
 
     const p = String(Math.max(1, Math.min(page, GENRE_MAX_PAGES)));
     const empty = { results: [] as any[], total_pages: 1 };
-    const wantMovie = type !== "tv" && !!def.movie;
-    const wantTv = type !== "movie" && !!def.tv;
+    const wantMovie = type !== "tv" && !!def.movie?.length;
+    const wantTv = type !== "movie" && !!def.tv?.length;
     const [mv, tv] = await Promise.all([
       wantMovie
         ? tmdb<{ results: any[]; total_pages: number }>("/search/movie", {
@@ -299,10 +311,10 @@ export const searchInGenre = cache(
 
     const items: MediaItem[] = [];
     const seen = new Set<string>();
-    const push = (r: any, t: "movie" | "tv", genreId?: number) => {
+    const push = (r: any, t: "movie" | "tv", genreIds?: number[]) => {
       if (!r?.id) return;
       const gids: number[] = r.genre_ids ?? [];
-      if (genreId && !gids.includes(genreId)) return; // keep only in-genre hits
+      if (genreIds && !genreIds.some((g) => gids.includes(g))) return; // keep only in-genre hits
       const key = `${t}_${r.id}`;
       if (seen.has(key)) return;
       seen.add(key);

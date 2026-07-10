@@ -43,8 +43,8 @@ export default async function GenresPage({ searchParams }: { searchParams: Promi
         genres={genreNames}
         initial={items}
         totalPages={totalPages}
-        hasMovie={!!match.movie}
-        hasTv={!!match.tv}
+        hasMovie={(match.movie?.length ?? 0) > 0}
+        hasTv={(match.tv?.length ?? 0) > 0}
       />
     </div>
   );
