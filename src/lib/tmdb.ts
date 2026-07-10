@@ -117,6 +117,12 @@ export const trending = cache(async (): Promise<MediaItem[]> => {
 
 export const DISCOVER_MAX_PAGES = 5;
 
+/* Low-level helpers reused by the Watch Calendar data layer (server-only). */
+export const tmdbGet = tmdb;
+export const tmdbImg = img;
+export const TMDB_GENRE_NAMES = GENRES;
+export { mapMedia };
+
 /**
  * A growing catalog for the Discover page. Fetches `pages` pages each of
  * trending-week + popular movies + popular TV and de-duplicates, so "Load more"
