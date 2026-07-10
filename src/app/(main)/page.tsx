@@ -1,6 +1,7 @@
 import { Hero } from "@/components/feed/hero";
 import { SectionHeader } from "@/components/feed/section-header";
 import { RoomCard } from "@/components/feed/room-card";
+import { CardRow } from "@/components/feed/card-row";
 import { DiscussionCard } from "@/components/feed/discussion-card";
 import { ReviewCard } from "@/components/feed/review-card";
 import { RightRail } from "@/components/layout/right-rail";
@@ -9,7 +10,7 @@ import { getUserLibrary, getTrendingRooms, getSampleContent, getPopularReviews }
 export default async function HomePage() {
   const [lib, rooms, sample, popular] = await Promise.all([
     getUserLibrary(),
-    getTrendingRooms(6),
+    getTrendingRooms(18),
     getSampleContent(),
     getPopularReviews(2),
   ]);
@@ -23,11 +24,13 @@ export default async function HomePage() {
 
         <section>
           <SectionHeader title="Trending Watch Rooms" href="/trending" />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+          <CardRow>
             {rooms.map((room) => (
-              <RoomCard key={room.id} room={room} />
+              <div key={room.id} className="w-44 shrink-0">
+                <RoomCard room={room} />
+              </div>
             ))}
-          </div>
+          </CardRow>
         </section>
 
         <section>
