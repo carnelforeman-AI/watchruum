@@ -198,11 +198,15 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                             <div className="min-w-0">
                               <p className="flex items-center gap-1.5 font-semibold">
                                 <span className="truncate">{u.display_name}</span>
-                                {u.is_admin && (
+                                {u.is_admin ? (
                                   <span className="rounded bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                                     Admin
                                   </span>
-                                )}
+                                ) : u.is_moderator ? (
+                                  <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                                    Moderator
+                                  </span>
+                                ) : null}
                               </p>
                               <p className="truncate text-[12px] text-muted-2">@{u.username ?? "member"}</p>
                             </div>
@@ -214,7 +218,9 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                             return <Badge variant={s.variant}>{s.label}</Badge>;
                           })()}
                         </td>
-                        <td className="py-3 pr-4 text-muted">{u.is_admin ? "Admin" : "User"}</td>
+                        <td className="py-3 pr-4 text-muted">
+                          {u.is_admin ? "Admin" : u.is_moderator ? "Moderator" : "User"}
+                        </td>
                         <td className="whitespace-nowrap py-3 pr-4 text-muted">{joinedLabel(u.created_at)}</td>
                         <td className="whitespace-nowrap py-3 pr-4">
                           <span className="flex items-center gap-1.5 text-muted">
@@ -233,6 +239,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                               display_name: u.display_name,
                               username: u.username,
                               is_admin: u.is_admin,
+                              is_moderator: u.is_moderator,
                               status: u.status,
                             }}
                           />
@@ -304,6 +311,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
             >
               <option value="all">All Roles</option>
               <option value="admin">Admin</option>
+              <option value="moderator">Moderator</option>
               <option value="user">User</option>
             </select>
             <button className="h-10 w-full rounded-xl bg-gradient-to-r from-primary to-primary-strong text-sm font-semibold text-white hover:brightness-110">

@@ -14,6 +14,7 @@ import {
   StickyNote,
   MessageSquare,
   Shield,
+  ShieldCheck,
   AlertTriangle,
   MinusCircle,
   VolumeX,
@@ -25,7 +26,7 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
-import { changeRole, setUserStatus, addAdminNote, warnUser, sendUserMessage } from "@/app/admin-actions";
+import { changeRole, setModerator, setUserStatus, addAdminNote, warnUser, sendUserMessage } from "@/app/admin-actions";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,7 @@ export interface UserActionsMenuUser {
   display_name: string;
   username: string | null;
   is_admin: boolean;
+  is_moderator: boolean;
   status: string;
 }
 
@@ -232,6 +234,22 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
                   }
                 />
                 <MenuButton
+                  icon={ShieldCheck}
+                  label={user.is_moderator ? "Remove Moderator" : "Make Moderator"}
+                  onClick={() =>
+                    openModal({
+                      mode: "confirm",
+                      title: user.is_moderator ? "Remove moderator role" : "Make moderator",
+                      message: user.is_moderator
+                        ? `Revoke ${user.display_name}'s moderator role?`
+                        : `Give ${user.display_name} the Moderator role. Moderators can hide comments, mark spoilers, warn and mute users, remove users from a room, pin announcements, enable slow mode, and lock rooms — but cannot ban users site-wide, delete accounts, change roles, send global messages, or access private account data.`,
+                      confirmLabel: user.is_moderator ? "Remove Moderator" : "Make Moderator",
+                      destructive: user.is_moderator,
+                      run: () => setModerator(user.id, !user.is_moderator),
+                    })
+                  }
+                />
+                <MenuButton
                   icon={Shield}
                   label={user.is_admin ? "Remove Admin" : "Make Admin"}
                   onClick={() =>
@@ -240,7 +258,7 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
                       title: user.is_admin ? "Remove admin role" : "Make admin",
                       message: user.is_admin
                         ? `Revoke admin privileges from ${user.display_name}?`
-                        : `Grant admin privileges to ${user.display_name}?`,
+                        : `Grant admin privileges to ${user.display_name}? Admins have full access, including site-wide bans and role changes.`,
                       confirmLabel: user.is_admin ? "Remove Admin" : "Make Admin",
                       destructive: user.is_admin,
                       run: () => changeRole(user.id, !user.is_admin),

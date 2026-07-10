@@ -104,6 +104,15 @@ export async function changeRole(userId: string, makeAdmin: boolean): Promise<Re
   return { ok: !error, error: error?.message };
 }
 
+/** Grant / revoke the Moderator role (room moderation powers, not site admin). */
+export async function setModerator(userId: string, makeModerator: boolean): Promise<Result> {
+  const ctx = await adminContext();
+  if (!ctx) return { ok: false, error: "Not authorized" };
+  const { error } = await ctx.supabase.from("profiles").update({ is_moderator: makeModerator }).eq("id", userId);
+  revalidateUser(userId);
+  return { ok: !error, error: error?.message };
+}
+
 /** Set an account's moderation status (active/muted/limited/suspended/banned). */
 export async function setUserStatus(
   userId: string,

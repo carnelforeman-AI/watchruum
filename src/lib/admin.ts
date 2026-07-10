@@ -353,6 +353,7 @@ export interface AdminUserRow {
   avatar_url: string | null;
   created_at: string;
   is_admin: boolean;
+  is_moderator: boolean;
   status: string;
   rooms: number;
   reports: number;
@@ -444,7 +445,8 @@ export const getAdminUsers = cache(async (params: AdminUsersParams = {}): Promis
     if (tab === "new") query = query.gte("created_at", weekAgo);
     if (withStatus && statusValue) query = query.eq("status", statusValue);
     if (role === "admin") query = query.eq("is_admin", true);
-    else if (role === "user") query = query.eq("is_admin", false);
+    else if (role === "moderator") query = query.eq("is_moderator", true);
+    else if (role === "user") query = query.eq("is_admin", false).eq("is_moderator", false);
     if (q) query = query.or(`display_name.ilike.%${q}%,username.ilike.%${q}%`);
     return query.range(from, from + perPage - 1);
   };
@@ -497,6 +499,14 @@ export const getAdminUsers = cache(async (params: AdminUsersParams = {}): Promis
     }
   }
 
+  // Moderator flags — fetched separately so a missing column (pre-migration)
+  // can't break the main list query.
+  const moderators = new Set<string>();
+  if (ids.length) {
+    const { data: mods } = await supabase.from("profiles").select("id, is_moderator").in("id", ids);
+    for (const m of (mods ?? []) as any[]) if (m.is_moderator) moderators.add(m.id);
+  }
+
   const rows: AdminUserRow[] = rowsRaw.map((r) => ({
     id: r.id,
     display_name: r.display_name ?? "Member",
@@ -504,6 +514,7 @@ export const getAdminUsers = cache(async (params: AdminUsersParams = {}): Promis
     avatar_url: r.avatar_url ?? null,
     created_at: r.created_at,
     is_admin: !!r.is_admin,
+    is_moderator: moderators.has(r.id),
     status: r.status ?? "active",
     rooms: roomsByUser.get(r.id) ?? 0,
     reports: reportsByUser.get(r.id) ?? 0,
