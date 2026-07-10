@@ -1,43 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  MessageCircle,
-  Heart,
-  AtSign,
-  UserPlus,
-  Ticket,
-  Pin,
-  Tv,
-  EyeOff,
-  Smile,
-  Flag,
-  ShieldAlert,
-  TrendingUp,
-  Users,
-  BarChart3,
-} from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { getNotification, type NotificationType } from "@/lib/queries";
+import { NotifAvatar } from "@/components/inbox/notif-visuals";
+import { Poster } from "@/components/media/poster";
+import { DetailDeleteButton } from "@/components/inbox/detail-delete-button";
 
 export const dynamic = "force-dynamic";
-
-const ICONS: Record<NotificationType, React.ComponentType<{ className?: string }>> = {
-  reply: MessageCircle,
-  like: Heart,
-  mention: AtSign,
-  follow: UserPlus,
-  invite: Ticket,
-  pinned: Pin,
-  episode: Tv,
-  hidden: EyeOff,
-  reaction: Smile,
-  report: Flag,
-  warning: ShieldAlert,
-  trending: TrendingUp,
-  friend: Users,
-  poll: BarChart3,
-};
 
 const LABELS: Record<NotificationType, string> = {
   reply: "New reply",
@@ -74,7 +43,6 @@ export default async function NotificationDetailPage({ params }: { params: Promi
   const n = await getNotification(id);
   if (!n) notFound();
 
-  const Icon = ICONS[n.type] ?? MessageCircle;
   const hasLink = n.href && n.href !== "/notifications";
 
   return (
@@ -88,26 +56,45 @@ export default async function NotificationDetailPage({ params }: { params: Promi
 
       <div className="panel overflow-hidden rounded-2xl">
         <div className="flex items-start gap-4 p-6">
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/25">
-            <Icon className="size-6" />
-          </span>
+          <NotifAvatar n={n} />
           <div className="min-w-0 flex-1">
             <p className="text-[12px] font-semibold uppercase tracking-widest text-muted-2">{LABELS[n.type]}</p>
-            <h1 className="mt-1 text-lg font-bold leading-snug">{n.text}</h1>
-            <p className="mt-2 text-[12px] text-muted-2">{n.time}</p>
+            <h1 className="mt-1 text-lg font-bold leading-snug">
+              {n.actor ? (
+                <>
+                  <span>{n.actor.name}</span> <span className="font-normal">{n.action}</span>
+                </>
+              ) : (
+                n.action
+              )}
+              {n.media && <> <span>{n.media.title}</span></>}
+            </h1>
+            {n.body && <p className="mt-2 text-[14px] leading-relaxed text-muted">{n.body}</p>}
+            <p className="mt-3 text-[12px] text-muted-2">{n.time}</p>
           </div>
+          {n.media && (
+            <Poster
+              title={n.media.title}
+              src={n.media.poster}
+              genres={n.media.genres}
+              showTitle={false}
+              rounded="rounded-xl"
+              className="hidden size-24 shrink-0 ring-1 ring-white/10 sm:block"
+            />
+          )}
         </div>
 
-        {hasLink && (
-          <div className="border-t border-border p-4">
+        <div className="flex items-center gap-3 border-t border-border p-4">
+          {hasLink && (
             <Link
               href={n.href}
               className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary-strong"
             >
               {ctaLabel(n.type)} <ArrowUpRight className="size-4" />
             </Link>
-          </div>
-        )}
+          )}
+          <DetailDeleteButton id={n.id} kind="notifications" backHref="/notifications" />
+        </div>
       </div>
     </div>
   );

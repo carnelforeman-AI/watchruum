@@ -166,15 +166,38 @@ export type NotificationType =
   | "friend"
   | "poll";
 
+export interface NotifMedia {
+  title: string;
+  poster: string | null;
+  genres: string[];
+}
+
 export interface NotificationItem {
   id: string;
-  /** icon key — maps to a lucide icon in the UI */
+  /** icon key — maps to a lucide badge icon in the UI */
   type: NotificationType;
-  text: string;
+  /** present for social notifications (someone did something) */
+  actor?: { name: string; avatar: string | null };
+  /**
+   * The main line. For social notifications this is the verb phrase after the
+   * actor's name ("replied to your comment in"). For system notifications it's
+   * the bold headline ("Your report was reviewed").
+   */
+  action: string;
+  /** bold media reference + thumbnail, when the notification is about a title */
+  media?: NotifMedia;
+  /** muted secondary line — a quote, preview, or description */
+  body?: string;
   time: string;
   unread: boolean;
   /** deep link to the related content (title/room) */
   href: string;
+}
+
+/** Flattened text for the detail page title / accessibility. */
+export function notificationText(n: NotificationItem): string {
+  const lead = n.actor ? `${n.actor.name} ${n.action}` : n.action;
+  return n.media ? `${lead} ${n.media.title}` : lead;
 }
 
 export type MessageKind =
@@ -224,9 +247,9 @@ export const getInbox = cache(async (): Promise<InboxData> => {
     items = [];
   }
   const pick = (i: number) => items[i % Math.max(1, items.length)];
-  const t = (i: number) => {
+  const media = (i: number): NotifMedia | undefined => {
     const m = pick(i);
-    return m ? `${m.title} ${scope(m, i)}` : "a title";
+    return m ? { title: `${m.title} ${scope(m, i)}`, poster: m.poster_url, genres: m.genres } : undefined;
   };
   const link = (i: number) => {
     const m = pick(i);
@@ -234,19 +257,123 @@ export const getInbox = cache(async (): Promise<InboxData> => {
   };
 
   const rawNotifications: Omit<NotificationItem, "id">[] = [
-    { type: "reply", text: `Sarah Kim replied to your comment in ${t(0)}`, time: "2m ago", unread: true, href: link(0) },
-    { type: "mention", text: `Mike Boone mentioned you in ${t(1)}`, time: "12m ago", unread: true, href: link(1) },
-    { type: "like", text: `Jess Rivera liked your review of ${t(2)}`, time: "34m ago", unread: true, href: link(2) },
-    { type: "invite", text: `Tom Hale invited you to the Watch Room for ${t(3)}`, time: "1h ago", unread: true, href: link(3) },
-    { type: "hidden", text: `A comment was hidden to protect you from a spoiler in ${t(4)}`, time: "2h ago", unread: false, href: link(4) },
-    { type: "report", text: "Your report was reviewed — thanks for keeping rooms safe.", time: "3h ago", unread: false, href: "/notifications" },
-    { type: "follow", text: "Maya Diaz started following you", time: "5h ago", unread: false, href: "/u/mayad" },
-    { type: "episode", text: `A new episode room opened for ${t(5)}`, time: "6h ago", unread: false, href: link(5) },
-    { type: "reaction", text: `Drew Park reacted to your rating of ${t(6)}`, time: "8h ago", unread: false, href: link(6) },
-    { type: "pinned", text: `A room you joined posted a new pinned update: ${t(7)}`, time: "10h ago", unread: false, href: link(7) },
-    { type: "poll", text: `Results are in for a poll you voted on in ${t(8)}`, time: "12h ago", unread: false, href: link(8) },
-    { type: "friend", text: `Sarah Kim reviewed ${t(9)} — an episode you watched`, time: "14h ago", unread: false, href: link(9) },
-    { type: "trending", text: `${t(10)} is trending on your watchlist — fans are discussing`, time: "18h ago", unread: false, href: link(10) },
+    {
+      type: "reply",
+      actor: { name: "Sarah Kim", avatar: null },
+      action: "replied to your comment in",
+      media: media(0),
+      body: "“Couldn’t agree more! That opening scene gave me chills.”",
+      time: "2m ago",
+      unread: true,
+      href: link(0),
+    },
+    {
+      type: "like",
+      actor: { name: "Mike Boone", avatar: null },
+      action: "liked your review of",
+      media: media(1),
+      time: "10m ago",
+      unread: true,
+      href: link(1),
+    },
+    {
+      type: "follow",
+      actor: { name: "Alex Morgan", avatar: null },
+      action: "started following you",
+      time: "25m ago",
+      unread: true,
+      href: "/u/alexm",
+    },
+    {
+      type: "invite",
+      actor: { name: "Jess Rivera", avatar: null },
+      action: "invited you to join a watch room",
+      media: media(3),
+      time: "1h ago",
+      unread: true,
+      href: link(3),
+    },
+    {
+      type: "report",
+      action: "Your report was reviewed",
+      body: `Thank you! We reviewed the content you reported in ${media(4)?.title ?? "a room"}.`,
+      time: "2h ago",
+      unread: true,
+      href: "/notifications",
+    },
+    {
+      type: "episode",
+      action: "New episode room is live",
+      media: media(5),
+      body: `${media(5)?.title ?? "A new episode"} is now open for discussion.`,
+      time: "3h ago",
+      unread: true,
+      href: link(5),
+    },
+    {
+      type: "mention",
+      actor: { name: "Tom Hale", avatar: null },
+      action: "mentioned you in a comment",
+      media: media(6),
+      body: "@carnel what did you think of the ending? 🤔",
+      time: "5h ago",
+      unread: false,
+      href: link(6),
+    },
+    {
+      type: "warning",
+      action: "Your comment was marked as a spoiler",
+      body: "Please review our spoiler policy to avoid future issues.",
+      time: "1d ago",
+      unread: false,
+      href: "/notifications",
+    },
+    {
+      type: "reaction",
+      actor: { name: "Drew Park", avatar: null },
+      action: "reacted to your rating of",
+      media: media(7),
+      time: "1d ago",
+      unread: false,
+      href: link(7),
+    },
+    {
+      type: "pinned",
+      action: "New pinned update in a room you joined",
+      media: media(8),
+      body: "The mods posted a recap and ground rules before the finale drops.",
+      time: "1d ago",
+      unread: false,
+      href: link(8),
+    },
+    {
+      type: "poll",
+      action: "Poll results are in",
+      media: media(9),
+      body: `Results are ready for a poll you voted on in ${media(9)?.title ?? "a room"}.`,
+      time: "2d ago",
+      unread: false,
+      href: link(9),
+    },
+    {
+      type: "friend",
+      actor: { name: "Sarah Kim", avatar: null },
+      action: "reviewed",
+      media: media(10),
+      body: "An episode you’ve already watched — safe to read.",
+      time: "2d ago",
+      unread: false,
+      href: link(10),
+    },
+    {
+      type: "trending",
+      action: `${media(11)?.title ?? "A show"} is trending`,
+      media: media(11),
+      body: "Fans on your watchlist are discussing it right now.",
+      time: "3d ago",
+      unread: false,
+      href: link(11),
+    },
   ];
   const notifications: NotificationItem[] = rawNotifications.map((n, i) => ({ ...n, id: `n${i}` }));
 

@@ -16,6 +16,7 @@ import {
   Mail,
 } from "lucide-react";
 import { getMessage, type MessageKind } from "@/lib/queries";
+import { DetailDeleteButton } from "@/components/inbox/detail-delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -100,16 +101,17 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
           ))}
         </div>
 
-        {action && (
-          <div className="border-t border-border p-4">
+        <div className="flex items-center gap-3 border-t border-border p-4">
+          {action && (
             <Link
               href={action.href}
               className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary-strong"
             >
               {action.label} <ArrowUpRight className="size-4" />
             </Link>
-          </div>
-        )}
+          )}
+          <DetailDeleteButton id={m.id} kind="messages" backHref="/inbox" />
+        </div>
       </div>
     </div>
   );
