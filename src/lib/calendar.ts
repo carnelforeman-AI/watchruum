@@ -207,7 +207,7 @@ export const getCalendarOverview = cache(async (): Promise<CalendarOverview> => 
     loadCalendar({ tab: "coming_soon", dateWindow: "this_week", sort: "soonest" }),
     discoverMovies({ sort: "soonest" }),
     Promise.all(
-      CAL_GENRES.slice(0, 6).map(async (g) => {
+      CAL_GENRES.map(async (g) => {
         const r = await loadCalendar({ tab: "coming_soon", genre: g.name, sort: "anticipated" });
         return { name: g.name, count: r.totalPages > 1 ? r.items.length * 4 : r.items.length };
       }),

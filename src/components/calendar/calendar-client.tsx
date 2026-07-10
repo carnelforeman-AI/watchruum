@@ -12,6 +12,7 @@ import {
   Loader2,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
 } from "lucide-react";
 import { cn, routeId } from "@/lib/utils";
 import { loadCalendarPage, searchCalendarAction } from "@/app/calendar-actions";
@@ -338,9 +339,12 @@ function Overview({ overview }: { overview: CalendarOverview }) {
       <CalendarHero items={overview.featured} />
 
       {overview.byGenre.length > 0 && (
-        <Section title="Coming Soon by Genre">
+        <Section
+          title="Coming Soon by Genre"
+          action={overview.byGenre.length > 6 ? <GenreDropdown genres={overview.byGenre} /> : undefined}
+        >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {overview.byGenre.map((g) => (
+            {overview.byGenre.slice(0, 6).map((g) => (
               <GenreTile key={g.name} name={g.name} count={g.count} />
             ))}
           </div>
@@ -386,12 +390,60 @@ function Overview({ overview }: { overview: CalendarOverview }) {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <section>
-      <h2 className="mb-3 text-lg font-bold tracking-tight">{title}</h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+        {action}
+      </div>
       {children}
     </section>
+  );
+}
+
+/** Dropdown listing every genre with its count; each links to that genre's calendar. */
+function GenreDropdown({ genres }: { genres: { name: string; count: number }[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white/[0.03] px-3 py-1.5 text-[13px] font-semibold text-muted transition hover:text-foreground"
+      >
+        All Genres <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-30 mt-2 max-h-[320px] w-56 overflow-y-auto rounded-xl border border-border bg-bg-elevated py-1 shadow-2xl">
+          {genres.map((g) => (
+            <a
+              key={g.name}
+              href={`/calendar?genre=${encodeURIComponent(g.name)}`}
+              className="flex items-center justify-between gap-3 px-3.5 py-2 text-[13px] transition-colors hover:bg-white/5"
+            >
+              <span className="font-semibold">{g.name}</span>
+              <span className="text-[12px] text-muted-2">{g.count}+ titles</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
