@@ -88,14 +88,21 @@
   box-shadow: 0 20px 50px -24px rgba(124, 58, 237, 0.55);
 }
 
-::-webkit-scrollbar { width: 10px; height: 10px; }
+/* Wider, easier-to-grab scrollbar. */
+::-webkit-scrollbar { width: 16px; height: 16px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: #23233250;
+  background: #454560;
   border-radius: 999px;
-  border: 2px solid transparent;
+  border: 4px solid transparent; /* transparent inset — hit area stays the full 16px */
   background-clip: padding-box;
+  min-height: 48px;
 }
-::-webkit-scrollbar-thumb:hover { background: #33334a; }
+::-webkit-scrollbar-thumb:hover { background: #565677; }
+::-webkit-scrollbar-thumb:active { background: #6a6a8f; }
+
+/* Firefox: no custom width, but keep a normal (not thin) bar + themed thumb. */
+html { scrollbar-width: auto; scrollbar-color: #454560 transparent; }
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
