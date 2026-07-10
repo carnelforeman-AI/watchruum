@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { Users, PlayCircle } from "lucide-react";
 import { Poster } from "@/components/media/poster";
-import { getTrailer } from "@/app/calendar-actions";
 import { cn } from "@/lib/utils";
 import { NotifyButton, WatchlistButton, useAlerts, formatFans, type AlertEntry } from "./alerts-context";
+import { useTrailer } from "./trailer-modal";
 import type { CalendarItem, CalKind } from "@/lib/calendar-constants";
 import type { MediaItem } from "@/lib/types";
 
@@ -37,24 +36,18 @@ export function entryOf(i: CalendarItem): AlertEntry {
 }
 
 function TrailerButton({ item }: { item: CalendarItem }) {
-  const [loading, setLoading] = useState(false);
+  const { play } = useTrailer();
   return (
     <button
-      onClick={async (e) => {
+      onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        setLoading(true);
-        const key = await getTrailer(item.tmdbId, item.mediaType).catch(() => null);
-        setLoading(false);
-        const url = key
-          ? `https://www.youtube.com/watch?v=${key}`
-          : `https://www.youtube.com/results?search_query=${encodeURIComponent(item.title + " trailer")}`;
-        window.open(url, "_blank", "noopener,noreferrer");
+        play(item.tmdbId, item.mediaType, item.title);
       }}
       aria-label="Watch trailer"
       className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-white/5 px-3 py-2 text-[12px] font-semibold text-muted transition-colors hover:text-foreground"
     >
-      <PlayCircle className="size-3.5" /> {loading ? "…" : "Trailer"}
+      <PlayCircle className="size-3.5" /> Trailer
     </button>
   );
 }

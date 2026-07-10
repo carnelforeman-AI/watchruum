@@ -1,6 +1,7 @@
 import { getCalendarOverview } from "@/lib/calendar";
 import { getMyAlerts, getInterestMap } from "@/app/calendar-actions";
 import { AlertsProvider, type AlertEntry } from "@/components/calendar/alerts-context";
+import { TrailerProvider } from "@/components/calendar/trailer-modal";
 import { CalendarClient } from "@/components/calendar/calendar-client";
 import { CalendarRail } from "@/components/calendar/calendar-rail";
 import type { CalKind } from "@/lib/calendar-constants";
@@ -41,10 +42,12 @@ export default async function CalendarPage({
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-6">
       <AlertsProvider initialAlerts={initialAlerts} interest={interest}>
-        <div className="flex gap-6">
-          <CalendarClient overview={overview} initial={{ tab: initialTab, genre: sp.genre, platform: sp.platform }} />
-          <CalendarRail byGenre={overview.byGenre} theaters={overview.theaters} marks={marks} />
-        </div>
+        <TrailerProvider>
+          <div className="flex gap-6">
+            <CalendarClient overview={overview} initial={{ tab: initialTab, genre: sp.genre, platform: sp.platform }} />
+            <CalendarRail byGenre={overview.byGenre} theaters={overview.theaters} marks={marks} />
+          </div>
+        </TrailerProvider>
       </AlertsProvider>
     </div>
   );
