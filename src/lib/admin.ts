@@ -1030,3 +1030,135 @@ export const getAdminRooms = cache(async (params: AdminRoomsParams = {}): Promis
 
   return { isAdmin: true, rows, total, page, perPage, stats, breakdown, topShows, recentActivity };
 });
+
+/* ------------------------------------------------------------------ */
+/* Push notifications (demo analytics)                                 */
+/* ------------------------------------------------------------------ */
+
+export type PushTone = "primary" | "blue" | "green" | "orange";
+export type PushStatus = "Completed" | "Scheduled" | "Sending";
+
+export interface PushStat {
+  key: string;
+  label: string;
+  value: number;
+  sub: string;
+  positive?: boolean;
+  tone: PushTone;
+  icon: "send" | "mail" | "check" | "click";
+}
+
+export interface PushRow {
+  id: string;
+  title: string;
+  subtitle: string;
+  poster: string | null;
+  genres: string[];
+  audience: string;
+  audienceCount: number;
+  sentDate: string;
+  sentTime: string;
+  delivered: number;
+  deliveredPct: number;
+  opened: number;
+  openedPct: number;
+  clicked: number;
+  clickedPct: number;
+  status: PushStatus;
+}
+
+export interface PushOverview {
+  stats: PushStat[];
+  recent: PushRow[];
+}
+
+const PUSH_CAMPAIGNS = [
+  { audience: "All Users", subtitle: "New trailer just dropped!" },
+  { audience: "Active Users", subtitle: "New episode is now live." },
+  { audience: "Subscribed Users", subtitle: "Your weekly highlights" },
+  { audience: "Show Followers", subtitle: "Behind the scenes details" },
+  { audience: "Returning Users", subtitle: "We saved your spot — jump back in." },
+  { audience: "All Users", subtitle: "The finale everyone's talking about." },
+];
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function fmtPushDate(d: Date): { date: string; time: string } {
+  const date = `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  let h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  const time = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+  return { date, time };
+}
+
+/**
+ * Demo push-notification analytics for the admin panel. There's no push
+ * backend yet, so the campaign rows are derived from real TMDb trending
+ * titles with deterministic, plausible delivery/open/click numbers.
+ */
+export const getPushOverview = cache(async (): Promise<PushOverview> => {
+  let items: MediaItem[] = [];
+  try {
+    items = await trending();
+  } catch {
+    items = [];
+  }
+  items = items.filter((m) => m.poster_url).slice(0, 8);
+
+  const now = Date.now();
+  const hour = 3600_000;
+
+  const recent: PushRow[] = items.map((m, i) => {
+    const rand = seeded(m.tmdb_id + i * 17);
+    const campaign = PUSH_CAMPAIGNS[i % PUSH_CAMPAIGNS.length];
+    const seasonTag = m.media_type === "tv" && m.number_of_seasons ? ` S${m.number_of_seasons}` : "";
+
+    const audienceCount = Math.round(18_000 + rand() * 130_000);
+    const deliveredPct = 92 + rand() * 6; // 92–98%
+    const delivered = Math.round(audienceCount * (deliveredPct / 100));
+    const openedPct = 38 + rand() * 20; // 38–58% of delivered
+    const opened = Math.round(delivered * (openedPct / 100));
+    const clickedPct = 4 + rand() * 7; // 4–11% of delivered
+    const clicked = Math.round(delivered * (clickedPct / 100));
+
+    const sentAt = new Date(now - (i * 22 + Math.round(rand() * 12)) * hour);
+    const { date, time } = fmtPushDate(sentAt);
+
+    return {
+      id: `push_${m.tmdb_id}`,
+      title: `${m.title}${seasonTag}`,
+      subtitle: campaign.subtitle,
+      poster: m.poster_url,
+      genres: m.genres,
+      audience: campaign.audience,
+      audienceCount,
+      sentDate: date,
+      sentTime: time,
+      delivered,
+      deliveredPct: Math.round(deliveredPct * 10) / 10,
+      opened,
+      openedPct: Math.round(openedPct * 10) / 10,
+      clicked,
+      clickedPct: Math.round(clickedPct * 10) / 10,
+      status: "Completed",
+    };
+  });
+
+  // Rolling 7-day headline totals (demo).
+  const totalSent = 12_842;
+  const delivered = 12_120;
+  const opened = 6_532;
+  const clicked = 1_245;
+  const pct = (a: number, b: number) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+
+  const stats: PushStat[] = [
+    { key: "sent", label: "Total Sent", value: totalSent, sub: "+12.9% vs last 7 days", positive: true, tone: "primary", icon: "send" },
+    { key: "delivered", label: "Delivered", value: delivered, sub: `${pct(delivered, totalSent)}% delivery rate`, tone: "blue", icon: "mail" },
+    { key: "opened", label: "Opened", value: opened, sub: `${pct(opened, delivered)}% open rate`, tone: "green", icon: "check" },
+    { key: "clicked", label: "Clicked", value: clicked, sub: `${pct(clicked, delivered)}% click rate`, tone: "orange", icon: "click" },
+  ];
+
+  return { stats, recent };
+});
