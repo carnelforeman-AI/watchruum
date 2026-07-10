@@ -184,7 +184,9 @@ export const GENRES_BROWSE: { name: string; movie?: number[]; tv?: number[] }[] 
   { name: "Western", movie: [37], tv: [37] },
 ];
 
-export const GENRE_MAX_PAGES = 20;
+// TMDb's hard ceiling is page 500 — keep loading a genre until its titles run
+// out (or that ceiling), rather than stopping early.
+export const GENRE_MAX_PAGES = 500;
 
 export type GenreType = "all" | "movie" | "tv";
 

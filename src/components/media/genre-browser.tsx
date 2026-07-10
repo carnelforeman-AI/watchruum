@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import type { MediaItem } from "@/lib/types";
 import type { GenreType } from "@/lib/tmdb";
 
-const MAX_PAGES = 20;
+// Keep in sync with GENRE_MAX_PAGES in tmdb.ts — TMDb's hard page ceiling.
+const MAX_PAGES = 500;
 const LETTERS = ["All", ...("ABCDEFGHIJKLMNOPQRSTUVWXYZ#".split(""))];
 
 /** First letter for A–Z filing: ignores a leading article and uppercases. */
