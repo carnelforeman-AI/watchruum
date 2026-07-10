@@ -1,9 +1,28 @@
+import { redirect } from "next/navigation";
 import { OnboardingFlow } from "@/components/auth/onboarding-flow";
 import { WatchruumLogo } from "@/components/layout/logo";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Set up your profile · Watchruum" };
+export const dynamic = "force-dynamic";
 
-export default function OnboardingPage() {
+export default async function OnboardingPage() {
+  // Only genuinely new accounts should see onboarding. Anyone already set up
+  // (or not signed in) gets bounced — logging back in must never re-register.
+  const supabase = await createClient();
+  if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) redirect("/login");
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("onboarded")
+      .eq("id", user!.id)
+      .maybeSingle();
+    if ((prof as { onboarded?: boolean } | null)?.onboarded) redirect("/");
+  }
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
       <div className="absolute inset-0 -z-10">
