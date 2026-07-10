@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "./supabase/server";
 import { getShowEpisodeCount, trending } from "./tmdb";
+import { routeId } from "./utils";
 import type { MediaItem, Room, Review, ActivityEvent, SpoilerScope } from "./types";
 import { type DiscussionCard, PROFILES } from "./mock-data";
 
@@ -602,7 +603,7 @@ export const getPopularReviews = cache(async (limit = 2): Promise<Review[]> => {
         bio: null,
         favorite_genres: [],
       },
-      media: { id: `tmdb_${r.media.media_type}_${r.media.tmdb_id}`, title: r.media.title },
+      media: { id: routeId(r.media.media_type, r.media.tmdb_id, r.media.title), title: r.media.title },
       season_number: r.season_number,
       episode_number: r.episode_number,
       score: r.score ?? 0,
@@ -826,8 +827,8 @@ export const getRoomFeed = cache(
 
 function rowToMedia(m: any): MediaItem {
   return {
-    // Route ids use the tmdb-style form so /title/[id] resolves via TMDb.
-    id: `tmdb_${m.media_type}_${m.tmdb_id}`,
+    // Public slug route id (e.g. "the-odyssey-movie-123"); /title/[id] resolves via TMDb.
+    id: routeId(m.media_type, m.tmdb_id, m.title),
     tmdb_id: m.tmdb_id,
     media_type: m.media_type,
     title: m.title,

@@ -47,3 +47,25 @@ export function initials(name: string): string {
     .join("")
     .toUpperCase();
 }
+
+/** URL-friendly slug from a title: "The Odyssey" -> "the-odyssey". */
+export function slugify(input: string): string {
+  return (input || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+    .replace(/-+$/g, "");
+}
+
+/**
+ * Public route id for a title, e.g. "the-odyssey-movie-1339713".
+ * The trailing "-{type}-{id}" is what the app parses; the leading slug is
+ * cosmetic, so URLs read like a real product instead of exposing a data source.
+ */
+export function routeId(type: "movie" | "tv", tmdbId: number, title: string): string {
+  const slug = slugify(title);
+  return slug ? `${slug}-${type}-${tmdbId}` : `${type}-${tmdbId}`;
+}

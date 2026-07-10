@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import type { Episode, MediaItem, Season } from "./types";
 import { MEDIA, MEDIA_BY_ID, SEASONS, episodesFor } from "./mock-data";
+import { routeId } from "./utils";
 
 /**
  * TMDb metadata client.
@@ -48,7 +49,7 @@ function mapMedia(r: any, type: "movie" | "tv"): MediaItem {
   const title = type === "movie" ? r.title : r.name;
   const date = type === "movie" ? r.release_date : r.first_air_date;
   return {
-    id: `tmdb_${type}_${r.id}`,
+    id: routeId(type, r.id, title ?? "Untitled"),
     tmdb_id: r.id,
     media_type: type,
     title: title ?? "Untitled",
@@ -336,11 +337,18 @@ export const searchInGenre = cache(
   },
 );
 
-/** Parse our internal id: either "tmdb_tv_1399" or a mock id "m_frontier". */
+/**
+ * Parse our internal id into a TMDb lookup. Accepts:
+ *  - the public slug form "the-odyssey-movie-1339713" (and bare "movie-1339713")
+ *  - the legacy form "tmdb_tv_1399" (older links/bookmarks still resolve)
+ * Mock ids like "m_frontier" don't match and fall back to MEDIA_BY_ID.
+ */
 function parseId(id: string): { type: "movie" | "tv"; tmdbId: number } | null {
-  const m = id.match(/^tmdb_(movie|tv)_(\d+)$/);
-  if (!m) return null;
-  return { type: m[1] as "movie" | "tv", tmdbId: Number(m[2]) };
+  const legacy = id.match(/^tmdb_(movie|tv)_(\d+)$/);
+  if (legacy) return { type: legacy[1] as "movie" | "tv", tmdbId: Number(legacy[2]) };
+  const slug = id.match(/(?:^|-)(movie|tv)-(\d+)$/);
+  if (slug) return { type: slug[1] as "movie" | "tv", tmdbId: Number(slug[2]) };
+  return null;
 }
 
 export async function getMedia(id: string): Promise<MediaItem | null> {

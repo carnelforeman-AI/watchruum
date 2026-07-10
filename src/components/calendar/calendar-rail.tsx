@@ -6,6 +6,7 @@ import { Settings, Bell } from "lucide-react";
 import { Poster } from "@/components/media/poster";
 import { CalendarRow } from "./calendar-card";
 import { useAlerts } from "./alerts-context";
+import { routeId } from "@/lib/utils";
 import type { CalendarItem, CalKind } from "@/lib/calendar-constants";
 
 const KIND_DOT: Record<CalKind, string> = {
@@ -54,7 +55,7 @@ function MyAlertsRail() {
           {list.map((a) => (
             <Link
               key={`${a.mediaType}_${a.tmdbId}`}
-              href={`/title/tmdb_${a.mediaType}_${a.tmdbId}`}
+              href={`/title/${routeId(a.mediaType, a.tmdbId, a.title)}`}
               className="flex items-center gap-3 rounded-lg p-1.5 transition-colors hover:bg-white/5"
             >
               <Poster

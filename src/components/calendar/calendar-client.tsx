@@ -12,7 +12,7 @@ import {
   Loader2,
   ChevronRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, routeId } from "@/lib/utils";
 import { loadCalendarPage, searchCalendarAction } from "@/app/calendar-actions";
 import {
   CAL_GENRES,
@@ -363,7 +363,7 @@ function MyAlertsView() {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {list.map((a) => (
         <div key={`${a.mediaType}_${a.tmdbId}`} className="glass overflow-hidden rounded-2xl border border-border-soft">
-          <a href={`/title/tmdb_${a.mediaType}_${a.tmdbId}`} className="block">
+          <a href={`/title/${routeId(a.mediaType, a.tmdbId, a.title)}`} className="block">
             {a.poster ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={a.poster} alt={a.title} className="aspect-[2/3] w-full object-cover" />

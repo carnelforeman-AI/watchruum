@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { routeId } from "./utils";
 import { tmdbGet, tmdbImg, TMDB_GENRE_NAMES, isTmdbConfigured } from "./tmdb";
 import {
   CAL_GENRES,
@@ -62,7 +63,7 @@ function mapCal(r: any, mediaType: "movie" | "tv", kind: CalKind): CalendarItem 
   const title = mediaType === "movie" ? r.title : r.name;
   const date = mediaType === "movie" ? r.release_date : r.first_air_date;
   return {
-    id: `tmdb_${mediaType}_${r.id}`,
+    id: routeId(mediaType, r.id, title ?? "Untitled"),
     tmdbId: r.id,
     mediaType,
     kind,

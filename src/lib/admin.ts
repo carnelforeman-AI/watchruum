@@ -697,7 +697,7 @@ export type RoomStatus = "active" | "trending" | "new" | "reported" | "locked" |
 
 export interface AdminRoomRow {
   id: string;
-  media_id: string; // route id (tmdb_movie_123 style) for linking
+  media_id: string; // public route id (slug form, e.g. "the-odyssey-movie-123") for linking
   title: string;
   poster_url: string | null;
   media_type: MediaType;
