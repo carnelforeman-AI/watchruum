@@ -245,8 +245,36 @@ export async function setProfilePrivacy(isPrivate: boolean): Promise<Result> {
 }
 
 /** Like / unlike a review (or comment). Counts are derived from reactions. */
+export async function postPersonComment(
+  personTmdbId: number,
+  personName: string,
+  body: string,
+  hasSpoiler: boolean,
+): Promise<Result & { id?: string }> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  if (BLOCK_COMMENT.has(await accountStatus(ctx.supabase, ctx.userId)))
+    return { ok: false, error: "Your account can't post right now." };
+  const text = cleanText(body, 4000);
+  if (!text) return { ok: false, error: "Message is empty." };
+  if (!Number.isFinite(personTmdbId) || personTmdbId <= 0)
+    return { ok: false, error: "Unknown person." };
+  const { data, error } = await ctx.supabase
+    .from("person_comments")
+    .insert({
+      user_id: ctx.userId,
+      person_tmdb_id: personTmdbId,
+      person_name: cleanText(personName, 200) || null,
+      body: text,
+      has_spoiler: !!hasSpoiler,
+    })
+    .select("id")
+    .single();
+  return { ok: !error, id: data?.id, error: error?.message };
+}
+
 export async function toggleReaction(
-  targetType: "review" | "comment",
+  targetType: "review" | "comment" | "person_comment",
   targetId: string,
   liked: boolean,
 ): Promise<Result> {

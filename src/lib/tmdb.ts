@@ -390,6 +390,62 @@ export async function getCredits(id: string, limit = 20): Promise<CastMember[]> 
   }
 }
 
+export interface PersonDetail {
+  id: number;
+  name: string;
+  biography: string;
+  profile_url: string | null;
+  known_for: string | null;
+  birthday: string | null;
+  place_of_birth: string | null;
+}
+
+const personId = (id: string): number => Number(String(id).match(/(\d+)$/)?.[1] ?? "");
+
+/** Full details for a cast member (bio, headshot, department, birth info). */
+export async function getPerson(id: string): Promise<PersonDetail | null> {
+  const tmdbId = personId(id);
+  if (!tmdbId) return null;
+  try {
+    const r = await tmdb<any>(`/person/${tmdbId}`);
+    return {
+      id: r.id,
+      name: r.name ?? "Unknown",
+      biography: r.biography ?? "",
+      profile_url: img(r.profile_path, "w342"),
+      known_for: r.known_for_department ?? null,
+      birthday: r.birthday ?? null,
+      place_of_birth: r.place_of_birth ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Other movies & shows this person is in, most popular first (deduped). */
+export async function getPersonCredits(id: string, limit = 16): Promise<MediaItem[]> {
+  const tmdbId = personId(id);
+  if (!tmdbId) return [];
+  try {
+    const r = await tmdb<{ cast?: any[] }>(`/person/${tmdbId}/combined_credits`);
+    const sorted = (r.cast ?? [])
+      .filter((c) => (c.media_type === "movie" || c.media_type === "tv") && c.poster_path)
+      .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+    const items: MediaItem[] = [];
+    const seen = new Set<string>();
+    for (const c of sorted) {
+      const key = `${c.media_type}_${c.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push(mapMedia(c, c.media_type));
+      if (items.length >= limit) break;
+    }
+    return items;
+  } catch {
+    return [];
+  }
+}
+
 export async function getSeasons(id: string): Promise<Season[]> {
   const parsed = parseId(id);
   if (!parsed) return SEASONS.filter((s) => s.media_id === id);

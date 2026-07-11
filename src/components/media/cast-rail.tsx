@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { posterGradient, initials } from "@/lib/utils";
@@ -72,8 +73,8 @@ export function CastRail({ cast }: { cast: CastPerson[] }) {
         className="no-scrollbar flex gap-4 overflow-x-auto pb-2"
       >
         {cast.map((c) => (
-          <div key={c.id} className="w-[132px] shrink-0">
-            <div className="relative h-40 w-[132px] overflow-hidden rounded-xl ring-1 ring-border">
+          <Link key={c.id} href={`/person/${c.id}`} className="group w-[132px] shrink-0">
+            <div className="relative h-40 w-[132px] overflow-hidden rounded-xl ring-1 ring-border transition group-hover:ring-2 group-hover:ring-primary/50">
               {c.profile_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={c.profile_url} alt={c.name} className="h-full w-full object-cover" />
@@ -86,11 +87,13 @@ export function CastRail({ cast }: { cast: CastPerson[] }) {
                 </div>
               )}
             </div>
-            <p className="mt-2 truncate text-sm font-bold">{c.name}</p>
+            <p className="mt-2 truncate text-sm font-bold transition-colors group-hover:text-primary">
+              {c.name}
+            </p>
             {c.character && (
               <p className="truncate text-[11px] uppercase tracking-wide text-muted">{c.character}</p>
             )}
-          </div>
+          </Link>
         ))}
       </div>
     </div>

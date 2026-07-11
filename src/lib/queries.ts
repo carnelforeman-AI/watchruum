@@ -625,6 +625,60 @@ export const getReviewsForMedia = cache(
   },
 );
 
+export interface PersonComment {
+  id: string;
+  author_name: string;
+  author_avatar: string | null;
+  body: string;
+  has_spoiler: boolean;
+  like_count: number;
+  liked_by_me: boolean;
+  created_at: string;
+}
+
+/** Fan comments on a single actor (newest first), with like counts. */
+export const getPersonComments = cache(async (personTmdbId: number): Promise<PersonComment[]> => {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: rows } = await supabase
+    .from("person_comments")
+    .select("id, body, has_spoiler, created_at, author:profiles(display_name, avatar_url)")
+    .eq("person_tmdb_id", personTmdbId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const list = (rows ?? []) as any[];
+  const ids = list.map((r) => r.id);
+  const counts = new Map<string, number>();
+  const mine = new Set<string>();
+  if (ids.length) {
+    const { data: reacts } = await supabase
+      .from("reactions")
+      .select("target_id, user_id")
+      .eq("target_type", "person_comment")
+      .in("target_id", ids);
+    for (const r of (reacts ?? []) as any[]) {
+      counts.set(r.target_id, (counts.get(r.target_id) ?? 0) + 1);
+      if (user && r.user_id === user.id) mine.add(r.target_id);
+    }
+  }
+
+  return list.map((r) => ({
+    id: r.id,
+    author_name: r.author?.display_name ?? "User",
+    author_avatar: r.author?.avatar_url ?? null,
+    body: r.body,
+    has_spoiler: !!r.has_spoiler,
+    like_count: counts.get(r.id) ?? 0,
+    liked_by_me: mine.has(r.id),
+    created_at: r.created_at,
+  }));
+});
+
 /** Recent spoiler-free reviews across the app, for the home feed. */
 export const getPopularReviews = cache(async (limit = 2): Promise<Review[]> => {
   const supabase = await createClient();
