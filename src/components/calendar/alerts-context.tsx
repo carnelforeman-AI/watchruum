@@ -24,7 +24,7 @@ interface AlertsCtx {
   interest: Record<string, number>;
   isAlerted: (mediaType: string, tmdbId: number) => boolean;
   toggle: (e: AlertEntry) => void;
-  fans: (mediaType: string, tmdbId: number, base: number) => number;
+  fans: (mediaType: string, tmdbId: number) => number;
   watchlist: Set<string>;
   toggleWatch: (m: MediaItem) => void;
 }
@@ -65,14 +65,21 @@ export function AlertsProvider({
     });
   }, []);
 
+  // Titles the viewer already had alerts on at load are already inside the DB
+  // `interest` counts, so we only apply a +/-1 delta for toggles made this
+  // session. Real subscriber count only — no seeded base, no double-count.
+  const initialKeys = useMemo(
+    () => new Set(initialAlerts.map((a) => alertKey(a.mediaType, a.tmdbId))),
+    [initialAlerts],
+  );
   const fans = useCallback(
-    (mt: string, id: number, base: number) => {
+    (mt: string, id: number) => {
       const key = alertKey(mt, id);
       const real = interest[key] ?? 0;
-      const mine = alerts.has(key) ? 1 : 0;
-      return base + real + mine;
+      const delta = (alerts.has(key) ? 1 : 0) - (initialKeys.has(key) ? 1 : 0);
+      return Math.max(0, real + delta);
     },
-    [alerts, interest],
+    [alerts, interest, initialKeys],
   );
 
   const toggleWatch = useCallback((m: MediaItem) => {

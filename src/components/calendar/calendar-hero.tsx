@@ -20,7 +20,7 @@ export function CalendarHero({ items }: { items: CalendarItem[] }) {
 
   if (items.length === 0) return null;
   const item = items[Math.min(i, items.length - 1)];
-  const total = fans(item.mediaType, item.tmdbId, item.fans);
+  const total = fans(item.mediaType, item.tmdbId);
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border-soft">

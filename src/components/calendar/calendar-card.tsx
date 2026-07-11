@@ -54,7 +54,7 @@ function TrailerButton({ item }: { item: CalendarItem }) {
 
 export function CalendarCard({ item, rank }: { item: CalendarItem; rank?: number }) {
   const { fans } = useAlerts();
-  const total = fans(item.mediaType, item.tmdbId, item.fans);
+  const total = fans(item.mediaType, item.tmdbId);
 
   return (
     <div className="glass-hover group flex flex-col overflow-hidden rounded-2xl border border-border-soft">
