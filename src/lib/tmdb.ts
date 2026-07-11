@@ -359,6 +359,37 @@ export async function getMedia(id: string): Promise<MediaItem | null> {
   return mapMedia(r, type);
 }
 
+export interface CastMember {
+  id: number;
+  name: string;
+  character: string;
+  profile_url: string | null;
+}
+
+/**
+ * Top-billed cast for a title, with headshot URLs (w185). Falls back to an
+ * empty list for the offline mock catalog or on any TMDb error, so the page
+ * degrades gracefully to placeholder avatars.
+ */
+export async function getCredits(id: string, limit = 20): Promise<CastMember[]> {
+  const parsed = parseId(id);
+  if (!parsed) return [];
+  const { type, tmdbId } = parsed;
+  try {
+    const r = await tmdb<{ cast?: any[] }>(`/${type}/${tmdbId}/credits`);
+    return (r.cast ?? [])
+      .slice(0, limit)
+      .map((c) => ({
+        id: c.id,
+        name: c.name ?? c.original_name ?? "Unknown",
+        character: c.character ?? c.roles?.[0]?.character ?? "",
+        profile_url: img(c.profile_path, "w185"),
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getSeasons(id: string): Promise<Season[]> {
   const parsed = parseId(id);
   if (!parsed) return SEASONS.filter((s) => s.media_id === id);
