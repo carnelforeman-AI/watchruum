@@ -248,6 +248,65 @@ export async function setProfilePrivacy(isPrivate: boolean): Promise<Result> {
   return { ok: !error, error: error?.message };
 }
 
+export interface MemberResult {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  genres: string[];
+  followed: boolean;
+}
+
+/**
+ * Live member search for the Find Friends page — matches display name or
+ * @username, newest first. Empty query returns recent members. Marks who the
+ * caller already follows. Input is sanitized before it hits the PostgREST
+ * filter grammar.
+ */
+export async function searchMembers(query: string): Promise<MemberResult[]> {
+  const ctx = await authed();
+  if (!ctx) return [];
+  const q = (query ?? "").replace(/[,().%*:\\"'`]/g, " ").replace(/[ -]/g, " ").trim().slice(0, 40);
+
+  let sel = ctx.supabase
+    .from("profiles")
+    .select("id, username, display_name, avatar_url, bio, favorite_genres")
+    .neq("id", ctx.userId);
+  if (q) sel = sel.or(`display_name.ilike.%${q}%,username.ilike.%${q}%`);
+  const { data } = await sel.order("created_at", { ascending: false }).limit(30);
+
+  const rows = ((data as {
+    id: string;
+    username: string | null;
+    display_name: string | null;
+    avatar_url: string | null;
+    bio: string | null;
+    favorite_genres: string[] | null;
+  }[] | null) ?? []).filter((p) => p.username);
+
+  const ids = rows.map((r) => r.id);
+  const followed = new Set<string>();
+  if (ids.length) {
+    const { data: fol } = await ctx.supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", ctx.userId)
+      .in("following_id", ids);
+    for (const f of (fol as { following_id: string }[] | null) ?? []) followed.add(f.following_id);
+  }
+
+  return rows.map((p) => ({
+    id: p.id,
+    username: p.username as string,
+    display_name: p.display_name ?? "Member",
+    avatar_url: p.avatar_url ?? null,
+    bio: p.bio ?? null,
+    genres: p.favorite_genres ?? [],
+    followed: followed.has(p.id),
+  }));
+}
+
 /**
  * Follow or unfollow another member. Writes to the `follows` table (RLS lets a
  * user manage only their own follow rows). Used by the Find Friends page.
