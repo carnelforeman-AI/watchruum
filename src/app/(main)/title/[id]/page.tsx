@@ -14,9 +14,10 @@ import { getMedia, getSeasons, getCredits } from "@/lib/tmdb";
 import { Poster } from "@/components/media/poster";
 import { Badge } from "@/components/ui/badge";
 import { TitleActions, ShowRating } from "@/components/media/title-actions";
+import { CastRail } from "@/components/media/cast-rail";
 import { ReviewsSection } from "@/components/review/reviews-section";
 import { getReviewsForMedia } from "@/lib/queries";
-import { posterGradient, compact, initials } from "@/lib/utils";
+import { posterGradient, compact } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -175,31 +176,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold">Cast</h2>
           </div>
-          <div className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:px-0">
-            {cast.map((c) => (
-              <div key={c.id} className="w-[132px] shrink-0">
-                <div className="relative h-40 w-[132px] overflow-hidden rounded-xl ring-1 ring-border">
-                  {c.profile_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={c.profile_url} alt={c.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <div
-                      className="grid h-full w-full place-items-center text-2xl font-extrabold text-white/85"
-                      style={{ background: posterGradient(c.name) }}
-                    >
-                      {initials(c.name)}
-                    </div>
-                  )}
-                </div>
-                <p className="mt-2 truncate text-sm font-bold">{c.name}</p>
-                {c.character && (
-                  <p className="truncate text-[11px] uppercase tracking-wide text-muted">
-                    {c.character}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+          <CastRail cast={cast} />
         </section>
       )}
 
