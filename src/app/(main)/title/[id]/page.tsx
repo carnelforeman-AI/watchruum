@@ -10,11 +10,12 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
-import { getMedia, getSeasons, getCredits } from "@/lib/tmdb";
+import { getMedia, getSeasons, getCredits, getRecommendations } from "@/lib/tmdb";
 import { Poster } from "@/components/media/poster";
 import { Badge } from "@/components/ui/badge";
 import { TitleActions, ShowRating } from "@/components/media/title-actions";
 import { CastRail } from "@/components/media/cast-rail";
+import { PosterRail } from "@/components/media/poster-rail";
 import { ReviewsSection } from "@/components/review/reviews-section";
 import { getReviewsForMedia } from "@/lib/queries";
 import { posterGradient, compact } from "@/lib/utils";
@@ -33,10 +34,11 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
   if (!media) notFound();
 
   const isTv = media.media_type === "tv";
-  const [seasons, reviews, cast] = await Promise.all([
+  const [seasons, reviews, cast, alsoWatch] = await Promise.all([
     isTv ? getSeasons(id) : Promise.resolve([]),
     getReviewsForMedia(media.tmdb_id, media.media_type),
     getCredits(id, 20),
+    getRecommendations(id, 16),
   ]);
 
   const members = compact(1200 + (media.tmdb_id % 5000));
@@ -177,6 +179,16 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
             <h2 className="text-xl font-bold">Cast</h2>
           </div>
           <CastRail cast={cast} />
+        </section>
+      )}
+
+      {/* People also watch */}
+      {alsoWatch.length > 0 && (
+        <section className="mt-8">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-bold">People also watch</h2>
+          </div>
+          <PosterRail items={alsoWatch} />
         </section>
       )}
 

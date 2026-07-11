@@ -390,6 +390,33 @@ export async function getCredits(id: string, limit = 20): Promise<CastMember[]> 
   }
 }
 
+/**
+ * "People also watch" — TMDb's behavior-based recommendations for a title
+ * (stronger than /similar). Returns mapped MediaItems, deduped, poster-only.
+ */
+export async function getRecommendations(id: string, limit = 16): Promise<MediaItem[]> {
+  const parsed = parseId(id);
+  if (!parsed) return [];
+  const { type, tmdbId } = parsed;
+  try {
+    const r = await tmdb<{ results?: any[] }>(`/${type}/${tmdbId}/recommendations`);
+    const items: MediaItem[] = [];
+    const seen = new Set<string>();
+    for (const c of r.results ?? []) {
+      const mt: "movie" | "tv" = c.media_type === "movie" || c.media_type === "tv" ? c.media_type : type;
+      if (!c.poster_path) continue;
+      const key = `${mt}_${c.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push(mapMedia(c, mt));
+      if (items.length >= limit) break;
+    }
+    return items;
+  } catch {
+    return [];
+  }
+}
+
 export interface PersonDetail {
   id: number;
   name: string;
