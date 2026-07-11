@@ -9,6 +9,7 @@ import {
   Lock,
   ShieldCheck,
   Users,
+  Clock,
 } from "lucide-react";
 import { getMedia, getSeasons, getCredits, getRecommendations } from "@/lib/tmdb";
 import { Poster } from "@/components/media/poster";
@@ -24,6 +25,12 @@ import { absoluteUrl, SITE_NAME } from "@/lib/site";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+function fmtRuntime(m: number): string {
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return h ? `${h}h ${min}m` : `${min}m`;
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -86,7 +93,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
       <JsonLd data={titleJsonLd} />
       {/* Backdrop */}
-      <div className="relative -mx-4 -mt-6 mb-6 h-56 overflow-hidden md:-mx-6 md:h-80">
+      <div className="relative -mx-4 -mt-6 mb-6 h-64 overflow-hidden md:-mx-6 md:h-96">
         <div className="absolute inset-0" style={{ background: posterGradient(media.title) }} />
         {media.backdrop_url && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -97,14 +104,15 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Hero */}
-      <div className="relative z-10 -mt-16 grid gap-6 md:-mt-24 lg:grid-cols-[176px_1fr_260px]">
+      <div className="relative z-10 -mt-16 grid gap-6 md:-mt-24 lg:grid-cols-[208px_1fr_260px]">
         {/* Poster */}
-        <div className="flex flex-col items-center gap-3 lg:items-start">
+        <div className="-mt-8 flex flex-col items-center gap-3 md:-mt-14 lg:items-start">
           <Poster
             title={media.title}
             src={media.poster_url}
             showTitle={!media.poster_url}
-            className="h-64 w-44 shrink-0"
+            rounded="rounded-2xl"
+            className="h-72 w-48 shrink-0 shadow-2xl ring-1 ring-white/10 md:h-80 md:w-52"
           />
         </div>
 
@@ -153,6 +161,16 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
             <span className="flex items-center gap-1.5">
               <Users className="size-4" /> {members} tracking
             </span>
+            {media.certification && (
+              <span className="rounded border border-border px-1.5 py-0.5 text-[11px] font-bold text-foreground/80">
+                {media.certification}
+              </span>
+            )}
+            {media.runtime ? (
+              <span className="flex items-center gap-1.5">
+                <Clock className="size-4" /> {fmtRuntime(media.runtime)}
+              </span>
+            ) : null}
           </div>
 
           {media.overview && (

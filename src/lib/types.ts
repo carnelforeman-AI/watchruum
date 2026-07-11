@@ -20,6 +20,8 @@ export interface MediaItem {
   genres: string[];
   vote_average: number; // TMDb 0-10
   number_of_seasons?: number;
+  runtime?: number | null; // minutes (movie total, or a TV episode)
+  certification?: string | null; // e.g. "PG", "TV-14"
 }
 
 export interface Season {

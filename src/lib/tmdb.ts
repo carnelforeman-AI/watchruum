@@ -355,8 +355,19 @@ export async function getMedia(id: string): Promise<MediaItem | null> {
   const parsed = parseId(id);
   if (!parsed) return MEDIA_BY_ID[id] ?? null;
   const { type, tmdbId } = parsed;
-  const r = await tmdb<any>(`/${type}/${tmdbId}`);
-  return mapMedia(r, type);
+  const append = type === "movie" ? "release_dates" : "content_ratings";
+  const r = await tmdb<any>(`/${type}/${tmdbId}`, { append_to_response: append });
+  const media = mapMedia(r, type);
+  // Runtime (minutes) and US age certification, from the same detail call.
+  media.runtime = type === "movie" ? r.runtime ?? null : r.episode_run_time?.[0] ?? null;
+  if (type === "movie") {
+    const us = (r.release_dates?.results ?? []).find((x: any) => x.iso_3166_1 === "US");
+    media.certification = us?.release_dates?.find((d: any) => d.certification)?.certification || null;
+  } else {
+    const us = (r.content_ratings?.results ?? []).find((x: any) => x.iso_3166_1 === "US");
+    media.certification = us?.rating || null;
+  }
+  return media;
 }
 
 export interface CastMember {
