@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Avatar } from "@/components/ui/avatar";
@@ -63,7 +63,17 @@ export function RightRail({
       {/* Combined Friends panel: Online (65%) + Activity (35%) */}
       <Card>
         <div className="flex items-center justify-between p-5 pb-3">
-          <h3 className="text-base font-semibold">Friends Online</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold">Friends Online</h3>
+            <Link
+              href="/friends"
+              aria-label="Add friends"
+              title="Add friends"
+              className="grid size-6 place-items-center rounded-full border border-primary/40 bg-primary/10 text-primary transition-colors hover:bg-primary/20"
+            >
+              <Plus className="size-3.5" />
+            </Link>
+          </div>
           <Link href="/activity" className="text-[12px] font-semibold text-primary hover:underline">
             View all
           </Link>

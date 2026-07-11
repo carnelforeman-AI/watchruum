@@ -249,6 +249,30 @@ export async function setProfilePrivacy(isPrivate: boolean): Promise<Result> {
 }
 
 /**
+ * Follow or unfollow another member. Writes to the `follows` table (RLS lets a
+ * user manage only their own follow rows). Used by the Find Friends page.
+ */
+export async function toggleFollow(targetUserId: string, follow: boolean): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  if (!targetUserId || targetUserId === ctx.userId)
+    return { ok: false, error: "You can't follow yourself." };
+  if (follow) {
+    const { error } = await ctx.supabase
+      .from("follows")
+      .insert({ follower_id: ctx.userId, following_id: targetUserId });
+    // Ignore duplicate-follow errors (already following).
+    return { ok: !error || error.code === "23505", error: error?.code === "23505" ? undefined : error?.message };
+  }
+  const { error } = await ctx.supabase
+    .from("follows")
+    .delete()
+    .eq("follower_id", ctx.userId)
+    .eq("following_id", targetUserId);
+  return { ok: !error, error: error?.message };
+}
+
+/**
  * Save the caller's preferred language. Posts/comments/reviews in other
  * languages are then auto-translated for them. `null` clears the preference
  * (falls back to the browser language).

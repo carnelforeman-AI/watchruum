@@ -1,0 +1,117 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
+import { Search, UserPlus, UserCheck, Users } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+import { toggleFollow } from "@/app/actions";
+
+export interface Person {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  genres: string[];
+  followed: boolean;
+}
+
+export function FriendsDirectory({ people, signedIn }: { people: Person[]; signedIn: boolean }) {
+  const [q, setQ] = useState("");
+  const [follows, setFollows] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(people.map((p) => [p.id, p.followed])),
+  );
+  const [, start] = useTransition();
+
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return people;
+    return people.filter(
+      (p) => p.display_name.toLowerCase().includes(t) || p.username.toLowerCase().includes(t),
+    );
+  }, [q, people]);
+
+  function toggle(p: Person) {
+    const next = !follows[p.id];
+    setFollows((f) => ({ ...f, [p.id]: next }));
+    start(() => {
+      void toggleFollow(p.id, next);
+    });
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-6 md:px-6">
+      <div className="mb-1 flex items-center gap-2">
+        <Users className="size-6 text-primary" />
+        <h1 className="text-2xl font-extrabold tracking-tight">Find Friends</h1>
+      </div>
+      <p className="mb-5 text-[13px] text-muted-2">
+        Follow other fans to see their activity and watch alongside people at your episode.
+      </p>
+
+      <div className="relative mb-6 max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-2" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search members by name or @username…"
+          className="w-full rounded-xl border border-border bg-white/[0.03] py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-primary/60"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="glass grid place-items-center rounded-2xl py-16 text-center">
+          <Users className="mb-2 size-8 text-muted-2" />
+          <p className="font-semibold">No members found</p>
+          <p className="mt-1 text-[13px] text-muted-2">
+            {people.length === 0 ? "No other members yet — invite some friends!" : "Try a different search."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {filtered.map((p) => {
+            const following = follows[p.id];
+            return (
+              <div key={p.id} className="glass flex items-center gap-3 rounded-2xl p-4">
+                <Link href={`/u/${p.username}`} className="shrink-0">
+                  <Avatar name={p.display_name} src={p.avatar_url} />
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <Link href={`/u/${p.username}`} className="block">
+                    <p className="truncate text-sm font-bold hover:underline">{p.display_name}</p>
+                    <p className="truncate text-[12px] text-muted-2">@{p.username}</p>
+                  </Link>
+                  {p.genres.length > 0 && (
+                    <p className="mt-1 truncate text-[11.5px] text-muted-2">{p.genres.slice(0, 3).join(" · ")}</p>
+                  )}
+                </div>
+                {signedIn && (
+                  <button
+                    onClick={() => toggle(p)}
+                    className={cn(
+                      "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-[12.5px] font-semibold transition-colors",
+                      following
+                        ? "border border-border bg-white/[0.03] text-muted hover:text-foreground"
+                        : "bg-primary text-white hover:bg-primary-strong",
+                    )}
+                  >
+                    {following ? (
+                      <>
+                        <UserCheck className="size-3.5" /> Following
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="size-3.5" /> Follow
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
