@@ -17,7 +17,15 @@ export interface Person {
   followed: boolean;
 }
 
-export function FriendsDirectory({ people, signedIn }: { people: Person[]; signedIn: boolean }) {
+export function FriendsDirectory({
+  people,
+  signedIn,
+  embedded = false,
+}: {
+  people: Person[];
+  signedIn: boolean;
+  embedded?: boolean;
+}) {
   const [q, setQ] = useState("");
   const [list, setList] = useState<Person[]>(people);
   const [searching, setSearching] = useState(false);
@@ -55,14 +63,18 @@ export function FriendsDirectory({ people, signedIn }: { people: Person[]; signe
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 md:px-6">
-      <div className="mb-1 flex items-center gap-2">
-        <Users className="size-6 text-primary" />
-        <h1 className="text-2xl font-extrabold tracking-tight">Find Friends</h1>
-      </div>
-      <p className="mb-5 text-[13px] text-muted-2">
-        Follow other fans to see their activity and watch alongside people at your episode.
-      </p>
+    <div className={embedded ? "" : "mx-auto max-w-4xl px-4 py-6 md:px-6"}>
+      {!embedded && (
+        <>
+          <div className="mb-1 flex items-center gap-2">
+            <Users className="size-6 text-primary" />
+            <h1 className="text-2xl font-extrabold tracking-tight">Find Friends</h1>
+          </div>
+          <p className="mb-5 text-[13px] text-muted-2">
+            Follow other fans to see their activity and watch alongside people at your episode.
+          </p>
+        </>
+      )}
 
       <div className="relative mb-6 max-w-md">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-2" />

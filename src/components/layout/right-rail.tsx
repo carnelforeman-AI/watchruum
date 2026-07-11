@@ -74,7 +74,7 @@ export function RightRail({
               <Plus className="size-3.5" />
             </Link>
           </div>
-          <Link href="/activity" className="text-[12px] font-semibold text-primary hover:underline">
+          <Link href="/friends" className="text-[12px] font-semibold text-primary hover:underline">
             View all
           </Link>
         </div>
