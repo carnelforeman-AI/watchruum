@@ -1,12 +1,11 @@
 import { Fragment } from "react";
 import Link from "next/link";
-import { ShieldCheck, Plus } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Poster } from "@/components/media/poster";
-import { cn, timeAgo } from "@/lib/utils";
+import { FriendsRailPanel } from "@/components/layout/friends-rail-panel";
 import { spoilerMeta } from "@/lib/spoiler";
 import type { SpoilerState, ActivityEvent } from "@/lib/types";
 import type { LibraryItem, FriendOnline } from "@/lib/queries";
@@ -61,71 +60,7 @@ export function RightRail({
       </RailCard>
 
       {/* Combined Friends panel: Online (65%) + Activity (35%) */}
-      <Card>
-        <div className="flex items-center justify-between p-5 pb-3">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold">Friends Online</h3>
-            <Link
-              href="/friends"
-              aria-label="Add friends"
-              title="Add friends"
-              className="grid size-6 place-items-center rounded-full border border-primary/40 bg-primary/10 text-primary transition-colors hover:bg-primary/20"
-            >
-              <Plus className="size-3.5" />
-            </Link>
-          </div>
-          <Link href="/friends" className="text-[12px] font-semibold text-primary hover:underline">
-            View all
-          </Link>
-        </div>
-        <div className="flex h-[420px] flex-col px-2 pb-3">
-          {/* Friends online — 65% */}
-          <div className="min-h-0 flex-[65] overflow-y-auto px-3 no-scrollbar">
-            <div className="space-y-3">
-              {friendsOnline.map((f, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <Avatar name={f.name} src={f.avatar} size="sm" />
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 text-[13px] font-semibold">
-                      <span
-                        className={cn(
-                          "size-2 shrink-0 rounded-full",
-                          f.status === "online" ? "bg-safe" : "bg-warn",
-                        )}
-                      />
-                      <span className="truncate">{f.name}</span>
-                    </p>
-                    <p className="truncate text-[12px] text-muted-2">In {f.room} Room</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Friend activity — 35% */}
-          <div className="mt-2 min-h-0 flex-[35] overflow-y-auto border-t border-border px-3 pt-3 no-scrollbar">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-2">
-              Recent Activity
-            </p>
-            <div className="space-y-3">
-              {friendActivity.map((a) => (
-                <div key={a.id} className="flex items-start gap-3">
-                  <Avatar name={a.actor.display_name} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] leading-tight">
-                      <span className="font-semibold">{a.actor.display_name}</span>{" "}
-                      <span className="text-muted">{a.verb}</span>
-                      {a.score ? <span className="ml-1 font-semibold text-warn">★ {a.score}/10</span> : null}
-                    </p>
-                    <p className="truncate text-[12px] text-muted-2">{a.target}</p>
-                  </div>
-                  <span className="shrink-0 text-[11px] text-muted-2">{timeAgo(a.created_at)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Card>
+      <FriendsRailPanel friendsOnline={friendsOnline} friendActivity={friendActivity} />
 
       <Card>
         <div className="p-5 pb-3">
