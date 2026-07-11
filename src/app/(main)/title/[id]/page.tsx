@@ -97,7 +97,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Hero */}
-      <div className="relative z-10 -mt-20 grid gap-6 md:-mt-32 lg:grid-cols-[176px_1fr_260px]">
+      <div className="relative z-10 -mt-16 grid gap-6 md:-mt-24 lg:grid-cols-[176px_1fr_260px]">
         {/* Poster */}
         <div className="flex flex-col items-center gap-3 lg:items-start">
           <Poster
