@@ -245,7 +245,7 @@ function Leaderboard({ rooms }: { rooms: WatchRoom[] }) {
           </li>
         ))}
       </ol>
-      <Link href="#" className="mt-3 flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
+      <Link href="/leaderboard" className="mt-3 flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
         View Full Leaderboard <ChevronRight className="size-3.5" />
       </Link>
     </RailPanel>
