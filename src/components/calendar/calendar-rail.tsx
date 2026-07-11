@@ -16,21 +16,28 @@ const KIND_DOT: Record<CalKind, string> = {
   new_episode: "bg-safe",
 };
 
+const KIND_LABEL: Record<CalKind, string> = {
+  movie: "Movie",
+  series: "New Show",
+  new_season: "New Season",
+  new_episode: "New Episode",
+};
+
 export function CalendarRail({
   byGenre,
   theaters,
-  marks,
+  events,
 }: {
   byGenre: { name: string; count: number }[];
   theaters: CalendarItem[];
-  marks: { date: string; kind: CalKind }[];
+  events: CalendarItem[];
 }) {
   return (
     <div className="hidden w-[320px] shrink-0 flex-col gap-4 xl:flex">
       <MyAlertsRail />
       <PopularGenres byGenre={byGenre} />
       <ComingToTheaters theaters={theaters} />
-      <ReleaseCalendar marks={marks} />
+      <ReleaseCalendar events={events} />
     </div>
   );
 }
@@ -132,24 +139,39 @@ function ComingToTheaters({ theaters }: { theaters: CalendarItem[] }) {
 
 const WD = ["S", "M", "T", "W", "T", "F", "S"];
 
-function ReleaseCalendar({ marks }: { marks: { date: string; kind: CalKind }[] }) {
+function ReleaseCalendar({ events }: { events: CalendarItem[] }) {
   const [offset, setOffset] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
   const base = new Date();
   const view = new Date(base.getFullYear(), base.getMonth() + offset, 1);
   const year = view.getFullYear();
   const month = view.getMonth();
   const first = new Date(year, month, 1).getDay();
   const days = new Date(year, month + 1, 0).getDate();
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}-`;
   const todayIso = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-${String(base.getDate()).padStart(2, "0")}`;
 
-  const markByDay = new Map<number, CalKind>();
-  for (const m of marks) {
-    if (m.date.startsWith(`${year}-${String(month + 1).padStart(2, "0")}-`)) {
-      markByDay.set(Number(m.date.slice(8, 10)), m.kind);
+  // Group this month's dated releases by ISO day.
+  const byDay = new Map<string, CalendarItem[]>();
+  for (const it of events) {
+    if (it.releaseDate && it.releaseDate.startsWith(monthPrefix)) {
+      const arr = byDay.get(it.releaseDate) ?? [];
+      arr.push(it);
+      byDay.set(it.releaseDate, arr);
     }
   }
 
   const cells: (number | null)[] = [...Array(first).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+
+  const goMonth = (d: number) => {
+    setOffset((o) => o + d);
+    setSelected(null);
+  };
+
+  const selItems = selected ? byDay.get(selected) ?? [] : [];
+  const selLabel = selected
+    ? new Date(`${selected}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+    : "";
 
   return (
     <section className="glass rounded-2xl p-4">
@@ -157,11 +179,11 @@ function ReleaseCalendar({ marks }: { marks: { date: string; kind: CalKind }[] }
         <h3 className="text-[15px] font-bold">Release Calendar</h3>
       </div>
       <div className="mb-2 flex items-center justify-between">
-        <button onClick={() => setOffset((o) => o - 1)} className="rounded-md px-2 py-1 text-muted-2 hover:text-foreground">
+        <button onClick={() => goMonth(-1)} className="rounded-md px-2 py-1 text-muted-2 hover:text-foreground">
           ‹
         </button>
         <span className="text-[13px] font-semibold">{view.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span>
-        <button onClick={() => setOffset((o) => o + 1)} className="rounded-md px-2 py-1 text-muted-2 hover:text-foreground">
+        <button onClick={() => goMonth(1)} className="rounded-md px-2 py-1 text-muted-2 hover:text-foreground">
           ›
         </button>
       </div>
@@ -173,24 +195,38 @@ function ReleaseCalendar({ marks }: { marks: { date: string; kind: CalKind }[] }
         ))}
         {cells.map((c, i) => {
           if (c === null) return <span key={i} />;
-          const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(c).padStart(2, "0")}`;
-          const kind = markByDay.get(c);
+          const iso = `${monthPrefix}${String(c).padStart(2, "0")}`;
+          const dayItems = byDay.get(iso);
+          const kinds = dayItems ? Array.from(new Set(dayItems.map((x) => x.kind))) : [];
           const isToday = iso === todayIso;
+          const isSel = iso === selected;
           return (
-            <span
+            <button
               key={i}
-              className={`relative grid h-7 place-items-center rounded-md text-[12px] ${
-                isToday ? "bg-primary font-bold text-white" : "text-foreground/80"
+              type="button"
+              onClick={() => setSelected((s) => (s === iso ? null : iso))}
+              aria-pressed={isSel}
+              className={`relative grid h-7 place-items-center rounded-md text-[12px] transition-colors ${
+                isSel
+                  ? "bg-primary font-bold text-white ring-2 ring-primary/50"
+                  : isToday
+                    ? "bg-primary/25 font-bold text-white ring-1 ring-primary/40"
+                    : "text-foreground/80 hover:bg-white/10"
               }`}
             >
               {c}
-              {kind && !isToday && (
-                <span className={`absolute bottom-0.5 size-1 rounded-full ${KIND_DOT[kind]}`} />
+              {kinds.length > 0 && !isSel && (
+                <span className="absolute bottom-0.5 flex gap-0.5">
+                  {kinds.slice(0, 3).map((k) => (
+                    <span key={k} className={`size-1 rounded-full ${KIND_DOT[k]}`} />
+                  ))}
+                </span>
               )}
-            </span>
+            </button>
           );
         })}
       </div>
+
       <div className="mt-3 space-y-1 text-[11px] text-muted-2">
         <p className="flex items-center gap-1.5">
           <span className="size-2 rounded-full bg-safe" /> New Episodes
@@ -202,6 +238,40 @@ function ReleaseCalendar({ marks }: { marks: { date: string; kind: CalKind }[] }
           <span className="size-2 rounded-full bg-primary" /> Movies
         </p>
       </div>
+
+      {selected && (
+        <div className="mt-3 border-t border-border pt-3">
+          <p className="mb-2 text-[12px] font-bold">{selLabel}</p>
+          {selItems.length === 0 ? (
+            <p className="py-1 text-[12px] text-muted-2">No releases scheduled this day.</p>
+          ) : (
+            <div className="space-y-0.5">
+              {selItems.map((it) => (
+                <Link
+                  key={it.id}
+                  href={`/title/${it.id}`}
+                  className="flex items-center gap-2.5 rounded-lg p-1.5 transition-colors hover:bg-white/5"
+                >
+                  <Poster
+                    title={it.title}
+                    src={it.poster}
+                    genres={it.genres}
+                    showTitle={false}
+                    rounded="rounded-md"
+                    className="h-11 w-8 shrink-0 ring-1 ring-white/10"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold">{it.title}</p>
+                    <p className="flex items-center gap-1.5 text-[11px] text-muted-2">
+                      <span className={`size-1.5 rounded-full ${KIND_DOT[it.kind]}`} /> {KIND_LABEL[it.kind]}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }

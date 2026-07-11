@@ -3,7 +3,7 @@ import { getMyAlerts, getInterestMap } from "@/app/calendar-actions";
 import { AlertsProvider, type AlertEntry } from "@/components/calendar/alerts-context";
 import { CalendarClient } from "@/components/calendar/calendar-client";
 import { CalendarRail } from "@/components/calendar/calendar-rail";
-import type { CalKind } from "@/lib/calendar-constants";
+import type { CalendarItem } from "@/lib/calendar-constants";
 
 export const metadata = { title: "Watch Calendar · Watchruum" };
 export const dynamic = "force-dynamic";
@@ -26,15 +26,20 @@ export default async function CalendarPage({
     releaseDate: a.release_date,
   }));
 
-  const marks: { date: string; kind: CalKind }[] = [
-    ...overview.featured,
-    ...overview.thisWeek,
-    ...overview.mostAnticipated,
-    ...overview.recentlyAdded,
-    ...overview.theaters,
-  ]
-    .filter((i) => i.releaseDate)
-    .map((i) => ({ date: i.releaseDate as string, kind: i.kind }));
+  // Dedupe the dated releases by id; the calendar groups them per day.
+  const events: CalendarItem[] = Array.from(
+    new Map(
+      [
+        ...overview.featured,
+        ...overview.thisWeek,
+        ...overview.mostAnticipated,
+        ...overview.recentlyAdded,
+        ...overview.theaters,
+      ]
+        .filter((i) => i.releaseDate)
+        .map((i) => [i.id, i] as const),
+    ).values(),
+  );
 
   const initialTab = sp.tab && VALID_TABS.has(sp.tab) ? (sp.tab as never) : undefined;
 
@@ -43,7 +48,7 @@ export default async function CalendarPage({
       <AlertsProvider initialAlerts={initialAlerts} interest={interest}>
         <div className="flex gap-6">
           <CalendarClient overview={overview} initial={{ tab: initialTab, genre: sp.genre, platform: sp.platform }} />
-          <CalendarRail byGenre={overview.byGenre} theaters={overview.theaters} marks={marks} />
+          <CalendarRail byGenre={overview.byGenre} theaters={overview.theaters} events={events} />
         </div>
       </AlertsProvider>
     </div>
