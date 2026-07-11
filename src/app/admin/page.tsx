@@ -10,6 +10,7 @@ import {
   Clapperboard,
   Mail,
   UserPlus,
+  ChevronRight,
 } from "lucide-react";
 import { AreaChart, Donut } from "@/components/admin/charts";
 import { ContentOverview } from "@/components/admin/content-overview";
@@ -65,13 +66,22 @@ export default async function AdminOverviewPage() {
 
           {/* Charts */}
           <div className="grid gap-4 lg:grid-cols-2">
-            <div className="glass rounded-2xl p-5">
+            <Link
+              href="/admin/activity"
+              className="glass glass-hover group block rounded-2xl p-5 transition-colors"
+            >
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-base font-semibold">Activity</h3>
-                <span className="text-[11px] text-muted-2">Last 7 days</span>
+                <span className="flex items-center gap-1 text-[11px] text-muted-2">
+                  Last 7 days
+                  <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
               </div>
               <AreaChart data={o.activitySeries} />
-            </div>
+              <p className="mt-2 text-[11px] font-semibold text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                View full activity →
+              </p>
+            </Link>
             <div className="glass rounded-2xl p-5">
               <h3 className="mb-4 text-base font-semibold">User Breakdown</h3>
               <Donut slices={o.breakdown} total={o.totalUsers} />

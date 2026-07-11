@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createClient } from "./supabase/server";
 import { trending } from "./tmdb";
 import { getTrendingRooms } from "./queries";
+import { getLiveMode } from "./settings";
 import type { MediaItem, MediaType, Room } from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -343,6 +344,214 @@ export const getAdminOverview = cache(async (): Promise<AdminOverview> => {
 });
 
 /* ------------------------------------------------------------------ */
+/* Activity detail (the drill-down from the Overview "Activity" card)  */
+/* ------------------------------------------------------------------ */
+
+export interface ActivityMetric {
+  key: string;
+  label: string;
+  value: number;
+  deltaPct: number | null; // 7d vs previous 7d; null = no prior baseline
+}
+export interface ActivityPoint {
+  label: string; // "Mon"
+  date: string; // "Mon, Jul 6"
+  value: number; // total activities that day
+}
+export interface ActivitySlice {
+  key: string;
+  label: string;
+  value: number;
+  pct: number; // 0-100
+  color: string;
+}
+export interface ActivityDetail {
+  isAdmin: boolean;
+  live: boolean;
+  metrics: ActivityMetric[];
+  series: ActivityPoint[];
+  breakdown: ActivitySlice[];
+  totalActivities: number;
+}
+
+const DAY_MS = 24 * 3600 * 1000;
+const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MO = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function pctDelta(now: number, prev: number): number | null {
+  if (prev <= 0) return now > 0 ? 100 : null;
+  return Math.round(((now - prev) / prev) * 100);
+}
+
+/** Seeded demo view that matches the mock-up 1:1 (used when Live Mode is OFF). */
+function demoActivityDetail(days: Date[]): ActivityDetail {
+  const shape = [790, 1120, 860, 1320, 1260, 790, 950];
+  const series = days.map((d, i) => ({
+    label: WD[d.getDay()],
+    date: `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}`,
+    value: shape[i] ?? 800,
+  }));
+  const breakdown: ActivitySlice[] = [
+    { key: "messages", label: "Messages", value: 5240, pct: 60, color: "var(--color-primary)" },
+    { key: "rooms", label: "Room Activity", value: 1870, pct: 21, color: "var(--color-accent)" },
+    { key: "reviews", label: "Reviews", value: 1160, pct: 13, color: "var(--color-accent-2)" },
+    { key: "reports", label: "Reports", value: 430, pct: 5, color: "var(--color-danger)" },
+    { key: "other", label: "Other", value: 99, pct: 1, color: "var(--color-warn)" },
+  ];
+  return {
+    isAdmin: true,
+    live: false,
+    metrics: [
+      { key: "users", label: "New Users", value: 1200, deltaPct: 18 },
+      { key: "messages", label: "Messages", value: 8700, deltaPct: 12 },
+      { key: "rooms", label: "Rooms Created", value: 320, deltaPct: 25 },
+      { key: "reviews", label: "Reviews", value: 2900, deltaPct: 8 },
+      { key: "reports", label: "Reports", value: 156, deltaPct: -6 },
+    ],
+    series,
+    breakdown,
+    totalActivities: breakdown.reduce((a, s) => a + s.value, 0),
+  };
+}
+
+/**
+ * Real 7-day platform activity for the Activity drill-down page. Live Mode ON →
+ * true row counts bucketed by day (each action = +1). Live Mode OFF → the
+ * seeded demo view that matches the mock-up.
+ */
+export const getActivityDetail = cache(async (): Promise<ActivityDetail> => {
+  const now = new Date();
+  const startToday = new Date(now);
+  startToday.setHours(0, 0, 0, 0);
+  const days: Date[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(startToday);
+    d.setDate(d.getDate() - i);
+    days.push(d);
+  }
+
+  const { supabase, admin } = await isCurrentUserAdmin();
+  if (!supabase || !admin) {
+    return { isAdmin: false, live: false, metrics: [], series: [], breakdown: [], totalActivities: 0 };
+  }
+
+  const live = await getLiveMode();
+  if (!live) return demoActivityDetail(days);
+
+  const weekAgoMs = now.getTime() - 7 * DAY_MS;
+  const twoWeeksIso = new Date(now.getTime() - 14 * DAY_MS).toISOString();
+  const dayStart0 = days[0].getTime();
+
+  // Pull created_at (+ room key for comments) for the last 14 days, so we can
+  // bucket the daily chart and compute the this-week vs last-week deltas.
+  const times = async (table: string, extra?: string): Promise<any[]> => {
+    const cols = extra ? `created_at, ${extra}` : "created_at";
+    const { data } = await supabase
+      .from(table)
+      .select(cols)
+      .gte("created_at", twoWeeksIso)
+      .limit(20000);
+    return (data as any[]) ?? [];
+  };
+
+  const [profiles, comments, reviews, reports, reactions, ratings, follows] = await Promise.all([
+    times("profiles"),
+    times("comments", "media_id, season_number, episode_number"),
+    times("reviews"),
+    times("reports"),
+    times("reactions"),
+    times("ratings"),
+    times("follows"),
+  ]);
+
+  // this-week / last-week counters
+  const win = (rows: any[]) => {
+    let thisW = 0;
+    let lastW = 0;
+    for (const r of rows) {
+      const t = new Date(r.created_at).getTime();
+      if (t >= weekAgoMs) thisW++;
+      else lastW++;
+    }
+    return { thisW, lastW };
+  };
+
+  const uW = win(profiles);
+  const mW = win(comments);
+  const vW = win(reviews);
+  const pW = win(reports);
+
+  // Rooms "created/active" = distinct room keys with a new post, this vs last week.
+  const roomKeys = (rows: any[], sinceThisWeek: boolean) => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const t = new Date(r.created_at).getTime();
+      const inThis = t >= weekAgoMs;
+      if (inThis === sinceThisWeek) {
+        set.add(`${r.media_id}_${r.season_number ?? "x"}_${r.episode_number ?? "x"}`);
+      }
+    }
+    return set.size;
+  };
+  const roomsThis = roomKeys(comments, true);
+  const roomsLast = roomKeys(comments, false);
+
+  const metrics: ActivityMetric[] = [
+    { key: "users", label: "New Users", value: uW.thisW, deltaPct: pctDelta(uW.thisW, uW.lastW) },
+    { key: "messages", label: "Messages", value: mW.thisW, deltaPct: pctDelta(mW.thisW, mW.lastW) },
+    { key: "rooms", label: "Rooms Created", value: roomsThis, deltaPct: pctDelta(roomsThis, roomsLast) },
+    { key: "reviews", label: "Reviews", value: vW.thisW, deltaPct: pctDelta(vW.thisW, vW.lastW) },
+    { key: "reports", label: "Reports", value: pW.thisW, deltaPct: pctDelta(pW.thisW, pW.lastW) },
+  ];
+
+  // Daily chart over the last 7 days = sum of every activity that day.
+  const series: ActivityPoint[] = days.map((d) => ({
+    label: WD[d.getDay()],
+    date: `${WD[d.getDay()]}, ${MO[d.getMonth()]} ${d.getDate()}`,
+    value: 0,
+  }));
+  const bucket = (rows: any[]) => {
+    for (const r of rows) {
+      const idx = Math.floor((new Date(r.created_at).getTime() - dayStart0) / DAY_MS);
+      if (idx >= 0 && idx < 7) series[idx].value += 1;
+    }
+  };
+  [profiles, comments, reviews, reports, reactions, ratings, follows].forEach(bucket);
+
+  // Breakdown of this-week activity by category.
+  const inThisWeek = (rows: any[]) => rows.filter((r) => new Date(r.created_at).getTime() >= weekAgoMs).length;
+  const bMessages = inThisWeek(comments);
+  const bRoom = inThisWeek(reactions) + inThisWeek(ratings);
+  const bReviews = inThisWeek(reviews);
+  const bReports = inThisWeek(reports);
+  const bOther = inThisWeek(profiles) + inThisWeek(follows);
+  const bTotal = Math.max(1, bMessages + bRoom + bReviews + bReports + bOther);
+  const slice = (key: string, label: string, value: number, color: string): ActivitySlice => ({
+    key,
+    label,
+    value,
+    pct: Math.round((value / bTotal) * 100),
+    color,
+  });
+  const breakdown: ActivitySlice[] = [
+    slice("messages", "Messages", bMessages, "var(--color-primary)"),
+    slice("rooms", "Room Activity", bRoom, "var(--color-accent)"),
+    slice("reviews", "Reviews", bReviews, "var(--color-accent-2)"),
+    slice("reports", "Reports", bReports, "var(--color-danger)"),
+    slice("other", "Other", bOther, "var(--color-warn)"),
+  ];
+
+  return {
+    isAdmin: true,
+    live: true,
+    metrics,
+    series,
+    breakdown,
+    totalActivities: bMessages + bRoom + bReviews + bReports + bOther,
+  };
+});
+
+/* ------------------------------------------------------------------ */
 /* Users management                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -451,8 +660,10 @@ export const getAdminUsers = cache(async (params: AdminUsersParams = {}): Promis
     return query.range(from, from + perPage - 1);
   };
 
-  let { data: profiles, count, error } = await buildList(true);
-  if (error) {
+  const first = await buildList(true);
+  let profiles = first.data;
+  let count = first.count;
+  if (first.error) {
     // Pre-migration fallback: no `status` column yet.
     ({ data: profiles, count } = await buildList(false));
     if (statusValue === "suspended" || statusValue === "banned") {
