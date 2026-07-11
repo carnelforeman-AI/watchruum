@@ -66,6 +66,7 @@ export default async function HomePage() {
       <RightRail
         progress={signedIn ? lib!.continueWatching : sample.progress}
         friendActivity={sample.friendActivity}
+        friendsOnline={sample.friendsOnline}
         safeUpTo={signedIn ? (lib!.furthest ? `${lib!.furthest.media.title} ${lib!.furthest.label.replace(" · ", " ")}` : null) : sample.safeUpTo}
         signedIn={signedIn}
       />

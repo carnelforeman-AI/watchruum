@@ -66,6 +66,13 @@ function scope(m: MediaItem, i: number) {
   return m.media_type === "tv" ? `S1 E${(i % 8) + 1}` : m.genres[0] ?? "Film";
 }
 
+export interface FriendOnline {
+  name: string;
+  avatar: string | null;
+  room: string;
+  status: "online" | "away";
+}
+
 export interface SampleContent {
   continueWatching: LibraryItem[];
   watchlist: MediaItem[];
@@ -73,6 +80,7 @@ export interface SampleContent {
   discussions: DiscussionCard[];
   reviews: Review[];
   friendActivity: ActivityEvent[];
+  friendsOnline: FriendOnline[];
   notifications: { type: string; text: string; time: string; unread: boolean }[];
   safeUpTo: string | null;
 }
@@ -139,6 +147,15 @@ export const getSampleContent = cache(async (): Promise<SampleContent> => {
     created_at: ago([0.03, 0.25, 1, 2][i] ?? 3),
   }));
 
+  const ONLINE = [PROFILES.sarah, PROFILES.mike, PROFILES.jess, PROFILES.tom, PROFILES.maya];
+  const ONLINE_STATUS: FriendOnline["status"][] = ["online", "online", "online", "away", "online"];
+  const friendsOnline: FriendOnline[] = items.slice(0, 5).map((m, i) => ({
+    name: ONLINE[i]?.display_name ?? "Friend",
+    avatar: ONLINE[i]?.avatar_url ?? null,
+    room: m.title,
+    status: ONLINE_STATUS[i] ?? "online",
+  }));
+
   const notifications = [
     { type: "reply", text: `Sarah Kim replied to your post in ${pick(0)?.title ?? "a room"} ${scope(pick(0) ?? items[0], 0)}`, time: "2m ago", unread: true },
     { type: "like", text: `Mike Boone liked your review of ${pick(1)?.title ?? "a title"} ${scope(pick(1) ?? items[0], 1)}`, time: "18m ago", unread: true },
@@ -155,6 +172,7 @@ export const getSampleContent = cache(async (): Promise<SampleContent> => {
     discussions,
     reviews,
     friendActivity,
+    friendsOnline,
     notifications,
     safeUpTo: continueWatching[0]
       ? `${continueWatching[0].media.title} ${continueWatching[0].label.replace(" · ", " ")}`
