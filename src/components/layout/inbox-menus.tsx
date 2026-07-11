@@ -108,7 +108,7 @@ export function NotificationBell({ notifications }: { notifications: Notificatio
 
       {open && (
         <div
-          className="panel absolute right-0 top-full z-50 mt-2 w-[26rem] max-w-[92vw] overflow-hidden rounded-2xl border border-border shadow-2xl"
+          className="panel fixed inset-x-2 top-[7rem] bottom-3 z-50 flex flex-col overflow-hidden rounded-2xl border border-border shadow-2xl lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-full lg:mt-2 lg:w-[26rem] lg:max-w-[92vw]"
           role="menu"
         >
           {/* Header */}
@@ -161,7 +161,7 @@ export function NotificationBell({ notifications }: { notifications: Notificatio
           </div>
 
           {/* List */}
-          <div className="max-h-[65vh] overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto lg:max-h-[65vh] lg:flex-none">
             {shown.length === 0 ? (
               <p className="px-4 py-10 text-center text-[13px] text-muted-2">
                 {tab === "mentions" ? "No mentions yet." : tab === "unread" ? "You're all caught up." : "Nothing here yet."}
@@ -307,7 +307,7 @@ export function MessageInbox({ messages }: { messages: MessageItem[] }) {
 
       {open && (
         <div
-          className="panel absolute right-0 top-full z-50 mt-2 w-[24rem] max-w-[92vw] overflow-hidden rounded-2xl border border-border shadow-2xl"
+          className="panel fixed inset-x-2 top-[7rem] bottom-3 z-50 flex flex-col overflow-hidden rounded-2xl border border-border shadow-2xl lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-full lg:mt-2 lg:w-[24rem] lg:max-w-[92vw]"
           role="menu"
         >
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -334,7 +334,7 @@ export function MessageInbox({ messages }: { messages: MessageItem[] }) {
             </div>
           </div>
 
-          <div className="max-h-[70vh] overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto lg:max-h-[70vh] lg:flex-none">
             {visible.length === 0 ? (
               <p className="px-4 py-8 text-center text-[13px] text-muted-2">Your inbox is empty.</p>
             ) : (
