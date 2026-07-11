@@ -10,14 +10,12 @@ import {
   Clapperboard,
   Mail,
   UserPlus,
-  ShieldAlert,
-  CheckCircle2,
 } from "lucide-react";
 import { AreaChart, Donut } from "@/components/admin/charts";
 import { ContentOverview } from "@/components/admin/content-overview";
 import { LiveModeToggle } from "@/components/admin/live-mode-toggle";
 import { ResetBetaData } from "@/components/admin/reset-beta-data";
-import { Badge } from "@/components/ui/badge";
+import { ReportRow } from "@/components/admin/report-row";
 import { getAdminOverview } from "@/lib/admin";
 import { getLiveMode } from "@/lib/settings";
 import { timeAgo } from "@/lib/utils";
@@ -108,20 +106,7 @@ export default async function AdminOverviewPage() {
                   </thead>
                   <tbody>
                     {o.recentReports.map((r) => (
-                      <tr key={r.id} className="border-b border-border/60 last:border-0">
-                        <td className="py-2.5 pr-4">
-                          <span className="inline-flex items-center gap-1.5 text-muted">
-                            <Flag className="size-3.5 text-danger" /> {r.type === "review" ? "Review" : "Post"}
-                          </span>
-                        </td>
-                        <td className="max-w-[200px] truncate py-2.5 pr-4 font-medium">{r.content}</td>
-                        <td className="py-2.5 pr-4 text-muted">{r.reporter}</td>
-                        <td className="max-w-[180px] truncate py-2.5 pr-4 text-muted">{r.reason}</td>
-                        <td className="whitespace-nowrap py-2.5 pr-4 text-muted-2">{timeAgo(r.created_at)}</td>
-                        <td className="py-2.5">
-                          <StatusBadge status={r.status} />
-                        </td>
-                      </tr>
+                      <ReportRow key={r.id} report={r} />
                     ))}
                   </tbody>
                 </table>
@@ -219,21 +204,5 @@ function QuickAction({
       <Icon className="size-4 text-primary" />
       {label}
     </Link>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  if (status === "resolved")
-    return (
-      <Badge variant="safe">
-        <CheckCircle2 className="size-3" /> Resolved
-      </Badge>
-    );
-  if (status === "dismissed") return <Badge variant="neutral">Dismissed</Badge>;
-  if (status === "reviewing") return <Badge variant="warn">Reviewing</Badge>;
-  return (
-    <Badge variant="danger">
-      <ShieldAlert className="size-3" /> New
-    </Badge>
   );
 }

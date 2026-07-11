@@ -37,7 +37,13 @@ export default async function AdminReportsPage() {
         ) : (
           <div className="space-y-3">
             {open.map((r) => (
-              <ReportCard key={r.id} report={r} />
+              <div
+                key={r.id}
+                id={`report-${r.id}`}
+                className="scroll-mt-24 rounded-2xl transition-shadow target:ring-2 target:ring-primary"
+              >
+                <ReportCard report={r} />
+              </div>
             ))}
           </div>
         )}
@@ -48,7 +54,13 @@ export default async function AdminReportsPage() {
           <h2 className="mb-3 text-lg font-bold text-muted">Recently handled</h2>
           <div className="space-y-3 opacity-70">
             {settled.slice(0, 10).map((r) => (
-              <ReportCard key={r.id} report={r} />
+              <div
+                key={r.id}
+                id={`report-${r.id}`}
+                className="scroll-mt-24 rounded-2xl transition-shadow target:ring-2 target:ring-primary"
+              >
+                <ReportCard report={r} />
+              </div>
             ))}
           </div>
         </section>
