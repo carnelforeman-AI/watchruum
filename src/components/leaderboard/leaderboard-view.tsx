@@ -20,6 +20,7 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { cn, compact, initials, posterGradient } from "@/lib/utils";
+import type { LeaderMember, LeaderStats } from "@/lib/leaderboard";
 
 /* ---------------- data (seeded placeholder) ---------------- */
 
@@ -55,19 +56,8 @@ const BADGES = [
 
 const TOTAL = 1248;
 const PER_PAGE = 8;
-const PAGES = Math.ceil(TOTAL / PER_PAGE);
 
-interface Member {
-  id: number;
-  name: string;
-  quality: number;
-  helpful: number;
-  spoiler: number;
-  reports: number;
-  badges: number[];
-  extra: number;
-  role: "Mod" | "Leader" | null;
-}
+type Member = LeaderMember;
 
 function generate(): Member[] {
   const rng = mulberry32(1337);
@@ -112,8 +102,17 @@ const STATS = [
 
 /* ---------------- component ---------------- */
 
-export function LeaderboardView() {
-  const all = useMemo(() => generate(), []);
+export function LeaderboardView({
+  live = false,
+  members,
+  stats,
+}: {
+  live?: boolean;
+  members?: LeaderMember[];
+  stats?: LeaderStats;
+} = {}) {
+  const demo = useMemo(() => generate(), []);
+  const all = live && members ? members : demo;
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("quality");
   const [page, setPage] = useState(1);
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>("This Month");
@@ -124,8 +123,19 @@ export function LeaderboardView() {
     return [...all].sort((a, b) => metric(b) - metric(a));
   }, [all, tab]);
 
-  const start = (page - 1) * PER_PAGE;
+  const pages = Math.max(1, Math.ceil(ranked.length / PER_PAGE));
+  const start = (Math.min(page, pages) - 1) * PER_PAGE;
   const rows = ranked.slice(start, start + PER_PAGE);
+
+  const statCards =
+    live && stats
+      ? [
+          { ...STATS[0], value: compact(stats.quality), sub: "Members recognized" },
+          { ...STATS[1], value: compact(stats.interactions) },
+          { ...STATS[2], value: compact(stats.spoilers) },
+          { ...STATS[3], value: compact(stats.reports) },
+        ]
+      : STATS;
 
   const setTabReset = (k: (typeof TABS)[number]["key"]) => {
     setTab(k);
@@ -201,7 +211,7 @@ export function LeaderboardView() {
 
       {/* Stat cards */}
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {STATS.map((s) => {
+        {statCards.map((s) => {
           const Icon = s.icon;
           return (
             <div key={s.label} className="glass rounded-2xl border border-border-soft p-5">
@@ -241,10 +251,23 @@ export function LeaderboardView() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((m, i) => {
-                const rank = start + i + 1;
-                return <Row key={m.id} member={m} rank={rank} />;
-              })}
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-5 py-14 text-center">
+                    <Award className="mx-auto mb-3 size-8 text-muted-2" />
+                    <p className="text-sm font-semibold">No leaders yet</p>
+                    <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-2">
+                      The board is live and ranks real members. As people review, discuss and keep rooms
+                      spoiler-safe, they&apos;ll climb the ranks here.
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                rows.map((m, i) => {
+                  const rank = start + i + 1;
+                  return <Row key={m.id} member={m} rank={rank} />;
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -254,7 +277,7 @@ export function LeaderboardView() {
             <Trophy className="size-4 text-warn" /> Keep it up! Your positive impact makes Watchruum an amazing place
             for everyone.
           </p>
-          <Pager page={page} onChange={setPage} />
+          <Pager page={Math.min(page, pages)} pages={pages} onChange={setPage} />
         </div>
       </div>
     </div>
@@ -341,14 +364,22 @@ function Row({ member, rank }: { member: Member; rank: number }) {
 
 /* ---------------- pager ---------------- */
 
-function Pager({ page, onChange }: { page: number; onChange: (p: number) => void }) {
+function Pager({
+  page,
+  pages,
+  onChange,
+}: {
+  page: number;
+  pages: number;
+  onChange: (p: number) => void;
+}) {
   const nums: (number | "…")[] = [];
   const push = (n: number | "…") => nums.push(n);
   push(1);
   if (page > 3) push("…");
-  for (let n = Math.max(2, page - 1); n <= Math.min(PAGES - 1, page + 1); n++) push(n);
-  if (page < PAGES - 2) push("…");
-  if (PAGES > 1) push(PAGES);
+  for (let n = Math.max(2, page - 1); n <= Math.min(pages - 1, page + 1); n++) push(n);
+  if (page < pages - 2) push("…");
+  if (pages > 1) push(pages);
 
   const btn = "grid h-9 min-w-9 place-items-center rounded-lg border border-border px-2 text-[13px] font-semibold transition";
 
@@ -381,8 +412,8 @@ function Pager({ page, onChange }: { page: number; onChange: (p: number) => void
         ),
       )}
       <button
-        onClick={() => onChange(Math.min(PAGES, page + 1))}
-        disabled={page === PAGES}
+        onClick={() => onChange(Math.min(pages, page + 1))}
+        disabled={page === pages}
         aria-label="Next page"
         className={cn(btn, "text-muted-2 enabled:hover:text-foreground disabled:opacity-40")}
       >

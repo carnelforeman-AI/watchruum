@@ -1,10 +1,10 @@
 import "server-only";
 import { cache } from "react";
 import { tmdbGet, trending } from "./tmdb";
+import { getLiveMode } from "./settings";
+import { getRoomActivity, type RoomActivity } from "./live-counts";
 import type { MediaItem } from "./types";
 import type { WatchRoom, WatchRoomsData } from "./rooms-types";
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
  * Watch Rooms data layer. Titles, posters, ratings, networks and the "now
@@ -33,7 +33,11 @@ const tvDetail = cache(async (tmdbId: number): Promise<TvDetail | null> => {
   }
 });
 
-async function buildRoom(m: MediaItem, i: number): Promise<WatchRoom> {
+async function buildRoom(
+  m: MediaItem,
+  i: number,
+  real: RoomActivity | null,
+): Promise<WatchRoom> {
   const rank = i + 1;
   const s = seeded(m.tmdb_id);
 
@@ -53,11 +57,21 @@ async function buildRoom(m: MediaItem, i: number): Promise<WatchRoom> {
     }
   }
 
-  const inRoom = Math.max(110, Math.round((1300 - rank * 150) * (0.88 + s * 0.28)));
-  const messages = Math.round(inRoom * (4.5 + s * 4));
-  const engagement = Math.round(inRoom * (68 + s * 34));
-  const engagementScore = Math.min(96, 72 + Math.round((1 - rank / 12) * 20) + Math.round(s * 4));
-  const live = rank <= 4;
+  // Demo (seeded) numbers, used until the admin flips Live Mode ON.
+  let inRoom = Math.max(110, Math.round((1300 - rank * 150) * (0.88 + s * 0.28)));
+  let messages = Math.round(inRoom * (4.5 + s * 4));
+  let engagement = Math.round(inRoom * (68 + s * 34));
+  let engagementScore = Math.min(96, 72 + Math.round((1 - rank / 12) * 20) + Math.round(s * 4));
+  let live = rank <= 4;
+
+  // Live Mode → real counts (each post = +1). Everything is 0 until people act.
+  if (real) {
+    inRoom = real.members;
+    messages = real.messages;
+    engagement = real.messages;
+    engagementScore = 0;
+    live = false;
+  }
 
   const scopeLabel =
     m.media_type === "tv" && seasonNumber != null
@@ -100,7 +114,12 @@ export const getWatchRooms = cache(async (limit = 12): Promise<WatchRoomsData> =
   }
   items = items.filter((m) => m.poster_url).slice(0, limit);
 
-  const rooms = await Promise.all(items.map((m, i) => buildRoom(m, i)));
+  const liveMode = await getLiveMode();
+  const activity = liveMode ? await getRoomActivity(items) : null;
+  const realFor = (m: MediaItem): RoomActivity | null =>
+    activity ? activity.get(`${m.media_type}_${m.tmdb_id}`) ?? { messages: 0, members: 0 } : null;
+
+  const rooms = await Promise.all(items.map((m, i) => buildRoom(m, i, realFor(m))));
 
   const activeNow = rooms.reduce((a, r) => a + r.inRoom, 0);
   const trendingNow = rooms.slice(0, 5);

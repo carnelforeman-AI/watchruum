@@ -15,8 +15,10 @@ import {
 } from "lucide-react";
 import { AreaChart, Donut } from "@/components/admin/charts";
 import { ContentOverview } from "@/components/admin/content-overview";
+import { LiveModeToggle } from "@/components/admin/live-mode-toggle";
 import { Badge } from "@/components/ui/badge";
 import { getAdminOverview } from "@/lib/admin";
+import { getLiveMode } from "@/lib/settings";
 import { timeAgo } from "@/lib/utils";
 
 export const metadata = { title: "Admin · Overview · Watchruum" };
@@ -31,7 +33,7 @@ const STAT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 };
 
 export default async function AdminOverviewPage() {
-  const o = await getAdminOverview();
+  const [o, live] = await Promise.all([getAdminOverview(), getLiveMode()]);
 
   return (
     <div className="mx-auto max-w-[1400px]">
@@ -129,6 +131,9 @@ export default async function AdminOverviewPage() {
 
         {/* Right rail */}
         <aside className="w-full shrink-0 space-y-4 xl:w-80">
+          {/* Go Live switch */}
+          <LiveModeToggle initialLive={live} />
+
           {/* Quick actions */}
           <div className="glass rounded-2xl p-5">
             <h3 className="mb-3 text-base font-semibold">Quick Actions</h3>

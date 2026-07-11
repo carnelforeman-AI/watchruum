@@ -2,6 +2,8 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "./supabase/server";
 import { getShowEpisodeCount, trending } from "./tmdb";
+import { getLiveMode } from "./settings";
+import { getRoomActivity } from "./live-counts";
 import { routeId, timeAgo } from "./utils";
 import type { MediaItem, Room, Review, ActivityEvent, SpoilerScope } from "./types";
 import { type DiscussionCard, PROFILES } from "./mock-data";
@@ -19,7 +21,13 @@ export const getTrendingRooms = cache(async (limit = 6): Promise<Room[]> => {
   } catch {
     items = [];
   }
-  return items.slice(0, limit).map((m, i) => ({
+  const slice = items.slice(0, limit);
+
+  // Live Mode → real distinct posters per room (each new participant = +1).
+  const live = await getLiveMode();
+  const activity = live ? await getRoomActivity(slice) : null;
+
+  return slice.map((m, i) => ({
     id: m.id,
     media: m,
     scope_label:
@@ -27,8 +35,10 @@ export const getTrendingRooms = cache(async (limit = 6): Promise<Room[]> => {
       (m.media_type === "tv" ? "Series" : "Movie"),
     season_number: null,
     episode_number: null,
-    active_users: Math.max(120, 1900 - i * 240 + (m.tmdb_id % 80)),
-    is_hot: i === 0,
+    active_users: activity
+      ? activity.get(`${m.media_type}_${m.tmdb_id}`)?.members ?? 0
+      : Math.max(120, 1900 - i * 240 + (m.tmdb_id % 80)),
+    is_hot: activity ? false : i === 0,
   }));
 });
 

@@ -19,6 +19,8 @@ import { CastRail } from "@/components/media/cast-rail";
 import { PosterRail } from "@/components/media/poster-rail";
 import { ReviewsSection } from "@/components/review/reviews-section";
 import { getReviewsForMedia } from "@/lib/queries";
+import { getLiveMode } from "@/lib/settings";
+import { getTrackingCount } from "@/lib/live-counts";
 import { posterGradient, compact } from "@/lib/utils";
 import { JsonLd } from "@/components/seo/json-ld";
 import { absoluteUrl, SITE_NAME } from "@/lib/site";
@@ -67,14 +69,19 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
   if (!media) notFound();
 
   const isTv = media.media_type === "tv";
-  const [seasons, reviews, cast, alsoWatch] = await Promise.all([
+  const [seasons, reviews, cast, alsoWatch, live] = await Promise.all([
     isTv ? getSeasons(id) : Promise.resolve([]),
     getReviewsForMedia(media.tmdb_id, media.media_type),
     getCredits(id, 20),
     getRecommendations(id, 16),
+    getLiveMode(),
   ]);
 
-  const members = compact(1200 + (media.tmdb_id % 5000));
+  // Live Mode → real people tracking this title (each add = +1). Demo → seeded.
+  const trackingCount = live
+    ? await getTrackingCount(media.tmdb_id, media.media_type)
+    : 1200 + (media.tmdb_id % 5000);
+  const members = compact(trackingCount);
   const filledStars = Math.round(media.vote_average / 2);
 
   const titleJsonLd: Record<string, unknown> = {
