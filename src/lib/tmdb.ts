@@ -273,6 +273,16 @@ export interface GenrePreview {
 }
 
 /**
+ * Hand-picked artwork for specific genre cards (a strong, clearly on-genre
+ * title), overriding the auto-picked most-popular backdrop so it doesn't drift.
+ */
+const GENRE_PINNED: Record<string, { type: "movie" | "tv"; id: number }> = {
+  "Action / Adventure": { type: "movie", id: 76341 }, // Mad Max: Fury Road
+  Comedy: { type: "movie", id: 18785 }, // The Hangover
+  Family: { type: "movie", id: 116149 }, // Paddington
+};
+
+/**
  * A representative backdrop image + real title count for every browse genre,
  * for the "Browse by Genre" cards. Images are TMDb-licensed art (same source
  * the rest of the app uses); counts are real TMDb totals.
@@ -316,6 +326,19 @@ export const getGenrePreviews = cache(async (): Promise<Record<string, GenrePrev
             if (hit) backdrop = img(hit.backdrop_path, "w780");
           }
         }
+
+        // Hand-picked override for select genres.
+        const pin = GENRE_PINNED[g.name];
+        if (pin) {
+          try {
+            const d = await tmdb<{ backdrop_path: string | null }>(`/${pin.type}/${pin.id}`, {});
+            const pinned = img(d.backdrop_path, "w780");
+            if (pinned) backdrop = pinned;
+          } catch {
+            /* keep the auto-picked backdrop */
+          }
+        }
+
         out[g.name] = { backdrop, count };
       } catch {
         out[g.name] = { backdrop: null, count: 0 };
