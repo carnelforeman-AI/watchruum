@@ -44,3 +44,23 @@ export async function setLiveMode(
   revalidatePath("/", "layout");
   return { ok: true, live: on };
 }
+
+/**
+ * Clear beta-testing ACTIVITY & CONTENT for a fresh start (keeps member
+ * accounts). Admin-only. Runs the SECURITY DEFINER `admin_reset_beta_data()`
+ * function, which re-checks is_admin() server-side and deletes across every
+ * member's rows past RLS. Returns per-table deleted counts on success.
+ */
+export async function resetBetaData(
+  confirm: string,
+): Promise<{ ok: boolean; cleared?: Record<string, number | null>; error?: string }> {
+  const ctx = await adminCtx();
+  if (!ctx) return { ok: false, error: "Not authorized." };
+  if (confirm !== "RESET") return { ok: false, error: "Type RESET to confirm." };
+
+  const { data, error } = await ctx.supabase.rpc("admin_reset_beta_data");
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/", "layout");
+  return { ok: true, cleared: (data as Record<string, number | null>) ?? {} };
+}

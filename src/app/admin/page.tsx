@@ -16,6 +16,7 @@ import {
 import { AreaChart, Donut } from "@/components/admin/charts";
 import { ContentOverview } from "@/components/admin/content-overview";
 import { LiveModeToggle } from "@/components/admin/live-mode-toggle";
+import { ResetBetaData } from "@/components/admin/reset-beta-data";
 import { Badge } from "@/components/ui/badge";
 import { getAdminOverview } from "@/lib/admin";
 import { getLiveMode } from "@/lib/settings";
@@ -192,6 +193,9 @@ export default async function AdminOverviewPage() {
               ))}
             </ul>
           </div>
+
+          {/* Danger zone */}
+          <ResetBetaData />
         </aside>
       </div>
     </div>
