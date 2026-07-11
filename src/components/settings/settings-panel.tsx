@@ -19,10 +19,21 @@ const SAFETY = [
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={on}
       onClick={onClick}
-      className={cn("relative h-6 w-11 rounded-full transition-colors", on ? "bg-primary" : "bg-white/15")}
+      className={cn(
+        "inline-flex h-6 w-11 shrink-0 items-center rounded-full px-0.5 transition-colors",
+        on ? "bg-primary" : "bg-white/15",
+      )}
     >
-      <span className={cn("absolute top-0.5 size-5 rounded-full bg-white transition-transform", on ? "translate-x-5" : "translate-x-0.5")} />
+      <span
+        className={cn(
+          "inline-block size-5 rounded-full bg-white shadow-sm transition-transform",
+          on ? "translate-x-5" : "translate-x-0",
+        )}
+      />
     </button>
   );
 }
