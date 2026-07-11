@@ -250,6 +250,7 @@ export async function postPersonComment(
   personName: string,
   body: string,
   hasSpoiler: boolean,
+  image_urls: string[] = [],
 ): Promise<Result & { id?: string }> {
   const ctx = await authed();
   if (!ctx) return { ok: true, demo: true };
@@ -259,6 +260,9 @@ export async function postPersonComment(
   if (!text) return { ok: false, error: "Message is empty." };
   if (!Number.isFinite(personTmdbId) || personTmdbId <= 0)
     return { ok: false, error: "Unknown person." };
+  const images = (image_urls ?? [])
+    .filter((u) => typeof u === "string" && u.includes("/review-images/"))
+    .slice(0, 4);
   const { data, error } = await ctx.supabase
     .from("person_comments")
     .insert({
@@ -267,6 +271,7 @@ export async function postPersonComment(
       person_name: cleanText(personName, 200) || null,
       body: text,
       has_spoiler: !!hasSpoiler,
+      image_urls: images,
     })
     .select("id")
     .single();

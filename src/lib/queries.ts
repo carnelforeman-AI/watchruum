@@ -631,6 +631,7 @@ export interface PersonComment {
   author_avatar: string | null;
   body: string;
   has_spoiler: boolean;
+  image_urls: string[];
   like_count: number;
   liked_by_me: boolean;
   created_at: string;
@@ -646,7 +647,7 @@ export const getPersonComments = cache(async (personTmdbId: number): Promise<Per
 
   const { data: rows } = await supabase
     .from("person_comments")
-    .select("id, body, has_spoiler, created_at, author:profiles(display_name, avatar_url)")
+    .select("id, body, has_spoiler, image_urls, created_at, author:profiles(display_name, avatar_url)")
     .eq("person_tmdb_id", personTmdbId)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -673,6 +674,7 @@ export const getPersonComments = cache(async (personTmdbId: number): Promise<Per
     author_avatar: r.author?.avatar_url ?? null,
     body: r.body,
     has_spoiler: !!r.has_spoiler,
+    image_urls: r.image_urls ?? [],
     like_count: counts.get(r.id) ?? 0,
     liked_by_me: mine.has(r.id),
     created_at: r.created_at,
