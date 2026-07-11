@@ -86,7 +86,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
       <JsonLd data={titleJsonLd} />
       {/* Backdrop */}
-      <div className="relative -mx-4 -mt-6 mb-6 h-28 overflow-hidden md:-mx-6 md:h-40">
+      <div className="relative -mx-4 -mt-6 mb-6 h-56 overflow-hidden md:-mx-6 md:h-80">
         <div className="absolute inset-0" style={{ background: posterGradient(media.title) }} />
         {media.backdrop_url && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -97,7 +97,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
       </div>
 
       {/* Hero */}
-      <div className="grid gap-6 lg:grid-cols-[176px_1fr_260px]">
+      <div className="relative z-10 -mt-20 grid gap-6 md:-mt-32 lg:grid-cols-[176px_1fr_260px]">
         {/* Poster */}
         <div className="flex flex-col items-center gap-3 lg:items-start">
           <Poster
