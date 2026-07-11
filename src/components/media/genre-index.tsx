@@ -57,7 +57,7 @@ export function GenreIndex({
 
             {/* Text */}
             <div className="relative z-10 p-4 pr-10">
-              <h3 className="text-[17px] font-extrabold leading-tight drop-shadow">{g.name}</h3>
+              <h3 className="text-[22px] font-extrabold leading-tight drop-shadow md:text-2xl">{g.name}</h3>
               <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-white/70">
                 {DESC[g.name] ?? "Explore titles in this genre."}
               </p>
