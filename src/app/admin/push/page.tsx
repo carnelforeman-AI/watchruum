@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Send, Mail, CheckCircle2, MousePointerClick, FileText, ArrowRight } from "lucide-react";
+import { Send, Mail, CheckCircle2, MousePointerClick, FileText } from "lucide-react";
 import { Poster } from "@/components/media/poster";
 import { PushComposer } from "@/components/admin/push-composer";
 import { SendMenu } from "@/components/admin/send-menu";
@@ -87,14 +87,6 @@ export default async function AdminPushPage() {
           </table>
         </div>
 
-        <div className="border-t border-border px-5 py-4 text-center">
-          <Link
-            href="#"
-            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary hover:underline"
-          >
-            View All Push Notifications <ArrowRight className="size-4" />
-          </Link>
-        </div>
       </div>
     </div>
   );

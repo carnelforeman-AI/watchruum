@@ -439,9 +439,6 @@ export function WatchRooms({ data }: { data: WatchRoomsData }) {
               <li className="flex gap-2"><span className="text-primary">•</span> Be respectful and follow spoiler rules.</li>
               <li className="flex gap-2"><span className="text-primary">•</span> Use spoiler tags when needed.</li>
             </ul>
-            <Link href="#" className="mt-3 flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline">
-              View Room Rules <ChevronRight className="size-3.5" />
-            </Link>
           </RailPanel>
         </aside>
       </div>
