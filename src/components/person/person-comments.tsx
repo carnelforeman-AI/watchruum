@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { cn, timeAgo } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { SortSelect, sortByKey, type SortKey } from "@/components/ui/comment-sort";
 import { postPersonComment, toggleReaction } from "@/app/actions";
 import type { PersonComment } from "@/lib/queries";
 
@@ -40,6 +41,7 @@ export function PersonComments({
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>("liked");
   const inputRef = useRef<HTMLInputElement>(null);
   const [, start] = useTransition();
 
@@ -111,6 +113,7 @@ export function PersonComments({
       created_at: new Date().toISOString(),
     };
     setComments((c) => [optimistic, ...c]);
+    setSort("newest"); // surface the just-posted comment at the top
     setBody("");
     setHasSpoiler(false);
     setImages([]);
@@ -122,9 +125,12 @@ export function PersonComments({
 
   return (
     <section className="mt-8">
-      <h2 className="mb-3 flex items-center gap-2 text-lg font-bold">
-        <MessageSquare className="size-5 text-primary" /> Fan talk about {personName}
-      </h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-lg font-bold">
+          <MessageSquare className="size-5 text-primary" /> Fan talk about {personName}
+        </h2>
+        {comments.length > 1 && <SortSelect value={sort} onChange={setSort} />}
+      </div>
 
       {/* Composer */}
       <form onSubmit={submit} className="glass mb-4 rounded-2xl p-4">
@@ -203,8 +209,8 @@ export function PersonComments({
           No comments yet. Start the conversation about {personName}.
         </p>
       ) : (
-        <div className="grid gap-3">
-          {comments.map((c) => (
+        <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">
+          {sortByKey(comments, sort).map((c) => (
             <CommentItem key={c.id} comment={c} />
           ))}
         </div>
@@ -232,7 +238,7 @@ function CommentItem({ comment }: { comment: PersonComment }) {
   }
 
   return (
-    <div className="glass rounded-2xl p-4">
+    <div className="glass mb-3 break-inside-avoid rounded-2xl p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <Avatar name={comment.author_name} src={comment.author_avatar} size="sm" />

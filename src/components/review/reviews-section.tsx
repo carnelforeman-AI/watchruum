@@ -22,6 +22,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { StarRating } from "@/components/media/rating";
 import { cn, timeAgo } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { SortSelect, sortByKey, type SortKey } from "@/components/ui/comment-sort";
 import { postReview, toggleReaction, reportContent } from "@/app/actions";
 import type { MediaItem } from "@/lib/types";
 import type { DisplayReview } from "@/lib/queries";
@@ -43,6 +44,7 @@ export function ReviewsSection({
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>("liked");
   const inputRef = useRef<HTMLInputElement>(null);
   const [, start] = useTransition();
 
@@ -116,6 +118,7 @@ export function ReviewsSection({
       created_at: new Date().toISOString(),
     };
     setReviews((r) => [optimistic, ...r]);
+    setSort("newest"); // surface the just-posted review at the top
     const text = body.trim();
     setScore(0);
     setBody("");
@@ -129,9 +132,12 @@ export function ReviewsSection({
 
   return (
     <section className="mt-8">
-      <h2 className="mb-3 flex items-center gap-2 text-lg font-bold">
-        <PenLine className="size-5 text-primary" /> Reviews
-      </h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-lg font-bold">
+          <PenLine className="size-5 text-primary" /> Reviews
+        </h2>
+        {reviews.length > 1 && <SortSelect value={sort} onChange={setSort} />}
+      </div>
 
       {/* Composer */}
       <form onSubmit={submit} className="glass mb-4 rounded-2xl p-4">
@@ -225,8 +231,8 @@ export function ReviewsSection({
           No reviews yet. Be the first to review {media.title}.
         </p>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {reviews.map((r) => (
+        <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">
+          {sortByKey(reviews, sort).map((r) => (
             <ReviewItem key={r.id} review={r} />
           ))}
         </div>
@@ -266,7 +272,7 @@ function ReviewItem({ review }: { review: DisplayReview }) {
   }
 
   return (
-    <div className="glass rounded-2xl p-4">
+    <div className="glass mb-3 break-inside-avoid rounded-2xl p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <Avatar name={review.author_name} src={review.author_avatar} size="sm" />
