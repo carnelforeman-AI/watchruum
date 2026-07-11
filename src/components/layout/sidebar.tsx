@@ -14,6 +14,7 @@ import {
   PlayCircle,
   ChevronRight,
   ShieldAlert,
+  ShieldHalf,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Poster } from "@/components/media/poster";
@@ -43,7 +44,13 @@ export function Sidebar({
   watchlist = [],
 }: {
   signedIn?: boolean;
-  profile?: { display_name: string; username?: string | null; avatar_url: string | null; is_admin?: boolean } | null;
+  profile?: {
+    display_name: string;
+    username?: string | null;
+    avatar_url: string | null;
+    is_admin?: boolean;
+    is_moderator?: boolean;
+  } | null;
   continueWatching?: LibraryItem[];
   watchlist?: MediaItem[];
 }) {
@@ -157,10 +164,19 @@ export function Sidebar({
         </LibrarySection>
       </div>
 
+      {(profile?.is_moderator || profile?.is_admin) && (
+        <Link
+          href="/mod"
+          className="mx-3 mt-3 flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/20"
+        >
+          <ShieldHalf className="size-4" /> Switch to Moderator View
+        </Link>
+      )}
+
       {profile?.is_admin && (
         <Link
           href="/admin"
-          className="mx-3 mt-3 flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/20"
+          className="mx-3 mt-2 flex items-center justify-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2.5 text-[13px] font-semibold text-danger transition-colors hover:bg-danger/20"
         >
           <ShieldAlert className="size-4" /> Switch to Admin View
         </Link>
