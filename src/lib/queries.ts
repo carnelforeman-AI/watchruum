@@ -68,6 +68,7 @@ function scope(m: MediaItem, i: number) {
 
 export interface FriendOnline {
   name: string;
+  username: string | null; // for linking to their profile (/u/username)
   avatar: string | null;
   room: string;
   roomHref: string | null; // link to the room they're in, null if not in one
@@ -152,6 +153,7 @@ export const getSampleContent = cache(async (): Promise<SampleContent> => {
   const ONLINE_STATUS: FriendOnline["status"][] = ["online", "online", "online", "away", "online"];
   const friendsOnline: FriendOnline[] = items.slice(0, 5).map((m, i) => ({
     name: ONLINE[i]?.display_name ?? "Friend",
+    username: ONLINE[i]?.username ?? null,
     avatar: ONLINE[i]?.avatar_url ?? null,
     room: m.title,
     roomHref: `/title/${m.id}`,
