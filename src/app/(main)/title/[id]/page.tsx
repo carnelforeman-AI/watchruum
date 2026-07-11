@@ -19,13 +19,39 @@ import { PosterRail } from "@/components/media/poster-rail";
 import { ReviewsSection } from "@/components/review/reviews-section";
 import { getReviewsForMedia } from "@/lib/queries";
 import { posterGradient, compact } from "@/lib/utils";
+import { JsonLd } from "@/components/seo/json-ld";
+import { absoluteUrl, SITE_NAME } from "@/lib/site";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const media = await getMedia(id);
-  return { title: media ? `${media.title} · Watchruum` : "Title · Watchruum" };
+  if (!media) return { title: "Title" };
+  const kind = media.media_type === "tv" ? "show" : "movie";
+  const description = media.overview
+    ? media.overview.slice(0, 200)
+    : `Join the spoiler-safe Watchruum for ${media.title}. Track your progress, rate episodes, and discuss this ${kind} without getting spoiled.`;
+  const image = media.backdrop_url || media.poster_url || undefined;
+  return {
+    title: media.title,
+    description,
+    alternates: { canonical: `/title/${id}` },
+    openGraph: {
+      type: "website",
+      title: `${media.title} · ${SITE_NAME}`,
+      description,
+      url: `/title/${id}`,
+      images: image ? [image] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${media.title} · ${SITE_NAME}`,
+      description,
+      images: image ? [image] : undefined,
+    },
+  };
 }
 
 export default async function TitlePage({ params }: { params: Promise<{ id: string }> }) {
@@ -44,8 +70,21 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
   const members = compact(1200 + (media.tmdb_id % 5000));
   const filledStars = Math.round(media.vote_average / 2);
 
+  const titleJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": isTv ? "TVSeries" : "Movie",
+    name: media.title,
+    url: absoluteUrl(`/title/${id}`),
+    ...(media.overview ? { description: media.overview } : {}),
+    ...(media.poster_url ? { image: media.poster_url } : {}),
+    ...(media.genres.length ? { genre: media.genres } : {}),
+    ...(media.release_year ? { datePublished: String(media.release_year) } : {}),
+    ...(isTv && media.number_of_seasons ? { numberOfSeasons: media.number_of_seasons } : {}),
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
+      <JsonLd data={titleJsonLd} />
       {/* Backdrop */}
       <div className="relative -mx-4 -mt-6 mb-6 h-56 overflow-hidden md:-mx-6 md:h-80">
         <div className="absolute inset-0" style={{ background: posterGradient(media.title) }} />

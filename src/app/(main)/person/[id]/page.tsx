@@ -6,13 +6,38 @@ import { getPersonComments } from "@/lib/queries";
 import { Poster } from "@/components/media/poster";
 import { PersonComments } from "@/components/person/person-comments";
 import { posterGradient, initials } from "@/lib/utils";
+import { JsonLd } from "@/components/seo/json-ld";
+import { absoluteUrl, SITE_NAME } from "@/lib/site";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const person = await getPerson(id);
-  return { title: person ? `${person.name} · Watchruum` : "Cast · Watchruum" };
+  if (!person) return { title: "Cast" };
+  const description = person.biography
+    ? person.biography.slice(0, 200)
+    : `See ${person.name}'s movies and shows and join the spoiler-safe fan conversation on Watchruum.`;
+  const image = person.profile_url || undefined;
+  return {
+    title: person.name,
+    description,
+    alternates: { canonical: `/person/${id}` },
+    openGraph: {
+      type: "profile",
+      title: `${person.name} · ${SITE_NAME}`,
+      description,
+      url: `/person/${id}`,
+      images: image ? [image] : undefined,
+    },
+    twitter: {
+      card: "summary",
+      title: `${person.name} · ${SITE_NAME}`,
+      description,
+      images: image ? [image] : undefined,
+    },
+  };
 }
 
 function born(birthday: string | null): string | null {
@@ -34,8 +59,21 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
   const birthday = born(person.birthday);
 
+  const personJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: person.name,
+    url: absoluteUrl(`/person/${person.id}`),
+    ...(person.profile_url ? { image: person.profile_url } : {}),
+    ...(person.biography ? { description: person.biography } : {}),
+    ...(person.known_for ? { jobTitle: person.known_for } : {}),
+    ...(person.birthday ? { birthDate: person.birthday } : {}),
+    ...(person.place_of_birth ? { birthPlace: person.place_of_birth } : {}),
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
+      <JsonLd data={personJsonLd} />
       {/* Header */}
       <div className="grid gap-6 md:grid-cols-[200px_1fr]">
         <div className="mx-auto w-48 md:mx-0">

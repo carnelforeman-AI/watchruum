@@ -6,6 +6,16 @@ import { DiscussionCard } from "@/components/feed/discussion-card";
 import { ReviewCard } from "@/components/feed/review-card";
 import { RightRail } from "@/components/layout/right-rail";
 import { getUserLibrary, getTrendingRooms, getSampleContent, getPopularReviews } from "@/lib/queries";
+import { JsonLd } from "@/components/seo/json-ld";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
+
+const siteJsonLd: Record<string, unknown> = {
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "Organization", name: SITE_NAME, url: SITE_URL, description: SITE_DESCRIPTION },
+    { "@type": "WebSite", name: SITE_NAME, url: SITE_URL, description: SITE_DESCRIPTION },
+  ],
+};
 
 export default async function HomePage() {
   const [lib, rooms, sample, popular] = await Promise.all([
@@ -19,6 +29,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex gap-6">
+      <JsonLd data={siteJsonLd} />
       <div className="min-w-0 flex-1 space-y-8 px-4 py-6 md:px-6">
         <Hero />
 
