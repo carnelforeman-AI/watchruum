@@ -90,7 +90,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
         <div className="absolute inset-0" style={{ background: posterGradient(media.title) }} />
         {media.backdrop_url && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={media.backdrop_url} alt="" className="h-full w-full object-cover opacity-60" />
+          <img src={media.backdrop_url} alt="" className="h-full w-full object-cover object-top opacity-60" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-bg via-bg/70 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-bg/80 via-transparent to-bg/40" />
