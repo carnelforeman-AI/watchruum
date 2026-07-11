@@ -69,6 +69,7 @@ function scope(m: MediaItem, i: number) {
 export interface FriendOnline {
   name: string;
   username: string | null; // for linking to their profile (/u/username)
+  userId: string | null; // real auth user id → enables live DMs; null = demo/mock
   avatar: string | null;
   room: string;
   roomHref: string | null; // link to the room they're in, null if not in one
@@ -154,6 +155,7 @@ export const getSampleContent = cache(async (): Promise<SampleContent> => {
   const friendsOnline: FriendOnline[] = items.slice(0, 5).map((m, i) => ({
     name: ONLINE[i]?.display_name ?? "Friend",
     username: ONLINE[i]?.username ?? null,
+    userId: null, // seeded presence — not real auth users, so DMs run in demo mode
     avatar: ONLINE[i]?.avatar_url ?? null,
     room: m.title,
     roomHref: `/title/${m.id}`,

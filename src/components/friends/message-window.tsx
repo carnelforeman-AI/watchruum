@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { X, Plus, Smile, Send, CheckCheck, ChevronRight } from "lucide-react";
+import { X, Plus, Smile, Send, CheckCheck, ChevronRight, Loader2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useDirectMessages, type DMessage } from "@/lib/use-direct-messages";
 
-interface Msg {
+/** Normalized shape both the live backend and the demo seed render through. */
+interface UIMsg {
   id: string;
   mine: boolean;
   text?: string;
@@ -20,8 +22,50 @@ interface Msg {
 const EMOJIS = "😀 😂 🥹 😍 😎 😭 😅 😊 🙌 🔥 ❤️ 👏 🎉 😮 😢 👍 🙏 💯 ✨ 🤯 😱 🥳 😴 🍿 🎬 📺 ⭐ 🤔 💜 😬".split(" ");
 const STICKERS = "🎉 🔥 😂 ❤️ 👏 😱 🍿 🙌 💜 🤯 😍 😭".split(" ");
 
-/** Seeded starter conversation so the window feels alive (no DM backend yet). */
-function seedMessages(name: string): { day: string; msgs: Msg[] }[] {
+/* ---------------------------------------------------------------- helpers */
+
+function fmtTime(d: Date): string {
+  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function dayLabel(d: Date): string {
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((startOf(new Date()) - startOf(d)) / 86_400_000);
+  if (diff <= 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** Group an ordered list of day-tagged messages into divider sections. */
+function groupByDay(items: (UIMsg & { day: string })[]): { day: string; msgs: UIMsg[] }[] {
+  const out: { day: string; msgs: UIMsg[] }[] = [];
+  for (const it of items) {
+    const last = out[out.length - 1];
+    if (last && last.day === it.day) last.msgs.push(it);
+    else out.push({ day: it.day, msgs: [it] });
+  }
+  return out;
+}
+
+function liveToGroups(messages: DMessage[], meId: string | null) {
+  const flat = messages.map((m) => {
+    const d = new Date(m.created_at);
+    return {
+      id: m.id,
+      mine: m.sender_id === meId,
+      text: m.body ?? undefined,
+      image: m.image_url ?? undefined,
+      sticker: m.sticker ?? undefined,
+      time: fmtTime(d),
+      read: !!m.read_at,
+      day: dayLabel(d),
+    } satisfies UIMsg & { day: string };
+  });
+  return groupByDay(flat);
+}
+
+/** Seeded starter conversation for demo mode (no recipient / signed-out). */
+function seedGroups(name: string): { day: string; msgs: UIMsg[] }[] {
   const first = name.split(" ")[0];
   return [
     {
@@ -45,30 +89,75 @@ function seedMessages(name: string): { day: string; msgs: Msg[] }[] {
   ];
 }
 
+/** Downscale a picked image so Realtime payloads stay small. Photos only. */
+async function downscale(file: File, max = 1024, quality = 0.82): Promise<string> {
+  const dataUrl = await new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result as string);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+  try {
+    const img = document.createElement("img");
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = rej;
+      img.src = dataUrl;
+    });
+    const scale = Math.min(1, max / Math.max(img.width, img.height));
+    if (scale >= 1) return dataUrl;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", quality);
+  } catch {
+    return dataUrl;
+  }
+}
+
 /**
- * Direct-message window (styled to the mock-up). Working front end — type/send,
- * pick emoji, send a sticker, attach an image — but there's no DM backend yet,
- * so messages live in this session until a direct-messages table + realtime are
- * wired. (Real GIF search would add a Giphy/Tenor key later.)
+ * Direct-message window.
+ *
+ * LIVE mode (a real `recipientId`, signed in, Supabase configured): messages
+ * persist to `direct_messages`, arrive over Realtime, and read receipts flip
+ * the moment the recipient opens the thread.
+ *
+ * DEMO mode (no recipient / signed-out): a seeded local conversation so the UI
+ * is explorable without a backend. Messages live in the session only.
  */
 export function MessageWindow({
   name,
   username,
   avatar,
   status = "online",
+  recipientId,
   onClose,
 }: {
   name: string;
   username?: string | null;
   avatar: string | null;
   status?: "online" | "away";
+  recipientId?: string | null;
   onClose: () => void;
 }) {
-  const [groups, setGroups] = useState(() => seedMessages(name));
+  const dm = useDirectMessages(recipientId);
+  const live = dm.ready;
+
+  // Demo-mode local conversation (ignored in live mode).
+  const [demoGroups, setDemoGroups] = useState(() => seedGroups(name));
   const [text, setText] = useState("");
   const [picker, setPicker] = useState<"emoji" | "gif" | null>(null);
+  const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const groups = useMemo(
+    () => (live ? liveToGroups(dm.messages, dm.meId) : demoGroups),
+    [live, dm.messages, dm.meId, demoGroups],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && (picker ? setPicker(null) : onClose());
@@ -80,42 +169,48 @@ export function MessageWindow({
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [groups]);
 
-  const now = () => new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-
-  function push(msg: Omit<Msg, "id" | "time" | "mine" | "read">) {
-    setGroups((g) => {
+  /** Demo-mode: append one of my messages to the "Today" section. */
+  function pushDemo(msg: Partial<UIMsg>) {
+    setDemoGroups((g) => {
       const next = g.map((grp) => ({ ...grp, msgs: [...grp.msgs] }));
       const today = next.find((grp) => grp.day === "Today");
-      const full: Msg = { id: `m${Date.now()}`, mine: true, time: now(), read: false, ...msg };
+      const full: UIMsg = { id: `m${Date.now()}`, mine: true, time: fmtTime(new Date()), read: false, ...msg };
       if (today) today.msgs.push(full);
       else next.push({ day: "Today", msgs: [full] });
       return next;
     });
   }
 
-  function send(e: React.FormEvent) {
+  async function sendText(e: React.FormEvent) {
     e.preventDefault();
     const body = text.trim();
     if (!body) return;
-    push({ text: body });
     setText("");
     setPicker(null);
+    if (live) await dm.send({ body });
+    else pushDemo({ text: body });
   }
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function sendSticker(emoji: string) {
+    setPicker(null);
+    if (live) await dm.send({ sticker: emoji });
+    else pushDemo({ sticker: emoji });
+  }
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
     // Photos only — no PDFs or other document types.
-    if (!file.type.startsWith("image/")) {
-      e.target.value = "";
-      return;
+    if (!file.type.startsWith("image/")) return;
+    setSending(true);
+    try {
+      const url = await downscale(file);
+      if (live) await dm.send({ image_url: url });
+      else pushDemo({ image: url });
+    } finally {
+      setSending(false);
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") push({ image: reader.result });
-    };
-    reader.readAsDataURL(file);
-    e.target.value = "";
   }
 
   const Header = (
@@ -133,6 +228,8 @@ export function MessageWindow({
       </div>
     </>
   );
+
+  const emptyLive = live && !dm.loading && groups.length === 0;
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center p-0 sm:p-4" role="dialog" aria-modal="true">
@@ -155,50 +252,63 @@ export function MessageWindow({
 
         {/* Messages */}
         <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4 no-scrollbar">
-          {groups.map((grp) => (
-            <div key={grp.day} className="space-y-2">
-              <div className="my-2 flex items-center gap-3">
-                <span className="h-px flex-1 bg-border" />
-                <span className="text-[11px] font-medium text-muted-2">{grp.day}</span>
-                <span className="h-px flex-1 bg-border" />
-              </div>
-              {grp.msgs.map((m) => (
-                <div key={m.id} className={cn("flex", m.mine ? "justify-end" : "justify-start")}>
-                  <div className="max-w-[78%]">
-                    {m.sticker ? (
-                      <div className={cn("text-5xl leading-none", m.mine ? "text-right" : "text-left")}>{m.sticker}</div>
-                    ) : m.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.image} alt="Shared" className="max-h-56 rounded-2xl ring-1 ring-white/10" />
-                    ) : (
-                      <div
-                        className={cn(
-                          "rounded-2xl px-3.5 py-2.5 text-[14px] leading-snug",
-                          m.mine ? "rounded-br-md bg-primary text-white" : "rounded-bl-md bg-white/[0.06] text-foreground",
-                        )}
-                      >
-                        {m.text}
-                      </div>
-                    )}
-                    <div className={cn("mt-1 flex items-center gap-1 px-1 text-[11px] text-muted-2", m.mine ? "justify-end" : "justify-start")}>
-                      <span>{m.time}</span>
-                      {m.mine && <CheckCheck className={cn("size-3.5", m.read ? "text-accent" : "text-muted-2")} />}
-                    </div>
-                    {m.reaction && (
-                      <div className={cn("mt-0.5 flex", m.mine ? "justify-end" : "justify-start")}>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-1.5 py-0.5 text-[11px]">{m.reaction} 1</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+          {live && dm.loading ? (
+            <div className="grid h-full place-items-center text-muted-2">
+              <Loader2 className="size-5 animate-spin" />
             </div>
-          ))}
+          ) : emptyLive ? (
+            <div className="grid h-full place-items-center px-6 text-center">
+              <div>
+                <p className="text-[14px] font-semibold">No messages yet</p>
+                <p className="mt-1 text-[12.5px] text-muted-2">Say hi to {name.split(" ")[0]} — this thread is spoiler-safe.</p>
+              </div>
+            </div>
+          ) : (
+            groups.map((grp) => (
+              <div key={grp.day} className="space-y-2">
+                <div className="my-2 flex items-center gap-3">
+                  <span className="h-px flex-1 bg-border" />
+                  <span className="text-[11px] font-medium text-muted-2">{grp.day}</span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+                {grp.msgs.map((m) => (
+                  <div key={m.id} className={cn("flex", m.mine ? "justify-end" : "justify-start")}>
+                    <div className="max-w-[78%]">
+                      {m.sticker ? (
+                        <div className={cn("text-5xl leading-none", m.mine ? "text-right" : "text-left")}>{m.sticker}</div>
+                      ) : m.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={m.image} alt="Shared" className="max-h-56 rounded-2xl ring-1 ring-white/10" />
+                      ) : (
+                        <div
+                          className={cn(
+                            "rounded-2xl px-3.5 py-2.5 text-[14px] leading-snug",
+                            m.mine ? "rounded-br-md bg-primary text-white" : "rounded-bl-md bg-white/[0.06] text-foreground",
+                          )}
+                        >
+                          {m.text}
+                        </div>
+                      )}
+                      <div className={cn("mt-1 flex items-center gap-1 px-1 text-[11px] text-muted-2", m.mine ? "justify-end" : "justify-start")}>
+                        <span>{m.time}</span>
+                        {m.mine && <CheckCheck className={cn("size-3.5", m.read ? "text-accent" : "text-muted-2")} />}
+                      </div>
+                      {m.reaction && (
+                        <div className={cn("mt-0.5 flex", m.mine ? "justify-end" : "justify-start")}>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-1.5 py-0.5 text-[11px]">{m.reaction} 1</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))
+          )}
           <div ref={bottomRef} />
         </div>
 
         {/* Composer */}
-        <form onSubmit={send} className="relative flex items-center gap-2 border-t border-border px-3 py-3">
+        <form onSubmit={sendText} className="relative flex items-center gap-2 border-t border-border px-3 py-3">
           {/* Emoji / GIF picker popovers */}
           {picker && (
             <div className="absolute bottom-full right-2 mb-2 w-64 rounded-2xl border border-border bg-bg-elevated p-2 shadow-2xl">
@@ -212,10 +322,7 @@ export function MessageWindow({
                     type="button"
                     onClick={() => {
                       if (picker === "emoji") setText((t) => t + e);
-                      else {
-                        push({ sticker: e });
-                        setPicker(null);
-                      }
+                      else void sendSticker(e);
                     }}
                     className="grid size-8 place-items-center rounded-lg text-xl hover:bg-white/10"
                   >
@@ -226,8 +333,8 @@ export function MessageWindow({
             </div>
           )}
 
-          <button type="button" aria-label="Attach image" onClick={() => fileRef.current?.click()} className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary-strong text-white">
-            <Plus className="size-5" />
+          <button type="button" aria-label="Attach photo" title="Attach photo" onClick={() => fileRef.current?.click()} disabled={sending} className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-primary-strong text-white disabled:opacity-50">
+            {sending ? <Loader2 className="size-5 animate-spin" /> : <Plus className="size-5" />}
           </button>
           <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
 

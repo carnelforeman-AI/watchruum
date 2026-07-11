@@ -166,6 +166,7 @@ export function FriendsRailPanel({
         <MessageWindow
           name={messaging.name}
           username={messaging.username}
+          recipientId={messaging.userId}
           avatar={messaging.avatar}
           status={messaging.status}
           onClose={() => setMessaging(null)}

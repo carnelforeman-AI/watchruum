@@ -2,8 +2,9 @@
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Search, UserPlus, UserCheck, Users, Loader2 } from "lucide-react";
+import { Search, UserPlus, UserCheck, Users, Loader2, MessageSquare } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { MessageWindow } from "@/components/friends/message-window";
 import { cn } from "@/lib/utils";
 import { toggleFollow, searchMembers } from "@/app/actions";
 
@@ -32,6 +33,7 @@ export function FriendsDirectory({
   const [follows, setFollows] = useState<Record<string, boolean>>(
     () => Object.fromEntries(people.map((p) => [p.id, p.followed])),
   );
+  const [messaging, setMessaging] = useState<Person | null>(null);
   const [, start] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seq = useRef(0);
@@ -116,30 +118,50 @@ export function FriendsDirectory({
                   )}
                 </div>
                 {signedIn && (
-                  <button
-                    onClick={() => toggle(p)}
-                    className={cn(
-                      "inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-[12.5px] font-semibold transition-colors",
-                      following
-                        ? "border border-border bg-white/[0.03] text-muted hover:text-foreground"
-                        : "bg-primary text-white hover:bg-primary-strong",
-                    )}
-                  >
-                    {following ? (
-                      <>
-                        <UserCheck className="size-3.5" /> Following
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="size-3.5" /> Follow
-                      </>
-                    )}
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      onClick={() => setMessaging(p)}
+                      aria-label={`Message ${p.display_name}`}
+                      title={`Message ${p.display_name}`}
+                      className="grid size-9 place-items-center rounded-lg border border-border bg-white/[0.03] text-muted-2 transition-colors hover:text-primary"
+                    >
+                      <MessageSquare className="size-4" />
+                    </button>
+                    <button
+                      onClick={() => toggle(p)}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12.5px] font-semibold transition-colors",
+                        following
+                          ? "border border-border bg-white/[0.03] text-muted hover:text-foreground"
+                          : "bg-primary text-white hover:bg-primary-strong",
+                      )}
+                    >
+                      {following ? (
+                        <>
+                          <UserCheck className="size-3.5" /> Following
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="size-3.5" /> Follow
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
             );
           })}
         </div>
+      )}
+
+      {messaging && (
+        <MessageWindow
+          name={messaging.display_name}
+          username={messaging.username}
+          recipientId={messaging.id}
+          avatar={messaging.avatar_url}
+          onClose={() => setMessaging(null)}
+        />
       )}
     </div>
   );
