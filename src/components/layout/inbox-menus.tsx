@@ -108,7 +108,7 @@ export function NotificationBell({ notifications }: { notifications: Notificatio
 
       {open && (
         <div
-          className="panel fixed inset-x-2 top-[7rem] bottom-3 z-50 flex flex-col overflow-hidden rounded-2xl border border-border shadow-2xl lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-full lg:mt-2 lg:w-[26rem] lg:max-w-[92vw]"
+          className="panel fixed inset-x-2 top-[7rem] z-50 flex max-h-[calc(100dvh-8.5rem)] flex-col overflow-hidden rounded-2xl border border-border shadow-2xl lg:absolute lg:inset-x-auto lg:right-0 lg:top-full lg:mt-2 lg:max-h-none lg:w-[26rem] lg:max-w-[92vw]"
           role="menu"
         >
           {/* Header */}
@@ -307,7 +307,7 @@ export function MessageInbox({ messages }: { messages: MessageItem[] }) {
 
       {open && (
         <div
-          className="panel fixed inset-x-2 top-[7rem] bottom-3 z-50 flex flex-col overflow-hidden rounded-2xl border border-border shadow-2xl lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-full lg:mt-2 lg:w-[24rem] lg:max-w-[92vw]"
+          className="panel fixed inset-x-2 top-[7rem] z-50 flex max-h-[calc(100dvh-8.5rem)] flex-col overflow-hidden rounded-2xl border border-border shadow-2xl lg:absolute lg:inset-x-auto lg:right-0 lg:top-full lg:mt-2 lg:max-h-none lg:w-[24rem] lg:max-w-[92vw]"
           role="menu"
         >
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
