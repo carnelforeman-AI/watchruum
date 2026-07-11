@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Bell, BellRing, X, Play, MessageSquare, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
+import { MessageWindow } from "@/components/friends/message-window";
 import { cn, timeAgo } from "@/lib/utils";
 import type { ActivityEvent } from "@/lib/types";
 import type { FriendOnline } from "@/lib/queries";
@@ -38,6 +39,7 @@ export function FriendsRailPanel({
 }) {
   const [alerts, setAlerts] = useState<Set<string>>(() => new Set());
   const [selected, setSelected] = useState<Selected | null>(null);
+  const [messaging, setMessaging] = useState<FriendOnline | null>(null);
 
   useEffect(() => {
     // Hydrate from localStorage after mount so SSR and first client render agree.
@@ -95,7 +97,18 @@ export function FriendsRailPanel({
                       </p>
                       <p className="truncate text-[12px] text-muted-2">In {f.room} Room</p>
                     </div>
-                    <AlertBell on={alerts.has(key)} onClick={() => toggle(key)} name={f.name} />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMessaging(f);
+                      }}
+                      aria-label={`Message ${f.name}`}
+                      title={`Message ${f.name}`}
+                      className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-2 opacity-60 transition-colors hover:text-primary hover:opacity-100 group-hover:opacity-100"
+                    >
+                      <MessageSquare className="size-4" />
+                    </button>
                   </Row>
                 );
               })}
@@ -142,6 +155,19 @@ export function FriendsRailPanel({
           alerted={alerts.has(selected.key)}
           onToggle={() => toggle(selected.key)}
           onClose={() => setSelected(null)}
+          onMessage={() => {
+            if (selected.kind === "online") setMessaging(selected.data);
+            setSelected(null);
+          }}
+        />
+      )}
+
+      {messaging && (
+        <MessageWindow
+          name={messaging.name}
+          avatar={messaging.avatar}
+          status={messaging.status}
+          onClose={() => setMessaging(null)}
         />
       )}
     </>
@@ -207,12 +233,15 @@ function DetailModal({
   alerted,
   onToggle,
   onClose,
+  onMessage,
 }: {
   selected: Selected;
   alerted: boolean;
   onToggle: () => void;
   onClose: () => void;
+  onMessage: () => void;
 }) {
+  const [noRoom, setNoRoom] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -267,16 +296,45 @@ function DetailModal({
         {/* Actions */}
         <div className="space-y-2 p-5 pt-3">
           {isOnline ? (
-            <div className="grid grid-cols-2 gap-2">
-              <Link href="/rooms" onClick={onClose} className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-primary-strong px-3 py-2.5 text-[13px] font-bold text-white hover:opacity-90">
-                <Play className="size-4" /> Join Room
-              </Link>
-              <Link href="/inbox" onClick={onClose} className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-white/[0.03] px-3 py-2.5 text-[13px] font-semibold text-foreground hover:bg-white/[0.07]">
-                <MessageSquare className="size-4" /> Message
-              </Link>
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                {selected.data.roomHref ? (
+                  <Link
+                    href={selected.data.roomHref}
+                    onClick={onClose}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-primary-strong px-3 py-2.5 text-[13px] font-bold text-white hover:opacity-90"
+                  >
+                    <Play className="size-4" /> Join Room
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setNoRoom(true)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-primary-strong px-3 py-2.5 text-[13px] font-bold text-white hover:opacity-90"
+                  >
+                    <Play className="size-4" /> Join Room
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onMessage}
+                  className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-white/[0.03] px-3 py-2.5 text-[13px] font-semibold text-foreground hover:bg-white/[0.07]"
+                >
+                  <MessageSquare className="size-4" /> Message
+                </button>
+              </div>
+              {noRoom && (
+                <p className="mt-1 rounded-lg bg-warn/10 px-3 py-2 text-center text-[12.5px] font-medium text-warn">
+                  {name} is not currently in a room.
+                </p>
+              )}
+            </>
           ) : (
-            <Link href="/activity" onClick={onClose} className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-white/[0.03] px-3 py-2.5 text-[13px] font-semibold text-foreground hover:bg-white/[0.07]">
+            <Link
+              href="/activity"
+              onClick={onClose}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-white/[0.03] px-3 py-2.5 text-[13px] font-semibold text-foreground hover:bg-white/[0.07]"
+            >
               <ExternalLink className="size-4" /> View activity
             </Link>
           )}

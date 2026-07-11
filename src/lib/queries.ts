@@ -70,6 +70,7 @@ export interface FriendOnline {
   name: string;
   avatar: string | null;
   room: string;
+  roomHref: string | null; // link to the room they're in, null if not in one
   status: "online" | "away";
 }
 
@@ -153,6 +154,7 @@ export const getSampleContent = cache(async (): Promise<SampleContent> => {
     name: ONLINE[i]?.display_name ?? "Friend",
     avatar: ONLINE[i]?.avatar_url ?? null,
     room: m.title,
+    roomHref: `/title/${m.id}`,
     status: ONLINE_STATUS[i] ?? "online",
   }));
 
