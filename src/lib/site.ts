@@ -5,7 +5,7 @@
  * in Vercel to override (e.g. the .vercel.app URL) if the domain isn't live yet.
  */
 const raw = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
-export const SITE_URL = raw && !raw.includes("localhost") ? raw : "https://watchruum.com";
+export const SITE_URL = raw && !raw.includes("localhost") ? raw : "https://www.watchruum.com";
 
 export const SITE_NAME = "Watchruum";
 export const SITE_TAGLINE = "Never get spoiled again";
