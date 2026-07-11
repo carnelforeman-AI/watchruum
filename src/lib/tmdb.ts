@@ -267,6 +267,64 @@ export const discoverByGenre = cache(
   },
 );
 
+export interface GenrePreview {
+  backdrop: string | null; // representative TMDb backdrop for the genre
+  count: number; // real number of titles in the genre
+}
+
+/**
+ * A representative backdrop image + real title count for every browse genre,
+ * for the "Browse by Genre" cards. Images are TMDb-licensed art (same source
+ * the rest of the app uses); counts are real TMDb totals.
+ */
+export const getGenrePreviews = cache(async (): Promise<Record<string, GenrePreview>> => {
+  const out: Record<string, GenrePreview> = {};
+  if (!isTmdbConfigured) {
+    for (const g of GENRES_BROWSE) out[g.name] = { backdrop: null, count: 0 };
+    return out;
+  }
+
+  await Promise.all(
+    GENRES_BROWSE.map(async (g) => {
+      try {
+        const calls: Promise<{ results: any[]; total_results: number }>[] = [];
+        if (g.movie?.length)
+          calls.push(
+            tmdb("/discover/movie", {
+              with_genres: g.movie.join("|"),
+              sort_by: "popularity.desc",
+              "vote_count.gte": "150",
+              page: "1",
+            }),
+          );
+        if (g.tv?.length)
+          calls.push(
+            tmdb("/discover/tv", {
+              with_genres: g.tv.join("|"),
+              sort_by: "popularity.desc",
+              "vote_count.gte": "150",
+              page: "1",
+            }),
+          );
+        const res = await Promise.all(calls);
+        let count = 0;
+        let backdrop: string | null = null;
+        for (const r of res) {
+          count += r.total_results ?? 0;
+          if (!backdrop) {
+            const hit = (r.results ?? []).find((x: any) => x.backdrop_path);
+            if (hit) backdrop = img(hit.backdrop_path, "w780");
+          }
+        }
+        out[g.name] = { backdrop, count };
+      } catch {
+        out[g.name] = { backdrop: null, count: 0 };
+      }
+    }),
+  );
+  return out;
+});
+
 /**
  * Search titles by text, restricted to a genre. Uses TMDb's /search endpoints
  * (which cover the whole catalog, not a popularity slice) and keeps only
