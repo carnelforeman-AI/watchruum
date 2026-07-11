@@ -555,6 +555,7 @@ export interface DisplayReview {
   score: number;
   body: string;
   spoiler_scope: SpoilerScope;
+  image_urls: string[];
   like_count: number;
   liked_by_me: boolean;
   created_at: string;
@@ -599,7 +600,7 @@ export const getReviewsForMedia = cache(
 
     const { data: rows } = await supabase
       .from("reviews")
-      .select("id, season_number, episode_number, score, body, spoiler_scope, created_at, author:profiles(display_name, avatar_url)")
+      .select("id, season_number, episode_number, score, body, spoiler_scope, image_urls, created_at, author:profiles(display_name, avatar_url)")
       .eq("media_id", media.id)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -616,6 +617,7 @@ export const getReviewsForMedia = cache(
       score: r.score ?? 0,
       body: r.body,
       spoiler_scope: r.spoiler_scope,
+      image_urls: r.image_urls ?? [],
       like_count: counts.get(r.id) ?? 0,
       liked_by_me: mine.has(r.id),
       created_at: r.created_at,

@@ -192,6 +192,7 @@ export async function postReview(
   score: number,
   body: string,
   spoiler_scope: SpoilerScope,
+  image_urls: string[] = [],
 ): Promise<Result & { id?: string }> {
   const ctx = await authed();
   if (!ctx) return { ok: true, demo: true };
@@ -200,6 +201,10 @@ export async function postReview(
   const text = cleanText(body, 8000);
   const mediaId = await ensureMedia(ctx.supabase, media);
   if (!mediaId) return { ok: false, error: "media" };
+  // Keep only our own public storage URLs, cap at 4.
+  const images = (image_urls ?? [])
+    .filter((u) => typeof u === "string" && u.includes("/review-images/"))
+    .slice(0, 4);
   const { data, error } = await ctx.supabase
     .from("reviews")
     .insert({
@@ -210,6 +215,7 @@ export async function postReview(
       score: Math.max(1, Math.min(10, Math.round(score))),
       body: text,
       spoiler_scope,
+      image_urls: images,
     })
     .select("id")
     .single();

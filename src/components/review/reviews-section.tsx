@@ -1,16 +1,33 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
-import { useState, useTransition } from "react";
-import { Star, Heart, Flag, Eye, EyeOff, PenLine, Sparkles } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import {
+  Star,
+  Heart,
+  Flag,
+  Eye,
+  EyeOff,
+  PenLine,
+  Sparkles,
+  ShieldCheck,
+  ImagePlus,
+  X,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { StarRating } from "@/components/media/rating";
 import { cn, timeAgo } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import { postReview, toggleReaction, reportContent } from "@/app/actions";
 import type { MediaItem } from "@/lib/types";
 import type { DisplayReview } from "@/lib/queries";
+
+const MAX_IMAGES = 4;
+const MAX_IMG_BYTES = 5 * 1024 * 1024; // 5 MB
 
 export function ReviewsSection({
   media,
@@ -23,12 +40,67 @@ export function ReviewsSection({
   const [score, setScore] = useState(0);
   const [body, setBody] = useState("");
   const [hasSpoilers, setHasSpoilers] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [, start] = useTransition();
+
+  async function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (!files.length) return;
+    setUploadErr(null);
+
+    const sb = createClient();
+    if (!sb) {
+      setUploadErr("Storage isn't configured.");
+      return;
+    }
+    const {
+      data: { user },
+    } = await sb.auth.getUser();
+    if (!user) {
+      setUploadErr("Sign in to attach screenshots.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const room = MAX_IMAGES - images.length;
+      for (const file of files.slice(0, Math.max(0, room))) {
+        if (!file.type.startsWith("image/")) {
+          setUploadErr("Only image files can be attached.");
+          continue;
+        }
+        if (file.size > MAX_IMG_BYTES) {
+          setUploadErr("Each screenshot must be under 5 MB.");
+          continue;
+        }
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const path = `${user.id}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+        const { error } = await sb.storage
+          .from("review-images")
+          .upload(path, file, { cacheControl: "3600", contentType: file.type });
+        if (error) {
+          setUploadErr(error.message);
+          continue;
+        }
+        const { data } = sb.storage.from("review-images").getPublicUrl(path);
+        setImages((im) => [...im, data.publicUrl]);
+      }
+    } catch (err) {
+      setUploadErr(err instanceof Error ? err.message : "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!body.trim() || score === 0) return;
     const scope = hasSpoilers ? "series" : "none";
+    const imgs = images;
     const optimistic: DisplayReview = {
       id: `local_${Date.now()}`,
       author_name: "You",
@@ -38,6 +110,7 @@ export function ReviewsSection({
       score,
       body: body.trim(),
       spoiler_scope: scope,
+      image_urls: imgs,
       like_count: 0,
       liked_by_me: false,
       created_at: new Date().toISOString(),
@@ -47,8 +120,10 @@ export function ReviewsSection({
     setScore(0);
     setBody("");
     setHasSpoilers(false);
+    setImages([]);
+    setUploadErr(null);
     start(() => {
-      postReview(media, null, null, optimistic.score, text, scope);
+      postReview(media, null, null, optimistic.score, text, scope, imgs);
     });
   }
 
@@ -70,20 +145,76 @@ export function ReviewsSection({
           placeholder={`Share your thoughts on ${media.title}…`}
           className="mt-3"
         />
+
+        {/* Attached screenshots */}
+        {images.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {images.map((u, i) => (
+              <div key={u} className="relative size-20 overflow-hidden rounded-lg ring-1 ring-border">
+                <img src={u} alt={`Screenshot ${i + 1}`} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setImages((im) => im.filter((x) => x !== u))}
+                  aria-label="Remove screenshot"
+                  className="absolute right-1 top-1 grid size-5 place-items-center rounded-full bg-black/70 text-white transition hover:bg-black"
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {uploadErr && <p className="mt-2 text-[12px] text-danger">{uploadErr}</p>}
+
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => setHasSpoilers((v) => !v)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
-              hasSpoilers
-                ? "border-warn/50 bg-warn/15 text-warn"
-                : "border-safe/40 bg-safe/10 text-safe",
-            )}
-          >
-            {hasSpoilers ? "Contains spoilers" : "Spoiler-free"}
-          </button>
-          <Button type="submit" size="sm" disabled={!body.trim() || score === 0}>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Spoiler / safe selector */}
+            <div className="inline-flex rounded-full border border-border bg-white/[0.03] p-1">
+              <button
+                type="button"
+                onClick={() => setHasSpoilers(false)}
+                aria-pressed={!hasSpoilers}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                  !hasSpoilers ? "bg-safe/15 text-safe" : "text-muted-2 hover:text-foreground",
+                )}
+              >
+                <ShieldCheck className="size-3.5" /> Spoiler-free
+              </button>
+              <button
+                type="button"
+                onClick={() => setHasSpoilers(true)}
+                aria-pressed={hasSpoilers}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                  hasSpoilers ? "bg-warn/15 text-warn" : "text-muted-2 hover:text-foreground",
+                )}
+              >
+                <EyeOff className="size-3.5" /> Contains spoilers
+              </button>
+            </div>
+
+            {/* Attach screenshots */}
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading || images.length >= MAX_IMAGES}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white/[0.03] px-3 py-1.5 text-[12px] font-semibold text-muted transition-colors hover:text-foreground disabled:opacity-50"
+            >
+              {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <ImagePlus className="size-3.5" />}
+              {images.length > 0 ? `Screenshots (${images.length}/${MAX_IMAGES})` : "Add screenshots"}
+            </button>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={onFiles}
+            />
+          </div>
+
+          <Button type="submit" size="sm" disabled={!body.trim() || score === 0 || uploading}>
             <Sparkles className="size-3.5" /> Post review
           </Button>
         </div>
@@ -123,6 +254,7 @@ function ReviewItem({ review }: { review: DisplayReview }) {
 
   const spoiler = review.spoiler_scope !== "none";
   const hidden = spoiler && !revealed;
+  const images = review.image_urls ?? [];
 
   function like() {
     const next = !liked;
@@ -150,11 +282,16 @@ function ReviewItem({ review }: { review: DisplayReview }) {
         </div>
       </div>
 
-      <div className="mt-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         {spoiler ? (
           <Badge variant="warn">Contains Spoilers</Badge>
         ) : (
           <Badge variant="safe">Spoiler-Free</Badge>
+        )}
+        {images.length > 0 && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-2">
+            <ImagePlus className="size-3" /> {images.length}
+          </span>
         )}
       </div>
 
@@ -168,6 +305,7 @@ function ReviewItem({ review }: { review: DisplayReview }) {
             <div className="text-center">
               <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-warn">
                 <EyeOff className="size-4" /> This contains a spoiler
+                {images.length > 0 && " + screenshots"}
               </p>
               <button
                 onClick={() => setRevealed(true)}
@@ -179,7 +317,24 @@ function ReviewItem({ review }: { review: DisplayReview }) {
           </div>
         </div>
       ) : (
-        <p className="mt-3 text-sm leading-relaxed text-foreground/90">{review.body}</p>
+        <>
+          <p className="mt-3 text-sm leading-relaxed text-foreground/90">{review.body}</p>
+          {images.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {images.map((u, i) => (
+                <a
+                  key={i}
+                  href={u}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block h-24 w-32 overflow-hidden rounded-lg ring-1 ring-border transition hover:ring-primary/50"
+                >
+                  <img src={u} alt={`Review screenshot ${i + 1}`} className="h-full w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <div className="mt-3 flex items-center gap-4 text-[12px] text-muted-2">
