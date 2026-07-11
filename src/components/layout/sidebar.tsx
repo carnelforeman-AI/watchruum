@@ -6,7 +6,6 @@ import {
   Home,
   TrendingUp,
   Users,
-  Compass,
   LayoutGrid,
   CalendarDays,
   Bookmark,
@@ -30,7 +29,6 @@ const NAV = [
   { href: "/", label: "Home", icon: Home },
   { href: "/trending", label: "Trending", icon: TrendingUp },
   { href: "/rooms", label: "Watch Rooms", icon: Users },
-  { href: "/explore", label: "Discover", icon: Compass },
   { href: "/genres", label: "Genres", icon: LayoutGrid },
   { href: "/calendar", label: "Watch Calendar", icon: CalendarDays },
   { href: "/watchlist", label: "Watchlist", icon: Bookmark },
@@ -129,7 +127,7 @@ export function Sidebar({
 
         <LibrarySection title="Your Watchlist" icon={<Bookmark className="size-3.5" />}>
           {wl.length === 0 ? (
-            <EmptyHint text="Add shows from Discover to build your list." />
+            <EmptyHint text="Add shows from Trending to build your list." />
           ) : (
             wl.slice(0, 5).map((m) => (
               <Link
