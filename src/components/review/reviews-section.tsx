@@ -224,6 +224,14 @@ export function ReviewsSection({
             <Sparkles className="size-3.5" /> Post review
           </Button>
         </div>
+
+        <p className="mt-3 flex items-start gap-1.5 border-t border-border-soft pt-3 text-[11.5px] leading-relaxed text-muted-2">
+          <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-safe" />
+          <span>
+            Mark whether your review contains spoilers, and please be mindful, don&apos;t reveal key moments or
+            endings for fans who haven&apos;t caught up yet. Keep Watchruum spoiler-safe.
+          </span>
+        </p>
       </form>
 
       {reviews.length === 0 ? (
