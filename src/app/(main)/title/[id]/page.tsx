@@ -236,7 +236,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold">Watch Rooms</h2>
           <span className="flex items-center gap-1.5 text-[12px] font-semibold text-safe">
-            <ShieldCheck className="size-4" /> Spoiler-safe by episode
+            <ShieldCheck className="size-4" /> {isTv ? "Spoiler-safe by episode" : "Spoiler-safe"}
           </span>
         </div>
 
