@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cake, MapPin } from "lucide-react";
 import { getPerson, getPersonCredits } from "@/lib/tmdb";
 import { getPersonComments } from "@/lib/queries";
-import { Poster } from "@/components/media/poster";
+import { AlsoIn } from "@/components/person/also-in";
 import { PersonComments } from "@/components/person/person-comments";
 import { posterGradient, initials } from "@/lib/utils";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -53,7 +52,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   if (!person) notFound();
 
   const [credits, comments] = await Promise.all([
-    getPersonCredits(id, 16),
+    getPersonCredits(id, 60),
     getPersonComments(person.id),
   ]);
 
@@ -122,28 +121,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Other movies & shows */}
-      {credits.length > 0 && (
-        <section className="mt-10">
-          <h2 className="mb-4 text-xl font-bold">Also in</h2>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-            {credits.map((c) => (
-              <Link key={c.id} href={`/title/${c.id}`} className="group">
-                <Poster
-                  title={c.title}
-                  src={c.poster_url}
-                  showTitle={!c.poster_url}
-                  className="aspect-[2/3] w-full transition group-hover:ring-2 group-hover:ring-primary/50"
-                />
-                <p className="mt-1.5 truncate text-[12px] font-semibold">{c.title}</p>
-                <p className="text-[11px] text-muted-2">
-                  {c.media_type === "tv" ? "Show" : "Movie"}
-                  {c.release_year ? ` · ${c.release_year}` : ""}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+      <AlsoIn items={credits} />
 
       {/* Fan comments */}
       <PersonComments personTmdbId={person.id} personName={person.name} initial={comments} />
