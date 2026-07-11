@@ -5,6 +5,9 @@ import { getShowEpisodeCount, trending } from "./tmdb";
 import { getLiveMode } from "./settings";
 import { getRoomActivity } from "./live-counts";
 import { routeId, timeAgo } from "./utils";
+
+/* Supabase row shapes are dynamic; mapped to typed objects at each boundary. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { MediaItem, Room, Review, ActivityEvent, SpoilerScope } from "./types";
 import { type DiscussionCard, PROFILES } from "./mock-data";
 
@@ -569,6 +572,7 @@ export interface DisplayReview {
   like_count: number;
   liked_by_me: boolean;
   created_at: string;
+  lang: string | null;
 }
 
 async function reactionCounts(
@@ -610,7 +614,7 @@ export const getReviewsForMedia = cache(
 
     const { data: rows } = await supabase
       .from("reviews")
-      .select("id, season_number, episode_number, score, body, spoiler_scope, image_urls, created_at, author:profiles(display_name, avatar_url)")
+      .select("id, season_number, episode_number, score, body, spoiler_scope, image_urls, lang, created_at, author:profiles(display_name, avatar_url)")
       .eq("media_id", media.id)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -631,6 +635,7 @@ export const getReviewsForMedia = cache(
       like_count: counts.get(r.id) ?? 0,
       liked_by_me: mine.has(r.id),
       created_at: r.created_at,
+      lang: r.lang ?? null,
     }));
   },
 );
@@ -645,6 +650,7 @@ export interface PersonComment {
   like_count: number;
   liked_by_me: boolean;
   created_at: string;
+  lang: string | null;
 }
 
 /** Fan comments on a single actor (newest first), with like counts. */
@@ -657,7 +663,7 @@ export const getPersonComments = cache(async (personTmdbId: number): Promise<Per
 
   const { data: rows } = await supabase
     .from("person_comments")
-    .select("id, body, has_spoiler, image_urls, created_at, author:profiles(display_name, avatar_url)")
+    .select("id, body, has_spoiler, image_urls, lang, created_at, author:profiles(display_name, avatar_url)")
     .eq("person_tmdb_id", personTmdbId)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -688,6 +694,7 @@ export const getPersonComments = cache(async (personTmdbId: number): Promise<Per
     like_count: counts.get(r.id) ?? 0,
     liked_by_me: mine.has(r.id),
     created_at: r.created_at,
+    lang: r.lang ?? null,
   }));
 });
 
@@ -741,6 +748,7 @@ export interface RoomMessage {
   like_count: number;
   liked_by_me: boolean;
   created_at: string;
+  lang: string | null;
 }
 
 export interface RoomMember {
@@ -849,7 +857,7 @@ export const getRoomFeed = cache(
     let mq = supabase
       .from("comments")
       .select(
-        "id, body, spoiler_scope, season_number, episode_number, created_at, author:profiles(id, username, display_name, avatar_url, is_admin)",
+        "id, body, spoiler_scope, season_number, episode_number, lang, created_at, author:profiles(id, username, display_name, avatar_url, is_admin)",
       )
       .eq("media_id", media.id);
     mq = season == null ? mq.is("season_number", null) : mq.eq("season_number", season);
@@ -894,6 +902,7 @@ export const getRoomFeed = cache(
         like_count: counts.get(r.id) ?? 0,
         liked_by_me: mine.has(r.id),
         created_at: r.created_at,
+        lang: r.lang ?? null,
       }));
 
     // Members = distinct authors in this room (real participation).

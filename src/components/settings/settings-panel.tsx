@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Bell, LogOut, Lock, Loader2, Check } from "lucide-react";
+import { ShieldCheck, Bell, LogOut, Lock, Loader2, Check, Languages } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { setProfilePrivacy } from "@/app/actions";
+import { setProfilePrivacy, setPreferredLanguage } from "@/app/actions";
+import { LANGUAGES } from "@/lib/lang";
 
 const SAFETY = [
   { value: "strict", label: "Strict", desc: "Hide everything beyond my progress. Recommended." },
@@ -26,7 +27,13 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   );
 }
 
-export function SettingsPanel({ initialPrivate = false }: { initialPrivate?: boolean }) {
+export function SettingsPanel({
+  initialPrivate = false,
+  initialLanguage = null,
+}: {
+  initialPrivate?: boolean;
+  initialLanguage?: string | null;
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [safety, setSafety] = useState("strict");
@@ -34,6 +41,9 @@ export function SettingsPanel({ initialPrivate = false }: { initialPrivate?: boo
   const [isPrivate, setIsPrivate] = useState(initialPrivate);
   const [savedPrivate, setSavedPrivate] = useState(false);
   const [pending, startPrivacy] = useTransition();
+  const [language, setLanguage] = useState<string>(initialLanguage ?? "");
+  const [savedLang, setSavedLang] = useState(false);
+  const [langPending, startLang] = useTransition();
 
   function togglePrivacy() {
     const next = !isPrivate;
@@ -43,6 +53,21 @@ export function SettingsPanel({ initialPrivate = false }: { initialPrivate?: boo
       const res = await setProfilePrivacy(next);
       if (res.ok) setSavedPrivate(true);
       else setIsPrivate(!next); // revert on failure
+    });
+  }
+
+  function changeLanguage(code: string) {
+    const prev = language;
+    setLanguage(code);
+    setSavedLang(false);
+    startLang(async () => {
+      const res = await setPreferredLanguage(code || null);
+      if (res.ok) {
+        setSavedLang(true);
+        router.refresh();
+      } else {
+        setLanguage(prev); // revert on failure
+      }
     });
   }
 
@@ -76,6 +101,40 @@ export function SettingsPanel({ initialPrivate = false }: { initialPrivate?: boo
             {pending && <Loader2 className="size-4 animate-spin text-muted-2" />}
             <Toggle on={isPrivate} onClick={togglePrivacy} />
           </div>
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <Languages className="size-4 text-primary" />
+          <h2 className="font-semibold">Language</h2>
+        </div>
+        <p className="mb-3 text-[13px] text-muted">
+          Posts, reviews and chat written in another language get translated to yours automatically — with a
+          &ldquo;Show original&rdquo; toggle, so you never miss a conversation.
+        </p>
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <select
+              value={language}
+              onChange={(e) => changeLanguage(e.target.value)}
+              aria-label="Preferred language"
+              className="w-full appearance-none rounded-xl border border-border bg-white/[0.03] px-3.5 py-2.5 text-sm font-medium text-foreground outline-none transition hover:border-primary/40 focus:border-primary/60"
+            >
+              <option value="">Auto (match my device)</option>
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.name} · {l.native}
+                </option>
+              ))}
+            </select>
+          </div>
+          {langPending && <Loader2 className="size-4 shrink-0 animate-spin text-muted-2" />}
+          {savedLang && !langPending && (
+            <span className="flex shrink-0 items-center gap-1 text-[12px] font-medium text-safe">
+              <Check className="size-3.5" /> Saved
+            </span>
+          )}
         </div>
       </Card>
 

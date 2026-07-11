@@ -21,6 +21,7 @@ import { cn, timeAgo } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { SortSelect, sortByKey, type SortKey } from "@/components/ui/comment-sort";
 import { postPersonComment, toggleReaction } from "@/app/actions";
+import { TranslatableText } from "@/components/i18n/translatable-text";
 import type { PersonComment } from "@/lib/queries";
 
 const MAX_IMAGES = 4;
@@ -30,10 +31,12 @@ export function PersonComments({
   personTmdbId,
   personName,
   initial,
+  viewerLang = null,
 }: {
   personTmdbId: number;
   personName: string;
   initial: PersonComment[];
+  viewerLang?: string | null;
 }) {
   const [comments, setComments] = useState(initial);
   const [body, setBody] = useState("");
@@ -111,6 +114,7 @@ export function PersonComments({
       like_count: 0,
       liked_by_me: false,
       created_at: new Date().toISOString(),
+      lang: null,
     };
     setComments((c) => [optimistic, ...c]);
     setSort("newest"); // surface the just-posted comment at the top
@@ -211,7 +215,7 @@ export function PersonComments({
       ) : (
         <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">
           {sortByKey(comments, sort).map((c) => (
-            <CommentItem key={c.id} comment={c} />
+            <CommentItem key={c.id} comment={c} viewerLang={viewerLang} />
           ))}
         </div>
       )}
@@ -219,7 +223,7 @@ export function PersonComments({
   );
 }
 
-function CommentItem({ comment }: { comment: PersonComment }) {
+function CommentItem({ comment, viewerLang }: { comment: PersonComment; viewerLang: string | null }) {
   const [revealed, setRevealed] = useState(false);
   const [liked, setLiked] = useState(comment.liked_by_me);
   const [likes, setLikes] = useState(comment.like_count);
@@ -279,7 +283,14 @@ function CommentItem({ comment }: { comment: PersonComment }) {
         </div>
       ) : (
         <>
-          <p className="mt-3 text-sm leading-relaxed text-foreground/90">{comment.body}</p>
+          <TranslatableText
+            text={comment.body}
+            sourceLang={comment.lang}
+            targetLang={viewerLang}
+            contentType="person_comment"
+            contentId={comment.id}
+            className="mt-3 text-sm leading-relaxed text-foreground/90"
+          />
           {images.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {images.map((u, i) => (

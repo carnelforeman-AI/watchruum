@@ -8,7 +8,6 @@ import {
   EyeOff,
   Heart,
   MessageCircle,
-  Send,
   Flag,
   Pin,
   X,
@@ -21,6 +20,7 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { SpoilerTag } from "@/components/room/spoiler-standard";
+import { TranslatableText } from "@/components/i18n/translatable-text";
 import { cn, timeAgo } from "@/lib/utils";
 import { evaluateSpoiler, hiddenReason, postTag, type ViewerProgress } from "@/lib/spoiler";
 import { markEpisodeWatched, markMovieWatched, postComment, reportContent, toggleReaction } from "@/app/actions";
@@ -55,6 +55,7 @@ export function RoomChat({
   progress,
   watchedThisEpisode,
   isMovie = false,
+  viewerLang = null,
 }: {
   media: MediaItem;
   season: number | null;
@@ -66,6 +67,7 @@ export function RoomChat({
   progress: ViewerProgress | null;
   watchedThisEpisode: boolean;
   isMovie?: boolean;
+  viewerLang?: string | null;
 }) {
   const scopes = isMovie ? MOVIE_SCOPES : TV_SCOPES;
   const [messages, setMessages] = useState<RoomMessage[]>(initialMessages);
@@ -130,6 +132,7 @@ export function RoomChat({
       like_count: 0,
       liked_by_me: false,
       created_at: new Date().toISOString(),
+      lang: null,
     };
     setMessages((m) => [...m, optimistic]);
     setBody("");
@@ -261,6 +264,7 @@ export function RoomChat({
               progress={effProgress}
               isMe={m.author.id === viewerId}
               isMovie={isMovie}
+              viewerLang={viewerLang}
             />
           ))
         )}
@@ -358,11 +362,13 @@ function MessageRow({
   progress,
   isMe,
   isMovie,
+  viewerLang,
 }: {
   message: RoomMessage;
   progress: ViewerProgress | null;
   isMe: boolean;
   isMovie: boolean;
+  viewerLang: string | null;
 }) {
   const [revealed, setRevealed] = useState(false);
   const [liked, setLiked] = useState(message.liked_by_me);
@@ -455,7 +461,14 @@ function MessageRow({
           </div>
         ) : (
           <>
-            <p className="mt-0.5 text-[14px] leading-relaxed text-foreground/90">{message.body}</p>
+            <TranslatableText
+              text={message.body}
+              sourceLang={message.lang}
+              targetLang={viewerLang}
+              contentType="comment"
+              contentId={message.id}
+              className="mt-0.5 text-[14px] leading-relaxed text-foreground/90"
+            />
             <div className="mt-1.5 flex items-center gap-4 text-[12px] text-muted-2">
               <button
                 onClick={like}

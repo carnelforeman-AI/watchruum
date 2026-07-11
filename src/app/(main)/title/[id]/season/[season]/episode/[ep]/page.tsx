@@ -133,6 +133,7 @@ export default async function EpisodeRoomPage({
             initialMessages={feed.messages}
             viewerId={feed.viewerId}
             viewerName={profile?.display_name ?? null}
+            viewerLang={profile?.preferred_language ?? null}
             progress={feed.progress}
             watchedThisEpisode={feed.watchedThisEpisode}
           />

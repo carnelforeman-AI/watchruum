@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { StarRating } from "@/components/media/rating";
+import { TranslatableText } from "@/components/i18n/translatable-text";
 import { cn, timeAgo } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { SortSelect, sortByKey, type SortKey } from "@/components/ui/comment-sort";
@@ -33,9 +34,11 @@ const MAX_IMG_BYTES = 5 * 1024 * 1024; // 5 MB
 export function ReviewsSection({
   media,
   initialReviews,
+  viewerLang = null,
 }: {
   media: MediaItem;
   initialReviews: DisplayReview[];
+  viewerLang?: string | null;
 }) {
   const [reviews, setReviews] = useState(initialReviews);
   const [score, setScore] = useState(0);
@@ -116,6 +119,7 @@ export function ReviewsSection({
       like_count: 0,
       liked_by_me: false,
       created_at: new Date().toISOString(),
+      lang: null,
     };
     setReviews((r) => [optimistic, ...r]);
     setSort("newest"); // surface the just-posted review at the top
@@ -241,7 +245,7 @@ export function ReviewsSection({
       ) : (
         <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">
           {sortByKey(reviews, sort).map((r) => (
-            <ReviewItem key={r.id} review={r} />
+            <ReviewItem key={r.id} review={r} viewerLang={viewerLang} />
           ))}
         </div>
       )}
@@ -249,7 +253,7 @@ export function ReviewsSection({
   );
 }
 
-function ReviewItem({ review }: { review: DisplayReview }) {
+function ReviewItem({ review, viewerLang }: { review: DisplayReview; viewerLang: string | null }) {
   const [revealed, setRevealed] = useState(false);
   const [liked, setLiked] = useState(review.liked_by_me);
   const [likes, setLikes] = useState(review.like_count);
@@ -332,7 +336,14 @@ function ReviewItem({ review }: { review: DisplayReview }) {
         </div>
       ) : (
         <>
-          <p className="mt-3 text-sm leading-relaxed text-foreground/90">{review.body}</p>
+          <TranslatableText
+            text={review.body}
+            sourceLang={review.lang}
+            targetLang={viewerLang}
+            contentType="review"
+            contentId={review.id}
+            className="mt-3 text-sm leading-relaxed text-foreground/90"
+          />
           {images.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {images.map((u, i) => (

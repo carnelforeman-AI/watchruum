@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Cake, MapPin } from "lucide-react";
 import { getPerson, getPersonCredits } from "@/lib/tmdb";
 import { getPersonComments } from "@/lib/queries";
+import { getCurrentProfile } from "@/lib/supabase/server";
 import { AlsoIn } from "@/components/person/also-in";
 import { PersonComments } from "@/components/person/person-comments";
 import { posterGradient, initials } from "@/lib/utils";
@@ -51,10 +52,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const person = await getPerson(id);
   if (!person) notFound();
 
-  const [credits, comments] = await Promise.all([
+  const [credits, comments, profile] = await Promise.all([
     getPersonCredits(id, 60),
     getPersonComments(person.id),
+    getCurrentProfile(),
   ]);
+  const viewerLang = (profile as { preferred_language?: string | null } | null)?.preferred_language ?? null;
 
   const birthday = born(person.birthday);
 
@@ -124,7 +127,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       <AlsoIn items={credits} />
 
       {/* Fan comments */}
-      <PersonComments personTmdbId={person.id} personName={person.name} initial={comments} />
+      <PersonComments
+        personTmdbId={person.id}
+        personName={person.name}
+        initial={comments}
+        viewerLang={viewerLang}
+      />
     </div>
   );
 }

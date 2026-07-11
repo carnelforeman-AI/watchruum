@@ -19,6 +19,7 @@ import { CastRail } from "@/components/media/cast-rail";
 import { PosterRail } from "@/components/media/poster-rail";
 import { ReviewsSection } from "@/components/review/reviews-section";
 import { getReviewsForMedia } from "@/lib/queries";
+import { getCurrentProfile } from "@/lib/supabase/server";
 import { getLiveMode } from "@/lib/settings";
 import { getTrackingCount } from "@/lib/live-counts";
 import { posterGradient, compact } from "@/lib/utils";
@@ -69,13 +70,15 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
   if (!media) notFound();
 
   const isTv = media.media_type === "tv";
-  const [seasons, reviews, cast, alsoWatch, live] = await Promise.all([
+  const [seasons, reviews, cast, alsoWatch, live, profile] = await Promise.all([
     isTv ? getSeasons(id) : Promise.resolve([]),
     getReviewsForMedia(media.tmdb_id, media.media_type),
     getCredits(id, 20),
     getRecommendations(id, 16),
     getLiveMode(),
+    getCurrentProfile(),
   ]);
+  const viewerLang = (profile as { preferred_language?: string | null } | null)?.preferred_language ?? null;
 
   // Live Mode → real people tracking this title (each add = +1). Demo → seeded.
   const trackingCount = live
@@ -313,7 +316,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
         )}
       </section>
 
-      <ReviewsSection media={media} initialReviews={reviews} />
+      <ReviewsSection media={media} initialReviews={reviews} viewerLang={viewerLang} />
     </div>
   );
 }

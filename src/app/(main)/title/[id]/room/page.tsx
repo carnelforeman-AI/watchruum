@@ -96,6 +96,7 @@ export default async function MovieRoomPage({ params }: { params: Promise<{ id: 
             initialMessages={feed.messages}
             viewerId={feed.viewerId}
             viewerName={profile?.display_name ?? null}
+            viewerLang={profile?.preferred_language ?? null}
             progress={feed.progress}
             watchedThisEpisode={feed.watchedThisEpisode}
             isMovie

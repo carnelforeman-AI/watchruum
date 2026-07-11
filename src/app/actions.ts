@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { detectLang } from "@/lib/detect-lang";
+import { isSupportedLang } from "@/lib/lang";
 import type { MediaItem, SpoilerScope } from "@/lib/types";
 
 /**
@@ -158,6 +160,7 @@ export async function postComment(
       episode_number: episode,
       body: text,
       spoiler_scope,
+      lang: detectLang(text),
     })
     .select("id")
     .single();
@@ -216,6 +219,7 @@ export async function postReview(
       body: text,
       spoiler_scope,
       image_urls: images,
+      lang: detectLang(text),
     })
     .select("id")
     .single();
@@ -240,6 +244,22 @@ export async function setProfilePrivacy(isPrivate: boolean): Promise<Result> {
   const { error } = await ctx.supabase
     .from("profiles")
     .update({ is_private: isPrivate })
+    .eq("id", ctx.userId);
+  return { ok: !error, error: error?.message };
+}
+
+/**
+ * Save the caller's preferred language. Posts/comments/reviews in other
+ * languages are then auto-translated for them. `null` clears the preference
+ * (falls back to the browser language).
+ */
+export async function setPreferredLanguage(code: string | null): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  const value = code && isSupportedLang(code) ? code : null;
+  const { error } = await ctx.supabase
+    .from("profiles")
+    .update({ preferred_language: value })
     .eq("id", ctx.userId);
   return { ok: !error, error: error?.message };
 }
@@ -272,6 +292,7 @@ export async function postPersonComment(
       body: text,
       has_spoiler: !!hasSpoiler,
       image_urls: images,
+      lang: detectLang(text),
     })
     .select("id")
     .single();
