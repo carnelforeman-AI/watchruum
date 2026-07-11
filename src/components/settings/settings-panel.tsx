@@ -16,6 +16,13 @@ const SAFETY = [
   { value: "off", label: "Off", desc: "Show everything. I like living dangerously." },
 ];
 
+// Dark dropdown options with purple text, to match the theme (native <option>
+// styling is honored by Chromium/Firefox).
+const optionStyle: React.CSSProperties = {
+  backgroundColor: "var(--color-bg-elevated)",
+  color: "var(--color-primary)",
+};
+
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
     <button
@@ -130,11 +137,11 @@ export function SettingsPanel({
               value={language}
               onChange={(e) => changeLanguage(e.target.value)}
               aria-label="Preferred language"
-              className="w-full appearance-none rounded-xl border border-border bg-white/[0.03] px-3.5 py-2.5 text-sm font-medium text-foreground outline-none transition hover:border-primary/40 focus:border-primary/60"
+              className="w-full appearance-none rounded-xl border border-border bg-white/[0.03] px-3.5 py-2.5 text-sm font-medium text-foreground outline-none transition [color-scheme:dark] hover:border-primary/40 focus:border-primary/60"
             >
-              <option value="">Auto (match my device)</option>
+              <option value="" style={optionStyle}>Auto (match my device)</option>
               {LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>
+                <option key={l.code} value={l.code} style={optionStyle}>
                   {l.name} · {l.native}
                 </option>
               ))}
