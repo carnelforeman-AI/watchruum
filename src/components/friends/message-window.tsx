@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { X, Plus, Smile, Send, CheckCheck, ChevronRight, Loader2 } from "lucide-react";
+import { X, Plus, Smile, Send, CheckCheck, ChevronRight, ChevronUp, Minus, Loader2 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useDirectMessages, type DMessage } from "@/lib/use-direct-messages";
@@ -151,6 +151,7 @@ export function MessageWindow({
   const [text, setText] = useState("");
   const [picker, setPicker] = useState<"emoji" | "gif" | null>(null);
   const [sending, setSending] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -166,8 +167,8 @@ export function MessageWindow({
   }, [onClose, picker]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [groups]);
+    if (!collapsed) bottomRef.current?.scrollIntoView({ block: "end" });
+  }, [groups, collapsed]);
 
   /** Demo-mode: append one of my messages to the "Today" section. */
   function pushDemo(msg: Partial<UIMsg>) {
@@ -232,23 +233,46 @@ export function MessageWindow({
   const emptyLive = live && !dm.loading && groups.length === 0;
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center p-0 sm:p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="panel relative z-10 flex h-full w-full flex-col overflow-hidden border border-border shadow-2xl sm:h-[85vh] sm:max-w-md sm:rounded-2xl">
-        {/* Header — clickable to profile */}
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+    // Docked bottom-right chat widget — non-modal, no backdrop, so the rest of
+    // the app stays clear and fully usable behind it.
+    <div className="fixed inset-x-0 bottom-0 z-[70] sm:inset-x-auto sm:bottom-4 sm:right-4" role="dialog" aria-label={`Chat with ${name}`}>
+      <div
+        className={cn(
+          "panel flex w-full flex-col overflow-hidden border border-border shadow-2xl sm:w-[380px] sm:rounded-2xl",
+          collapsed ? "h-auto" : "h-[68vh] sm:h-[560px]",
+        )}
+      >
+        {/* Header — profile link (or collapse toggle) + minimize + close */}
+        <div className="flex items-center gap-1.5 border-b border-border px-3 py-2.5">
           {username ? (
             <Link href={`/u/${username}`} onClick={onClose} className="group -mx-1 flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-0.5 hover:bg-white/5" title={`View ${name}'s profile`}>
               {Header}
             </Link>
           ) : (
-            <div className="flex min-w-0 flex-1 items-center gap-3">{Header}</div>
+            <button
+              type="button"
+              onClick={() => setCollapsed((c) => !c)}
+              className="-mx-1 flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-0.5 text-left hover:bg-white/5"
+              title={collapsed ? "Expand" : "Collapse"}
+            >
+              {Header}
+            </button>
           )}
-          <button onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground">
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? "Expand chat" : "Collapse chat"}
+            title={collapsed ? "Expand" : "Collapse"}
+            className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
+          >
+            {collapsed ? <ChevronUp className="size-5" /> : <Minus className="size-5" />}
+          </button>
+          <button onClick={onClose} aria-label="Close" className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground">
             <X className="size-5" />
           </button>
         </div>
+
+        {!collapsed && (
+          <>
 
         {/* Messages */}
         <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4 no-scrollbar">
@@ -355,6 +379,8 @@ export function MessageWindow({
             <Send className="size-5" />
           </button>
         </form>
+          </>
+        )}
       </div>
     </div>
   );
