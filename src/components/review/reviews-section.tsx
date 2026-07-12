@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Star,
   Heart,
@@ -14,6 +14,7 @@ import {
   ImagePlus,
   MessageCircle,
   Send,
+  ArrowRight,
   X,
   Loader2,
 } from "lucide-react";
@@ -23,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { StarRating } from "@/components/media/rating";
 import { TranslatableText } from "@/components/i18n/translatable-text";
-import { cn, timeAgo } from "@/lib/utils";
+import { cn, timeAgo, compact } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { SortSelect, sortByKey, type SortKey } from "@/components/ui/comment-sort";
 import { postReview, toggleReaction, reportContent, loadReviewComments, postReviewComment } from "@/app/actions";
@@ -50,8 +51,16 @@ export function ReviewsSection({
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>("liked");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [, start] = useTransition();
+
+  // Aggregate counts for the summary bar. Placeholder titles show seeded
+  // totals so the wall looks established; real titles show live sums.
+  const demoMode = reviews.some((r) => r.demo);
+  const totalReviews = demoMode ? 1245 : reviews.length;
+  const totalLikes = demoMode ? 1100 : reviews.reduce((s, r) => s + r.like_count, 0);
+  const totalComments = demoMode ? 342 : reviews.reduce((s, r) => s + r.comment_count, 0);
 
   async function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -103,19 +112,17 @@ export function ReviewsSection({
     }
   }
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!body.trim() || score === 0) return;
-    const scope = hasSpoilers ? "series" : "none";
-    const imgs = images;
+  // Shared post path — used by both the inline composer and the drawer composer.
+  function addReview(nextScore: number, text: string, spoilers: boolean, imgs: string[]) {
+    const scope: DisplayReview["spoiler_scope"] = spoilers ? "series" : "none";
     const optimistic: DisplayReview = {
       id: `local_${Date.now()}`,
       author_name: "You",
       author_avatar: null,
       season_number: null,
       episode_number: null,
-      score,
-      body: body.trim(),
+      score: nextScore,
+      body: text,
       spoiler_scope: scope,
       image_urls: imgs,
       like_count: 0,
@@ -127,15 +134,20 @@ export function ReviewsSection({
     };
     setReviews((r) => [optimistic, ...r]);
     setSort("newest"); // surface the just-posted review at the top
-    const text = body.trim();
+    start(() => {
+      postReview(media, null, null, nextScore, text, scope, imgs);
+    });
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!body.trim() || score === 0) return;
+    addReview(score, body.trim(), hasSpoilers, images);
     setScore(0);
     setBody("");
     setHasSpoilers(false);
     setImages([]);
     setUploadErr(null);
-    start(() => {
-      postReview(media, null, null, optimistic.score, text, scope, imgs);
-    });
   }
 
   return (
@@ -247,13 +259,180 @@ export function ReviewsSection({
           No reviews yet. Be the first to review {media.title}.
         </p>
       ) : (
-        <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">
+        <>
+          {/* First three reviews */}
+          <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">
+            {sortByKey(reviews, sort)
+              .slice(0, 3)
+              .map((r) => (
+                <ReviewItem key={r.id} review={r} viewerLang={viewerLang} />
+              ))}
+          </div>
+
+          {/* Summary bar → opens the full reviews drawer */}
+          <div className="glass mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3">
+            <div className="flex items-center gap-4 text-[13px]">
+              <span className="font-semibold">
+                <span className="text-primary">{compact(totalReviews)}</span> Reviews
+              </span>
+              <span className="flex items-center gap-1.5 text-muted-2">
+                <Heart className="size-4" /> {compact(totalLikes)}
+              </span>
+              <span className="flex items-center gap-1.5 text-muted-2">
+                <MessageCircle className="size-4" /> {compact(totalComments)}
+              </span>
+            </div>
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary transition hover:brightness-110"
+            >
+              View all reviews <ArrowRight className="size-4" />
+            </button>
+          </div>
+        </>
+      )}
+
+      <AllReviewsDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        media={media}
+        reviews={reviews}
+        sort={sort}
+        setSort={setSort}
+        total={totalReviews}
+        viewerLang={viewerLang}
+        onPost={addReview}
+      />
+    </section>
+  );
+}
+
+function AllReviewsDrawer({
+  open,
+  onClose,
+  media,
+  reviews,
+  sort,
+  setSort,
+  total,
+  viewerLang,
+  onPost,
+}: {
+  open: boolean;
+  onClose: () => void;
+  media: MediaItem;
+  reviews: DisplayReview[];
+  sort: SortKey;
+  setSort: (k: SortKey) => void;
+  total: number;
+  viewerLang: string | null;
+  onPost: (score: number, text: string, spoilers: boolean, imgs: string[]) => void;
+}) {
+  const [score, setScore] = useState(0);
+  const [text, setText] = useState("");
+
+  // Lock body scroll and close on Escape while the drawer is open.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const TABS: { key: SortKey; label: string }[] = [
+    { key: "liked", label: "Top" },
+    { key: "newest", label: "Newest" },
+    { key: "oldest", label: "Oldest" },
+  ];
+
+  function post(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim() || score === 0) return;
+    onPost(score, text.trim(), false, []);
+    setScore(0);
+    setText("");
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80]">
+      {/* Backdrop */}
+      <button
+        aria-label="Close reviews"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+      />
+      {/* Panel */}
+      <div className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-bg shadow-2xl ring-1 ring-border sm:w-[420px]">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3.5">
+          <h3 className="text-base font-bold">
+            All reviews <span className="text-muted-2">({compact(total)})</span>
+          </h3>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="grid size-8 place-items-center rounded-full text-muted-2 transition hover:bg-white/10 hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {/* Sort tabs */}
+        <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setSort(t.key)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                sort === t.key ? "bg-primary text-white" : "text-muted-2 hover:bg-white/5 hover:text-foreground",
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Scrollable feed */}
+        <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {sortByKey(reviews, sort).map((r) => (
             <ReviewItem key={r.id} review={r} viewerLang={viewerLang} />
           ))}
         </div>
-      )}
-    </section>
+
+        {/* Composer */}
+        <form onSubmit={post} className="border-t border-border p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-muted-2">Your rating</span>
+            <StarRating value={score} onChange={setScore} />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={`Review ${media.title}…`}
+              className="min-w-0 flex-1 rounded-full border border-border bg-white/[0.03] px-3.5 py-2.5 text-[13px] text-foreground outline-none transition placeholder:text-muted-2 focus:border-primary/50"
+            />
+            <button
+              type="submit"
+              disabled={!text.trim() || score === 0}
+              aria-label="Post review"
+              className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-white transition hover:brightness-110 disabled:opacity-50"
+            >
+              <Send className="size-4" />
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
