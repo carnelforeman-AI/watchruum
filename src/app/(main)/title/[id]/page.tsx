@@ -15,6 +15,7 @@ import { getMedia, getSeasons, getCredits, getRecommendations } from "@/lib/tmdb
 import { Poster } from "@/components/media/poster";
 import { Badge } from "@/components/ui/badge";
 import { TitleActions, ShowRating } from "@/components/media/title-actions";
+import { ScheduleWatchButton } from "@/components/schedule/schedule-watch-button";
 import { CastRail } from "@/components/media/cast-rail";
 import { PosterRail } from "@/components/media/poster-rail";
 import { ReviewsSection } from "@/components/review/reviews-section";
@@ -189,8 +190,15 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
             </p>
           )}
 
-          <div className="mt-5">
+          <div className="mt-5 flex flex-wrap items-center gap-3">
             <TitleActions media={media} />
+            <ScheduleWatchButton
+              tmdbId={media.tmdb_id}
+              mediaType={media.media_type}
+              title={media.title}
+              posterUrl={media.poster_url}
+              titleHref={`/title/${id}`}
+            />
           </div>
         </div>
 

@@ -257,6 +257,7 @@ genres, reviews) with **editable genres**; and **Settings preferences**
 | `supabase/presence.sql` | `profiles.show_activity boolean default true` (per-user switch for broadcasting your current room) | run to enable the Settings toggle; presence works without it (defaults on) |
 | `supabase/room-tabs.sql` | `room_threads`, `room_thread_replies`, `room_polls`, `room_poll_votes`, `room_media` + RLS. Powers the Discussion / Polls / Media tabs | run to enable those tabs (they show empty states until run) |
 | `supabase/preferences.sql` | `profiles.spoiler_safety` (checked strict/balanced/off) + `notify_replies/likes/unlocks/trending` booleans | run so Settings toggles persist + the profile shows the real spoiler-safety level |
+| `supabase/watch-schedule.sql` | `scheduled_watches`, `scheduled_watch_invites`, `push_subscriptions` + RLS | run to enable "schedule a watch" / watch parties + Web Push devices |
 
 ### Work (chronological)
 
@@ -336,6 +337,35 @@ now shows the **real** spoiler-safety level (`getProfileOverview` returns
 `spoiler_safety`; replaced the old hardcoded "Spoiler-safe: strict"). **Caveat:**
 prefs now persist but the notification-creation code doesn't *read* them yet —
 that lands when the notification feed becomes real (tracked in the checklist).
+
+**Schedule a watch (solo or watch party) + reminders + dormant push — _(pending push)_**
+New feature: users plan *when* they'll watch (distinct from the release calendar,
+which tracks when a title comes out). `supabase/watch-schedule.sql` adds
+`scheduled_watches` (host, denormalized title, season/ep, `scheduled_at`, note,
+`is_party`, `reminded_at`), `scheduled_watch_invites` (RSVP: invited/going/maybe/
+declined), and `push_subscriptions` (Web Push endpoints) — all RLS'd (host writes;
+invitee reads + sets own RSVP; participants read). Actions
+`src/app/schedule-actions.ts` (`scheduleWatch`, `rsvpWatch`,
+`cancelScheduledWatch`, `getInviteableFriends`, `savePushSubscription`); fetcher
+`src/lib/schedule.ts` (`getMySchedule`). UI: `ScheduleWatchButton`/`Modal`
+(date-time, note, "make it a watch party" → pick from follows), `MySchedule`
+(upcoming + party invites with RSVP + cancel), new `/schedule` page + sidebar
+"My Schedule" nav; button added to the title page.
+**Reminders — two mechanisms.** (1) **Calendar export** (`src/lib/ics.ts`): every
+scheduled watch gets an "Add to Google Calendar" link + downloadable `.ics` (with
+a 30-min VALARM), so it lands in the person's real calendar and fires a **native
+phone reminder** — works today, zero infra. (2) **In-app + Web Push reminder
+engine** (`src/lib/notify/watch-reminders.ts`, cron
+`/api/cron/watch-reminders`, `vercel.json` `*/15`): a "starting soon" dispatcher
+creates real in-app notifications for host + going invitees and sends **Web Push**
+to their devices. **Dormant** like the release engine — needs
+`SUPABASE_SERVICE_ROLE_KEY` (cross-user notifications) and **VAPID keys**
+(`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` + `NEXT_PUBLIC_VAPID_PUBLIC_KEY`) for push.
+Added `web-push` dep + `public/sw.js` service worker + `src/lib/push.ts`
+(`enablePush`) + Settings "Enable notifications on this device" (hidden until VAPID
+public key is set). Verify: tsc/eslint/build green; `/schedule` + cron registered.
+**Caveat:** timely push needs a sub-daily cron (Vercel Pro; Hobby is daily-only) —
+calendar export covers reminders until then.
 
 ### Key decisions & gotchas
 - **Presence is broadcast; the toggle is the real gate.** Opting out is

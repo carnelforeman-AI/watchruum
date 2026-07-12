@@ -24,6 +24,48 @@ export function smsConfigured(): boolean {
   return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER);
 }
 
+export function pushConfigured(): boolean {
+  return !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+}
+
+export interface PushResult {
+  sent: boolean;
+  skipped?: boolean; // VAPID keys not set
+  gone?: boolean; // subscription expired → caller should delete it
+  error?: string;
+}
+
+/**
+ * Send a Web Push notification to one device subscription. DORMANT until
+ * VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY are set (generate with
+ * `npx web-push generate-vapid-keys`). The `web-push` library is imported
+ * lazily so the dormant path costs nothing.
+ */
+export async function sendPush(
+  sub: { endpoint: string; p256dh: string; auth: string },
+  payload: { title: string; body: string; url?: string },
+): Promise<PushResult> {
+  if (!pushConfigured()) return { sent: false, skipped: true };
+  try {
+    const mod = await import("web-push");
+    const webpush = (mod as unknown as { default?: typeof import("web-push") }).default ?? mod;
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT || "mailto:notify@watchruum.com",
+      process.env.VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!,
+    );
+    await webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      JSON.stringify(payload),
+    );
+    return { sent: true };
+  } catch (e: unknown) {
+    const status = (e as { statusCode?: number })?.statusCode;
+    if (status === 404 || status === 410) return { sent: false, gone: true };
+    return { sent: false, error: String((e as { message?: string })?.message ?? e) };
+  }
+}
+
 /** Send a transactional email. No-ops until RESEND_API_KEY is set. */
 export async function sendEmail(input: {
   to: string;

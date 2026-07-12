@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { setProfilePrivacy, setShowActivity, setPreferredLanguage, setSpoilerSafety, setNotificationPrefs } from "@/app/actions";
 import { LANGUAGES } from "@/lib/lang";
+import { DeviceNotifications } from "@/components/settings/device-notifications";
 
 const SAFETY = [
   { value: "strict", label: "Strict", desc: "Hide everything beyond my progress. Recommended." },
@@ -287,6 +288,7 @@ export function SettingsPanel({
             </div>
           ))}
         </div>
+        <DeviceNotifications />
       </Card>
 
       <Card className="p-5">

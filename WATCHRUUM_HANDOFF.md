@@ -95,6 +95,7 @@ before `rooms.sql` (needs `is_admin()`), everything else after. Current set:
 | `presence.sql` | `profiles.show_activity` (broadcast-my-room privacy switch) |
 | `room-tabs.sql` | `room_threads`, `room_thread_replies`, `room_polls`, `room_poll_votes`, `room_media` (+RLS) — Discussion/Polls/Media tabs |
 | `preferences.sql` | `profiles.spoiler_safety` + `notify_replies/likes/unlocks/trending` |
+| `watch-schedule.sql` | `scheduled_watches` + `scheduled_watch_invites` (RSVP) + `push_subscriptions` (+RLS) — plan-a-watch / watch parties + Web Push devices |
 
 ### `profiles` columns worth knowing
 `id, username, display_name, avatar_url, bio, favorite_genres[], preferred_language,
@@ -201,6 +202,21 @@ gating is always the strict comparison for now.)
   toggles save to `profiles` (`setSpoilerSafety`, `setNotificationPrefs`). *The
   notification-creation code doesn't yet **read** the toggles — see checklist.*
 
+### Scheduling — plan when to watch (2026-07-12)
+- **Schedule a watch** from any title (`ScheduleWatchButton` → modal): pick a
+  date/time, add a note, optionally **"make it a watch party"** and invite people
+  you follow. Solo by default; invites create `scheduled_watch_invites` rows that
+  invitees **RSVP** (going/maybe/declined). New **`/schedule`** page ("My Schedule"
+  in the sidebar) shows upcoming watches + party invites. Backend:
+  `supabase/watch-schedule.sql`, `src/app/schedule-actions.ts`, `src/lib/schedule.ts`.
+  This is distinct from the release calendar (`title_alerts` = when a title comes out).
+- **Reminders, two ways:** (1) **Calendar export** (`src/lib/ics.ts`) — "Add to
+  Google Calendar" + `.ics` download so it fires a **native phone reminder**, works
+  today with no infra. (2) **In-app + Web Push** "starting soon" engine
+  (`src/lib/notify/watch-reminders.ts`, cron `/api/cron/watch-reminders`), **dormant**
+  until `SUPABASE_SERVICE_ROLE_KEY` + VAPID keys are set. Service worker `public/sw.js`,
+  client `src/lib/push.ts` (`enablePush`), Settings "Enable notifications on this device".
+
 ### Discover / Explore
 - `/explore` filter chips actually filter (URL-driven), alongside search.
 
@@ -243,6 +259,9 @@ gating is always the strict comparison for now.)
   (in-app notifications) + admin service tasks. Not set in prod yet.
 - `CRON_SECRET` = protects the release-alert cron route. Set in Vercel to arm it.
 - `RESEND_API_KEY` / `TWILIO_*` = later, to activate email/SMS notifications.
+- `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `NEXT_PUBLIC_VAPID_PUBLIC_KEY` /
+  `VAPID_SUBJECT` = Web Push (phone/desktop push for watch reminders). Generate
+  with `npx web-push generate-vapid-keys`. Dormant until set. (`web-push` is a dep.)
 - All secrets are entered by the user; Claude never sees them.
 
 ---

@@ -29,6 +29,17 @@ _Last updated during the settings-preferences session (2026-07-12)._
 
 ## 2. Shared — I wire the code, you supply credentials / accounts
 
+- [ ] **Activate Web Push (phone/desktop push notifications).** The engine is
+      built and dormant (watch-reminder cron + `push_subscriptions` +
+      `public/sw.js` + Settings "Enable notifications on this device"). To turn on:
+      generate VAPID keys (`npx web-push generate-vapid-keys`), set
+      `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+      (+ `VAPID_SUBJECT` mailto) and `SUPABASE_SERVICE_ROLE_KEY` in Vercel, run
+      `npm install` (adds `web-push`), run `supabase/watch-schedule.sql`. Note:
+      timely reminders need a **sub-daily cron** (Vercel Pro; Hobby is daily-only) —
+      the `.ics` / Google Calendar export already gives phone reminders in the
+      meantime. On iOS, push requires the site **installed as a PWA** (or the
+      planned Capacitor wrapper).
 - [ ] **Sign in with Apple.** Required on iOS because Google login is offered
       (Apple 4.8). Apple button already in the login UI but disabled. Needs Apple
       Developer credentials configured in Supabase.
