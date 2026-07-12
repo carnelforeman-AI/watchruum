@@ -331,15 +331,21 @@ function AllReviewsDrawer({
   const [score, setScore] = useState(0);
   const [text, setText] = useState("");
 
-  // Close on Escape. No body-scroll lock — the panel is docked to the right
-  // and the page on the left stays fully visible and interactive.
+  // While docked open, mark the shell so it reserves the panel's width and
+  // reflows the page beside it (see .reviews-open in globals.css). The left
+  // region and the panel then scroll independently. Also close on Escape.
   useEffect(() => {
     if (!open) return;
+    const root = document.documentElement;
+    root.classList.add("reviews-open");
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      root.classList.remove("reviews-open");
+      window.removeEventListener("keydown", onKey);
+    };
   }, [open, onClose]);
 
   if (!open) return null;

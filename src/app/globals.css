@@ -106,3 +106,31 @@ html { scrollbar-width: auto; scrollbar-color: #454560 transparent; }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ---------------------------------------------------------------
+   All-reviews side panel (desktop): while the docked panel is open,
+   reserve its width so the page reflows beside it instead of hiding
+   under it, and hand the main region its own scroll container. Result:
+   the left content and the panel each get an independent scrollbar.
+   Mobile keeps the full-width overlay (no reflow).
+----------------------------------------------------------------*/
+@media (min-width: 640px) {
+  html.reviews-open,
+  html.reviews-open body {
+    height: 100%;
+    overflow: hidden;
+  }
+  html.reviews-open #app-shell {
+    height: 100vh;
+  }
+  html.reviews-open #main-col {
+    height: 100vh;
+    min-height: 0;
+    margin-right: 420px; /* matches the panel width (sm:w-[420px]) */
+  }
+  html.reviews-open #app-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}

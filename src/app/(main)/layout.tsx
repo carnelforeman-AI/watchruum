@@ -26,21 +26,21 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   const inbox = await getInbox();
 
   return (
-    <div className="flex min-h-screen">
+    <div id="app-shell" className="flex min-h-screen">
       <Sidebar
         signedIn={signedIn}
         profile={lib?.profile ?? null}
         continueWatching={signedIn ? lib!.continueWatching : sample!.continueWatching}
         watchlist={signedIn ? lib!.watchlist : sample!.watchlist}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div id="main-col" className="flex min-w-0 flex-1 flex-col">
         <TopBar
           profile={lib?.profile ?? null}
           signedIn={signedIn}
           notifications={inbox.notifications}
           messages={inbox.messages}
         />
-        <main className="flex-1 pb-24 lg:pb-0">
+        <main id="app-main" className="flex-1 pb-24 lg:pb-0">
           <TrailerProvider>{children}</TrailerProvider>
         </main>
       </div>
