@@ -2,7 +2,23 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Bell, LogOut, Lock, Loader2, Check, Languages } from "lucide-react";
+import {
+  ShieldCheck,
+  Bell,
+  BellRing,
+  LogOut,
+  Lock,
+  Loader2,
+  Check,
+  Languages,
+  MessageSquare,
+  Reply,
+  Heart,
+  CalendarClock,
+  Flame,
+  ChevronRight,
+  type LucideIcon,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -56,6 +72,19 @@ interface NotifPrefs {
   trending: boolean;
 }
 
+// Row config for the Manage Notifications card — order, icon, tint and copy.
+const NOTIF_ROWS: { key: keyof NotifPrefs; label: string; desc: string; Icon: LucideIcon; color: string }[] = [
+  { key: "messages", label: "Direct messages", desc: "Get notified when someone sends you a message.", Icon: MessageSquare, color: "bg-accent" },
+  { key: "replies", label: "Replies to my posts", desc: "Get notified when someone replies to your posts or comments.", Icon: Reply, color: "bg-accent" },
+  { key: "likes", label: "Likes on my reviews", desc: "Get notified when someone likes your review.", Icon: Heart, color: "bg-danger" },
+  { key: "reminders", label: "Scheduled watch reminders", desc: "Get reminded before your scheduled shows or movies.", Icon: CalendarClock, color: "bg-safe" },
+  { key: "releases", label: "New release alerts", desc: "Get notified about new episodes and movie releases.", Icon: BellRing, color: "bg-warn" },
+  { key: "unlocks", label: "Discussion unlocks", desc: "Get notified when a discussion you follow is unlocked.", Icon: Lock, color: "bg-primary" },
+  { key: "trending", label: "Trending room alerts", desc: "Get notified about popular rooms and trending discussions.", Icon: Flame, color: "bg-season" },
+];
+
+const ALL_ON: NotifPrefs = { messages: true, replies: true, likes: true, releases: true, reminders: true, unlocks: true, trending: true };
+
 export function SettingsPanel({
   initialPrivate = false,
   initialShowActivity = true,
@@ -77,6 +106,7 @@ export function SettingsPanel({
   const [notifs, setNotifs] = useState<NotifPrefs>(initialNotifs);
   const [savedNotifs, setSavedNotifs] = useState(false);
   const [notifsPending, startNotifs] = useTransition();
+  const [openRow, setOpenRow] = useState<string | null>(null);
   // "Live" once Web Push is configured — the "Coming soon" badge clears itself then.
   const notifLive = !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -99,6 +129,17 @@ export function SettingsPanel({
     setSavedNotifs(false);
     startNotifs(async () => {
       const res = await setNotificationPrefs(next);
+      if (res.ok) setSavedNotifs(true);
+      else setNotifs(prev); // revert on failure
+    });
+  }
+
+  function enableAllNotifs() {
+    const prev = notifs;
+    setNotifs(ALL_ON);
+    setSavedNotifs(false);
+    startNotifs(async () => {
+      const res = await setNotificationPrefs(ALL_ON);
       if (res.ok) setSavedNotifs(true);
       else setNotifs(prev); // revert on failure
     });
@@ -270,42 +311,70 @@ export function SettingsPanel({
       </Card>
 
       <Card className="p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Bell className="size-4 text-primary" />
-          <h2 className="font-semibold">Notifications</h2>
-          {!notifLive && (
-            <span className="inline-flex items-center rounded-full bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
-              Coming soon
-            </span>
-          )}
-          {notifsPending && <Loader2 className="size-4 animate-spin text-muted-2" />}
-          {savedNotifs && !notifsPending && (
-            <span className="flex items-center gap-1 text-[12px] font-medium text-safe">
-              <Check className="size-3.5" /> Saved
-            </span>
-          )}
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Bell className="size-4 shrink-0 text-primary" />
+            <h2 className="font-semibold">Manage Notifications</h2>
+            {notifsPending && <Loader2 className="size-4 animate-spin text-muted-2" />}
+            {savedNotifs && !notifsPending && (
+              <span className="flex items-center gap-1 text-[12px] font-medium text-safe">
+                <Check className="size-3.5" /> Saved
+              </span>
+            )}
+          </div>
+          <button
+            onClick={enableAllNotifs}
+            className="shrink-0 text-[12.5px] font-semibold text-primary transition hover:brightness-110"
+          >
+            Enable all
+          </button>
         </div>
-        {!notifLive && (
-          <p className="mb-3 text-[12px] text-muted-2">
-            Set your preferences now — notification delivery is rolling out soon. Your choices are saved.
-          </p>
-        )}
-        <div className="space-y-3">
-          {([
-            ["messages", "Direct messages"],
-            ["replies", "Replies to my posts"],
-            ["likes", "Likes on my reviews"],
-            ["releases", "New releases I'm notified for"],
-            ["reminders", "Upcoming watch reminders"],
-            ["unlocks", "When discussions unlock"],
-            ["trending", "Trending room alerts"],
-          ] as const).map(([key, label]) => (
-            <div key={key} className="flex items-center justify-between">
-              <span className="text-sm">{label}</span>
-              <Toggle on={notifs[key]} onClick={() => toggleNotif(key)} />
-            </div>
-          ))}
+        <p className="mb-4 text-[12px] text-muted-2">Choose what you want to be notified about.</p>
+
+        <div className="space-y-2.5">
+          {NOTIF_ROWS.map(({ key, label, desc, Icon, color }) => {
+            const open = openRow === key;
+            return (
+              <div key={key} className="rounded-xl border border-border bg-white/[0.02]">
+                <div className="flex items-center gap-3 p-3">
+                  <span className={cn("grid size-9 shrink-0 place-items-center rounded-full text-white", color)}>
+                    <Icon className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{label}</p>
+                    <p className="text-[12px] leading-snug text-muted-2">{desc}</p>
+                  </div>
+                  <Toggle on={notifs[key]} onClick={() => toggleNotif(key)} />
+                  <button
+                    onClick={() => setOpenRow(open ? null : key)}
+                    aria-label={open ? "Hide details" : "Show details"}
+                    aria-expanded={open}
+                    className="grid size-8 shrink-0 place-items-center rounded-full text-muted-2 transition hover:bg-white/5 hover:text-foreground"
+                  >
+                    <ChevronRight className={cn("size-4 transition-transform", open && "rotate-90")} />
+                  </button>
+                </div>
+                {open && (
+                  <div className="border-t border-border px-3 py-2.5 text-[12px] text-muted-2">
+                    {notifs[key] ? (
+                      <>
+                        <span className="font-medium text-foreground">On.</span>{" "}
+                        {notifLive
+                          ? "Delivered to your notification bell and pushed to your devices."
+                          : "Delivered to your notification bell. Device push is rolling out soon."}
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-medium text-foreground">Off.</span> You won&apos;t be notified about this.
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
+
         <DeviceNotifications />
       </Card>
 
