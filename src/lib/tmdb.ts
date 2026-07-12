@@ -23,6 +23,17 @@ function img(path: string | null, size = "w500"): string | null {
   return path ? `${IMG}/${size}${path}` : null;
 }
 
+// Cache TMDb responses in the Next Data Cache across requests (works even on
+// force-dynamic pages, since it's a per-fetch option). Stable detail data is
+// cached far longer than volatile listings — cutting external API calls and
+// speeding up hot pages at scale.
+function revalidateFor(path: string): number {
+  // Fast-moving lists: refresh hourly.
+  if (/^\/(trending|search|discover)|\/popular/.test(path)) return 3600;
+  // Details, credits, seasons, recommendations, videos: change rarely → 24h.
+  return 86400;
+}
+
 async function tmdb<T>(path: string, params: Record<string, string> = {}): Promise<T> {
   const url = new URL(API + path);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -30,7 +41,7 @@ async function tmdb<T>(path: string, params: Record<string, string> = {}): Promi
   if (TOKEN) headers.Authorization = `Bearer ${TOKEN}`;
   else url.searchParams.set("api_key", KEY);
 
-  const res = await fetch(url, { headers, next: { revalidate: 3600 } });
+  const res = await fetch(url, { headers, next: { revalidate: revalidateFor(path) } });
   if (!res.ok) throw new Error(`TMDb ${res.status}`);
   return res.json() as Promise<T>;
 }

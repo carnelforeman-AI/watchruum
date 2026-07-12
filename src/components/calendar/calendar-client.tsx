@@ -38,7 +38,7 @@ const TABS: { key: UITab; label: string; icon: typeof Tv }[] = [
   { key: "new_episodes", label: "New Episodes", icon: Tv },
   { key: "new_seasons", label: "New Seasons", icon: Layers },
   { key: "movies", label: "Movies", icon: Film },
-  { key: "my_alerts", label: "My Notifications", icon: Bell },
+  { key: "my_alerts", label: "Notifications", icon: Bell },
 ];
 
 function Select<T extends string>({
