@@ -71,6 +71,14 @@ export async function dispatchWatchReminders(windowMinutes = 20): Promise<WatchR
     goingBySchedule.set(i.schedule_id, arr);
   }
 
+  // Per-item mutes — a user who toggled "Notify me" off for a watch is skipped.
+  const { data: muteRows } = await sb
+    .from("scheduled_watch_mutes")
+    .select("schedule_id, user_id")
+    .in("schedule_id", ids);
+  const muted = new Set<string>();
+  for (const m of (muteRows as any[]) ?? []) muted.add(`${m.schedule_id}:${m.user_id}`);
+
   const link = (r: any) => `/title/${routeId(r.media_type, r.tmdb_id, r.title)}`;
   const label = (r: any) =>
     r.season_number != null && r.episode_number != null
@@ -81,7 +89,9 @@ export async function dispatchWatchReminders(windowMinutes = 20): Promise<WatchR
   const notifRows: any[] = [];
   const recipientsBySchedule = new Map<string, string[]>();
   for (const r of due) {
-    const recips = Array.from(new Set([r.host_id, ...(goingBySchedule.get(r.id) ?? [])]));
+    const recips = Array.from(new Set([r.host_id, ...(goingBySchedule.get(r.id) ?? [])])).filter(
+      (uid) => !muted.has(`${r.id}:${uid}`),
+    );
     recipientsBySchedule.set(r.id, recips);
     for (const uid of recips) {
       notifRows.push({

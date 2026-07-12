@@ -27,6 +27,7 @@ export interface ScheduledWatch {
   host: { username: string; display_name: string; avatar_url: string | null };
   myRsvp: string | null; // my invite status if I'm an invitee
   invitees: ScheduleParty[];
+  notify: boolean; // will I get a "starting soon" reminder for this? (false = muted)
 }
 
 export interface MySchedule {
@@ -39,7 +40,7 @@ import { routeId } from "./utils";
 
 const HOST = "host:profiles!scheduled_watches_host_id_fkey(username, display_name, avatar_url)";
 
-function mapRow(r: any, meId: string): ScheduledWatch {
+function mapRow(r: any, meId: string, mutedIds: Set<string>): ScheduledWatch {
   const invitees: ScheduleParty[] = ((r.invites as any[]) ?? []).map((i) => ({
     id: i.user?.id ?? i.user_id ?? "",
     username: i.user?.username ?? "member",
@@ -68,6 +69,7 @@ function mapRow(r: any, meId: string): ScheduledWatch {
     },
     myRsvp: mine?.status ?? null,
     invitees,
+    notify: !mutedIds.has(r.id),
   };
 }
 
@@ -92,7 +94,19 @@ export async function getMySchedule(): Promise<MySchedule> {
     .order("scheduled_at", { ascending: true })
     .limit(100);
 
-  const rows = ((data as any[]) ?? []).map((r) => mapRow(r, me));
+  // Which of these watches have I muted? (presence = no reminder for me)
+  const scheduleIds = ((data as any[]) ?? []).map((r) => r.id);
+  const mutedIds = new Set<string>();
+  if (scheduleIds.length) {
+    const { data: mutes } = await supabase
+      .from("scheduled_watch_mutes")
+      .select("schedule_id")
+      .eq("user_id", me)
+      .in("schedule_id", scheduleIds);
+    for (const m of ((mutes as any[]) ?? [])) mutedIds.add(m.schedule_id);
+  }
+
+  const rows = ((data as any[]) ?? []).map((r) => mapRow(r, me, mutedIds));
 
   const upcoming = rows.filter((r) => r.isHost || r.myRsvp === "going" || r.myRsvp === "maybe");
   const invites = rows.filter((r) => !r.isHost && r.myRsvp === "invited");

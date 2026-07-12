@@ -91,6 +91,28 @@ export async function rsvpWatch(scheduleId: string, status: string): Promise<Res
   return { ok: !error, error: error?.message };
 }
 
+/**
+ * Toggle whether the caller gets a "starting soon" reminder for one watch.
+ * on=true clears any mute; on=false records a mute. Works for the host and
+ * for "going" invitees (each mutes only their own reminder).
+ */
+export async function setWatchNotify(scheduleId: string, on: boolean): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  if (on) {
+    const { error } = await ctx.supabase
+      .from("scheduled_watch_mutes")
+      .delete()
+      .eq("user_id", ctx.userId)
+      .eq("schedule_id", scheduleId);
+    return { ok: !error, error: error?.message };
+  }
+  const { error } = await ctx.supabase
+    .from("scheduled_watch_mutes")
+    .upsert({ user_id: ctx.userId, schedule_id: scheduleId }, { onConflict: "user_id,schedule_id" });
+  return { ok: !error, error: error?.message };
+}
+
 /** Host cancels (deletes) a scheduled watch. RLS enforces host-only. */
 export async function cancelScheduledWatch(scheduleId: string): Promise<Result> {
   const ctx = await authed();

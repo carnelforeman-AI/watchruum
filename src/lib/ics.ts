@@ -59,6 +59,46 @@ export function buildICS(ev: CalendarEvent): string {
     .join("\r\n");
 }
 
+/** One VCALENDAR containing many events — used to export a whole schedule. */
+export function buildICSMulti(events: CalendarEvent[]): string {
+  const head = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Watchruum//Watch Schedule//EN", "CALSCALE:GREGORIAN"];
+  const body = events.flatMap((ev) => {
+    const end = new Date(ev.start.getTime() + (ev.durationMinutes ?? 120) * 60_000);
+    const uid = `${toICSDate(ev.start)}-${Math.abs(hash(ev.title))}@watchruum`;
+    const desc = [ev.description, ev.url].filter(Boolean).join("\\n\\n");
+    return [
+      "BEGIN:VEVENT",
+      `UID:${uid}`,
+      `DTSTAMP:${toICSDate(ev.start)}`,
+      `DTSTART:${toICSDate(ev.start)}`,
+      `DTEND:${toICSDate(end)}`,
+      `SUMMARY:${escapeICS(ev.title)}`,
+      desc ? `DESCRIPTION:${escapeICS(desc)}` : "",
+      ev.url ? `URL:${escapeICS(ev.url)}` : "",
+      "BEGIN:VALARM",
+      "TRIGGER:-PT30M",
+      "ACTION:DISPLAY",
+      `DESCRIPTION:${escapeICS(ev.title)}`,
+      "END:VALARM",
+      "END:VEVENT",
+    ].filter(Boolean);
+  });
+  return [...head, ...body, "END:VCALENDAR"].filter(Boolean).join("\r\n");
+}
+
+/** Download a single .ics file containing all provided events. */
+export function downloadICSMulti(events: CalendarEvent[], filename = "watchruum-schedule.ics"): void {
+  const blob = new Blob([buildICSMulti(events)], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function googleCalendarUrl(ev: CalendarEvent): string {
   const end = new Date(ev.start.getTime() + (ev.durationMinutes ?? 120) * 60_000);
   const dates = `${toICSDate(ev.start)}/${toICSDate(end)}`;
