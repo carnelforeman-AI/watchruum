@@ -198,6 +198,24 @@ export async function reportContent(
   return { ok: !error, error: error?.message };
 }
 
+/** Withdraw the caller's report on a piece of content (the "Undo" action). */
+export async function unreportContent(
+  targetType: "comment" | "review",
+  targetId: string,
+): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: false, error: "Sign in first." };
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_RE.test(targetId)) return { ok: true }; // nothing persisted to remove
+  const { error } = await ctx.supabase
+    .from("reports")
+    .delete()
+    .eq("reporter_id", ctx.userId)
+    .eq("target_type", targetType)
+    .eq("target_id", targetId);
+  return { ok: !error, error: error?.message };
+}
+
 /** Write a review for a title / season / episode. */
 export async function postReview(
   media: MediaItem,

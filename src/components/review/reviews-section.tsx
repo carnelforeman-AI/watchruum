@@ -28,7 +28,7 @@ import { TranslatableText } from "@/components/i18n/translatable-text";
 import { cn, timeAgo, compact } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { SortSelect, sortByKey, type SortKey } from "@/components/ui/comment-sort";
-import { postReview, toggleReaction, reportContent, loadReviewComments, postReviewComment } from "@/app/actions";
+import { postReview, toggleReaction, reportContent, unreportContent, loadReviewComments, postReviewComment } from "@/app/actions";
 import type { MediaItem } from "@/lib/types";
 import type { DisplayReview, ReviewComment } from "@/lib/queries";
 
@@ -434,13 +434,129 @@ function AllReviewsDrawer({
   );
 }
 
+const REPORT_REASONS = [
+  "Contains an unmarked spoiler",
+  "Harassment or hate speech",
+  "Spam or advertising",
+  "Off-topic or irrelevant",
+  "Other",
+];
+
+/** Report control with a reason picker and an Undo (withdraw) action. */
+function ReportControl({ targetId, demo }: { targetId: string; demo: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<string>(REPORT_REASONS[0]);
+  const [other, setOther] = useState("");
+  const [reported, setReported] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function submit() {
+    const text = reason === "Other" ? other.trim() || "Other" : reason;
+    setErr(null);
+    setOpen(false);
+    if (demo) {
+      setReported(true);
+      return;
+    }
+    start(async () => {
+      const res = await reportContent("review", targetId, text);
+      if (res.ok) setReported(true);
+      else setErr(res.error ?? "Couldn't submit that report.");
+    });
+  }
+
+  function undo() {
+    setErr(null);
+    if (demo) {
+      setReported(false);
+      return;
+    }
+    start(async () => {
+      const res = await unreportContent("review", targetId);
+      if (res.ok) setReported(false);
+      else setErr(res.error ?? "Couldn't undo that.");
+    });
+  }
+
+  if (reported) {
+    return (
+      <span className="relative ml-auto flex items-center gap-2 text-[12px]">
+        <span className="inline-flex items-center gap-1 font-semibold text-warn">
+          <Flag className="size-3.5" /> Reported
+        </span>
+        <button onClick={undo} disabled={pending} className="font-semibold text-primary hover:underline disabled:opacity-60">
+          {pending ? "…" : "Undo"}
+        </button>
+        {err && <span className="absolute right-0 top-full mt-1 whitespace-nowrap text-[11px] text-danger">{err}</span>}
+      </span>
+    );
+  }
+
+  return (
+    <div className="relative ml-auto">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn("flex items-center gap-1.5 text-[12px] text-muted-2 transition-colors hover:text-warn", open && "text-warn")}
+      >
+        <Flag className="size-3.5" /> Report
+      </button>
+      {open && (
+        <>
+          <button aria-hidden tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-full right-0 z-20 mb-2 w-64 rounded-xl border border-border bg-bg-elevated p-3 shadow-2xl">
+            <p className="mb-2 text-[12px] font-semibold">Why are you reporting this?</p>
+            <div className="space-y-1">
+              {REPORT_REASONS.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setReason(r)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12.5px] transition-colors",
+                    reason === r ? "bg-primary/10 text-foreground" : "text-muted hover:bg-white/5",
+                  )}
+                >
+                  <span className={cn("grid size-3.5 shrink-0 place-items-center rounded-full border", reason === r ? "border-primary" : "border-muted-2")}>
+                    {reason === r && <span className="size-1.5 rounded-full bg-primary" />}
+                  </span>
+                  {r}
+                </button>
+              ))}
+            </div>
+            {reason === "Other" && (
+              <textarea
+                value={other}
+                onChange={(e) => setOther(e.target.value)}
+                placeholder="Tell us more (optional)"
+                rows={2}
+                className="mt-2 w-full resize-none rounded-lg border border-border bg-white/[0.03] px-2.5 py-2 text-[12.5px] outline-none placeholder:text-muted-2 focus:border-primary/50"
+              />
+            )}
+            <div className="mt-2.5 flex items-center justify-end gap-2">
+              <button onClick={() => setOpen(false)} className="rounded-lg px-2.5 py-1.5 text-[12px] font-semibold text-muted hover:text-foreground">
+                Cancel
+              </button>
+              <button
+                onClick={submit}
+                disabled={pending}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-warn px-3 py-1.5 text-[12px] font-semibold text-black transition hover:brightness-110 disabled:opacity-60"
+              >
+                {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Flag className="size-3.5" />} Submit report
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+      {err && <p className="absolute right-0 top-full mt-1 whitespace-nowrap text-[11px] text-danger">{err}</p>}
+    </div>
+  );
+}
+
 function ReviewItem({ review, viewerLang }: { review: DisplayReview; viewerLang: string | null }) {
   const demo = !!review.demo;
   const [revealed, setRevealed] = useState(false);
   const [liked, setLiked] = useState(review.liked_by_me);
   const [likes, setLikes] = useState(review.like_count);
-  const [reported, setReported] = useState(false);
-  const [reportErr, setReportErr] = useState<string | null>(null);
   const [, start] = useTransition();
 
   // Replies
@@ -483,19 +599,6 @@ function ReviewItem({ review, viewerLang }: { review: DisplayReview; viewerLang:
     start(async () => {
       await postReviewComment(review.id, text);
       setPosting(false);
-    });
-  }
-
-  function report() {
-    setReportErr(null);
-    if (demo) {
-      setReported(true);
-      return;
-    }
-    start(async () => {
-      const res = await reportContent("review", review.id, "Unmarked spoiler");
-      if (res.ok) setReported(true);
-      else setReportErr(res.error ?? "Couldn't report this review.");
     });
   }
 
@@ -606,16 +709,8 @@ function ReviewItem({ review, viewerLang }: { review: DisplayReview; viewerLang:
         >
           <MessageCircle className="size-3.5" /> {count}
         </button>
-        <button
-          onClick={report}
-          disabled={reported}
-          className={cn("ml-auto flex items-center gap-1.5 hover:text-warn disabled:opacity-70", reported && "text-warn")}
-          title={reportErr ?? undefined}
-        >
-          <Flag className="size-3.5" /> {reported ? "Reported" : reportErr ? "Try again" : "Report"}
-        </button>
+        <ReportControl targetId={review.id} demo={demo} />
       </div>
-      {reportErr && <p className="mt-1.5 text-right text-[11px] text-danger">{reportErr}</p>}
 
       {open && (
         <div className="mt-3 space-y-3 border-t border-border-soft pt-3">
