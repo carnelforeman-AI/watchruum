@@ -26,7 +26,8 @@ const PREF_COL: Partial<Record<NotifyType, string>> = {
   unlock: "notify_unlocks",
   trending: "notify_trending",
   release: "notify_releases",
-  // follow, invite, reminder: always allowed (low-frequency, high-value)
+  reminder: "notify_reminders",
+  // follow, invite: always allowed (low-frequency, high-value)
 };
 
 export interface NotifyInput {

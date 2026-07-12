@@ -79,6 +79,19 @@ export async function dispatchWatchReminders(windowMinutes = 20): Promise<WatchR
   const muted = new Set<string>();
   for (const m of (muteRows as any[]) ?? []) muted.add(`${m.schedule_id}:${m.user_id}`);
 
+  // Global opt-out — users who turned "Upcoming watch reminders" off in Settings.
+  const candidateUsers = Array.from(
+    new Set(due.flatMap((r) => [r.host_id, ...(goingBySchedule.get(r.id) ?? [])])),
+  );
+  const remindersOff = new Set<string>();
+  if (candidateUsers.length) {
+    const { data: prefRows } = await sb
+      .from("profiles")
+      .select("id, notify_reminders")
+      .in("id", candidateUsers);
+    for (const p of (prefRows as any[]) ?? []) if (p.notify_reminders === false) remindersOff.add(p.id);
+  }
+
   const link = (r: any) => `/title/${routeId(r.media_type, r.tmdb_id, r.title)}`;
   const label = (r: any) =>
     r.season_number != null && r.episode_number != null
@@ -90,7 +103,7 @@ export async function dispatchWatchReminders(windowMinutes = 20): Promise<WatchR
   const recipientsBySchedule = new Map<string, string[]>();
   for (const r of due) {
     const recips = Array.from(new Set([r.host_id, ...(goingBySchedule.get(r.id) ?? [])])).filter(
-      (uid) => !muted.has(`${r.id}:${uid}`),
+      (uid) => !muted.has(`${r.id}:${uid}`) && !remindersOff.has(uid),
     );
     recipientsBySchedule.set(r.id, recips);
     for (const uid of recips) {

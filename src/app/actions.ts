@@ -361,6 +361,7 @@ export async function setNotificationPrefs(prefs: {
   replies: boolean;
   likes: boolean;
   releases: boolean;
+  reminders: boolean;
   unlocks: boolean;
   trending: boolean;
 }): Promise<Result> {
@@ -373,6 +374,7 @@ export async function setNotificationPrefs(prefs: {
       notify_replies: !!prefs.replies,
       notify_likes: !!prefs.likes,
       notify_releases: !!prefs.releases,
+      notify_reminders: !!prefs.reminders,
       notify_unlocks: !!prefs.unlocks,
       notify_trending: !!prefs.trending,
     })
