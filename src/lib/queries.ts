@@ -1122,6 +1122,51 @@ function rowToMedia(m: any): MediaItem {
   };
 }
 
+/**
+ * Real "Top Episode Discussions" from `room_threads`, ranked by **real reply
+ * count**, with real authors/participants. Returns DiscussionCard[] so it drops
+ * straight into the home section. Empty (→ caller keeps the seeded list) until
+ * the room-tabs migration is run and threads exist.
+ */
+export const getTopDiscussions = cache(async (limit = 12): Promise<DiscussionCard[]> => {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("room_threads")
+    .select(
+      "id, title, season_number, episode_number, created_at, author:profiles(display_name), media:media_items(*), replies:room_thread_replies(user:profiles(display_name))",
+    )
+    .order("created_at", { ascending: false })
+    .limit(60);
+
+  const rows = ((data as any[]) ?? []).filter((t) => t.media);
+  const cards: DiscussionCard[] = rows.map((t: any) => {
+    const replies = (t.replies as any[]) ?? [];
+    const participants = Array.from(
+      new Set([t.author?.display_name, ...replies.map((r: any) => r.user?.display_name)].filter(Boolean)),
+    ) as string[];
+    const media = rowToMedia(t.media);
+    const scope =
+      t.season_number != null && t.episode_number != null
+        ? `S${t.season_number} · E${t.episode_number}`
+        : media.media_type === "movie"
+          ? "Movie"
+          : "";
+    return {
+      id: t.id,
+      media,
+      scope,
+      title: t.title,
+      comment_count: replies.length, // REAL reply count
+      participants: participants.length ? participants : [t.author?.display_name ?? "Member"],
+      created_at: t.created_at,
+    };
+  });
+
+  cards.sort((a, b) => b.comment_count - a.comment_count);
+  return cards.slice(0, limit);
+});
+
 export interface LibraryItem {
   media: MediaItem;
   season_number: number | null;

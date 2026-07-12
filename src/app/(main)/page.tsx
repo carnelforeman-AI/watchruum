@@ -5,7 +5,7 @@ import { CardRow } from "@/components/feed/card-row";
 import { DiscussionCard } from "@/components/feed/discussion-card";
 import { ReviewCard } from "@/components/feed/review-card";
 import { RightRail } from "@/components/layout/right-rail";
-import { getUserLibrary, getTrendingRooms, getSampleContent, getPopularReviews } from "@/lib/queries";
+import { getUserLibrary, getTrendingRooms, getSampleContent, getPopularReviews, getTopDiscussions } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
@@ -19,14 +19,21 @@ const siteJsonLd: Record<string, unknown> = {
 };
 
 export default async function HomePage() {
-  const [lib, rooms, sample, popular] = await Promise.all([
+  const [lib, rooms, sample, popular, topDiscussions] = await Promise.all([
     getUserLibrary(),
     getTrendingRooms(18),
     getSampleContent(),
     getPopularReviews(2),
+    getTopDiscussions(),
   ]);
   const signedIn = !!lib;
   const reviews = popular.length ? popular : sample.reviews;
+
+  // Keep the seeded "Top Episode Discussions" until enough REAL threads exist,
+  // so the section is never sparse early on. Once the threshold is crossed it
+  // switches to the real most-replied threads. Tune MIN_REAL_DISCUSSIONS to taste.
+  const MIN_REAL_DISCUSSIONS = 4;
+  const discussions = topDiscussions.length >= MIN_REAL_DISCUSSIONS ? topDiscussions.slice(0, 4) : sample.discussions;
 
   // Who the viewer follows — used to scope live room presence to their friends.
   let followingIds: string[] = [];
@@ -58,7 +65,7 @@ export default async function HomePage() {
         <section>
           <SectionHeader title="Top Episode Discussions" href="/rooms" />
           <div className="grid gap-3 md:grid-cols-2">
-            {sample.discussions.map((d) => (
+            {discussions.map((d) => (
               <DiscussionCard key={d.id} d={d} />
             ))}
           </div>
