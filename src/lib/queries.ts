@@ -323,7 +323,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       body: "“Couldn’t agree more! That opening scene gave me chills.”",
       time: "2m ago",
       unread: true,
-      href: link(0),
+      href: `${link(0)}#rooms`, // the discussion where the reply landed
     },
     {
       type: "like",
@@ -332,7 +332,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       media: media(1),
       time: "10m ago",
       unread: true,
-      href: link(1),
+      href: `${link(1)}#reviews`, // the review that was liked
     },
     {
       type: "follow",
@@ -340,7 +340,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       action: "started following you",
       time: "25m ago",
       unread: true,
-      href: "/u/alexm",
+      href: "/u/alexm", // the new follower's profile
     },
     {
       type: "invite",
@@ -349,7 +349,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       media: media(3),
       time: "1h ago",
       unread: true,
-      href: link(3),
+      href: `${link(3)}#rooms`, // the room you were invited to
     },
     {
       type: "report",
@@ -357,7 +357,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       body: `Thank you! We reviewed the content you reported in ${media(4)?.title ?? "a room"}.`,
       time: "2h ago",
       unread: true,
-      href: "/notifications",
+      href: `${link(4)}#rooms`, // where the reported content lives
     },
     {
       type: "episode",
@@ -366,7 +366,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       body: `${media(5)?.title ?? "A new episode"} is now open for discussion.`,
       time: "3h ago",
       unread: true,
-      href: link(5),
+      href: `${link(5)}#rooms`, // the newly-opened room
     },
     {
       type: "mention",
@@ -376,7 +376,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       body: "@carnel what did you think of the ending? 🤔",
       time: "5h ago",
       unread: false,
-      href: link(6),
+      href: `${link(6)}#rooms`, // the comment thread you were mentioned in
     },
     {
       type: "warning",
@@ -384,7 +384,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       body: "Please review our spoiler policy to avoid future issues.",
       time: "1d ago",
       unread: false,
-      href: "/notifications",
+      href: "/settings", // spoiler preferences / policy
     },
     {
       type: "reaction",
@@ -393,7 +393,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       media: media(7),
       time: "1d ago",
       unread: false,
-      href: link(7),
+      href: `${link(7)}#reviews`, // your rating / review that got a reaction
     },
     {
       type: "pinned",
@@ -402,7 +402,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       body: "The mods posted a recap and ground rules before the finale drops.",
       time: "1d ago",
       unread: false,
-      href: link(8),
+      href: `${link(8)}#rooms`, // the room with the pinned update
     },
     {
       type: "poll",
@@ -411,7 +411,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       body: `Results are ready for a poll you voted on in ${media(9)?.title ?? "a room"}.`,
       time: "2d ago",
       unread: false,
-      href: link(9),
+      href: `${link(9)}#rooms`, // the room where the poll ran
     },
     {
       type: "friend",
@@ -421,7 +421,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       body: "An episode you’ve already watched — safe to read.",
       time: "2d ago",
       unread: false,
-      href: link(10),
+      href: `${link(10)}#reviews`, // the friend's review
     },
     {
       type: "trending",
@@ -430,7 +430,7 @@ export const getInbox = cache(async (): Promise<InboxData> => {
       body: "Fans on your watchlist are discussing it right now.",
       time: "3d ago",
       unread: false,
-      href: link(11),
+      href: link(11), // the trending title
     },
   ];
   const notifications: NotificationItem[] = rawNotifications.map((n, i) => ({ ...n, id: `n${i}` }));

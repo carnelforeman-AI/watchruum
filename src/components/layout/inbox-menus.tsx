@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { useDismissed } from "@/lib/use-dismissed";
 import { Poster } from "@/components/media/poster";
 import { NotifAvatar, NotifText } from "@/components/inbox/notif-visuals";
+import { notificationHref } from "@/lib/notif-link";
 import type { NotificationItem, MessageItem } from "@/lib/queries";
 
 /* ---------------------------------------------------------- shared helpers */
@@ -169,6 +170,7 @@ export function NotificationBell({ notifications }: { notifications: Notificatio
             ) : (
               shown.map((n) => {
                 const unread = !isRead(n.id);
+                const href = notificationHref(n);
                 return (
                   <div
                     key={n.id}
@@ -178,7 +180,7 @@ export function NotificationBell({ notifications }: { notifications: Notificatio
                     )}
                   >
                     <Link
-                      href={`/notifications/${n.id}`}
+                      href={href}
                       onClick={() => {
                         markRead(n.id);
                         close();
@@ -194,7 +196,7 @@ export function NotificationBell({ notifications }: { notifications: Notificatio
                     </Link>
 
                     {n.media && (
-                      <Link href={`/notifications/${n.id}`} onClick={() => { markRead(n.id); close(); }} className="shrink-0">
+                      <Link href={href} onClick={() => { markRead(n.id); close(); }} className="shrink-0">
                         <Poster
                           title={n.media.title}
                           src={n.media.poster}
@@ -227,7 +229,8 @@ export function NotificationBell({ notifications }: { notifications: Notificatio
                         <div className="absolute right-3 top-10 z-10 w-44 overflow-hidden rounded-xl border border-border bg-panel p-1 shadow-2xl">
                           <button
                             onClick={() => {
-                              unread ? markRead(n.id) : markUnread(n.id);
+                              if (unread) markRead(n.id);
+                              else markUnread(n.id);
                               setMenuId(null);
                             }}
                             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-foreground hover:bg-white/5"

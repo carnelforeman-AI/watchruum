@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useDismissed } from "@/lib/use-dismissed";
 import { Poster } from "@/components/media/poster";
 import { NotifAvatar, NotifText } from "@/components/inbox/notif-visuals";
+import { notificationHref } from "@/lib/notif-link";
 import type { NotificationItem } from "@/lib/queries";
 
 type Tab = "all" | "unread" | "mentions";
@@ -94,13 +95,14 @@ export function NotificationsView({ items }: { items: NotificationItem[] }) {
         <div className="panel divide-y divide-border-soft overflow-hidden rounded-2xl">
           {shown.map((n) => {
             const unreadRow = !isRead(n.id);
+            const href = notificationHref(n);
             return (
               <div
                 key={n.id}
                 className={cn("flex items-start gap-3 px-4 py-3.5 transition-colors hover:bg-white/[0.03]", unreadRow && "bg-primary/[0.05]")}
               >
                 <Link
-                  href={`/notifications/${n.id}`}
+                  href={href}
                   onClick={() => setReadIds((p) => new Set(p).add(n.id))}
                   className="flex min-w-0 flex-1 items-start gap-3"
                 >
@@ -113,7 +115,7 @@ export function NotificationsView({ items }: { items: NotificationItem[] }) {
                 </Link>
 
                 {n.media && (
-                  <Link href={`/notifications/${n.id}`} onClick={() => setReadIds((p) => new Set(p).add(n.id))} className="shrink-0">
+                  <Link href={href} onClick={() => setReadIds((p) => new Set(p).add(n.id))} className="shrink-0">
                     <Poster
                       title={n.media.title}
                       src={n.media.poster}

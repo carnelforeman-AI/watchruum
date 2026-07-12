@@ -316,7 +316,9 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
         )}
       </section>
 
-      <ReviewsSection media={media} initialReviews={reviews} viewerLang={viewerLang} />
+      <section id="reviews" className="scroll-mt-24">
+        <ReviewsSection media={media} initialReviews={reviews} viewerLang={viewerLang} />
+      </section>
     </div>
   );
 }
