@@ -12,6 +12,7 @@ export function Poster({
   className,
   rounded = "rounded-xl",
   showTitle = true,
+  eager = false,
 }: {
   title: string;
   src?: string | null;
@@ -19,12 +20,20 @@ export function Poster({
   className?: string;
   rounded?: string;
   showTitle?: boolean;
+  /** Above-the-fold posters (e.g. a title hero) load eagerly; list posters lazy-load. */
+  eager?: boolean;
 }) {
   if (src) {
     return (
       <div className={cn("relative overflow-hidden", rounded, className)}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={title} className="h-full w-full object-cover" />
+        <img
+          src={src}
+          alt={title}
+          loading={eager ? "eager" : "lazy"}
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
       </div>
     );
   }

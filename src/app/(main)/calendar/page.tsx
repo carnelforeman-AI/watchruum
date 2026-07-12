@@ -5,7 +5,11 @@ import { CalendarClient } from "@/components/calendar/calendar-client";
 import { CalendarRail } from "@/components/calendar/calendar-rail";
 import type { CalendarItem } from "@/lib/calendar-constants";
 
-export const metadata = { title: "Release Calendar · Watchruum" };
+export const metadata = {
+  title: "Release Calendar · Watchruum",
+  description:
+    "Track upcoming movies, new episodes, and season premieres. Get notified so you never miss a release — spoiler-safe on Watchruum.",
+};
 export const dynamic = "force-dynamic";
 
 const VALID_TABS = new Set(["coming_soon", "new_episodes", "new_seasons", "movies", "trailers", "my_alerts"]);

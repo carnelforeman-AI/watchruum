@@ -80,7 +80,12 @@ async function loadProfile(username: string) {
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
   const data = await loadProfile(username);
-  return { title: data ? `${data.profile.display_name} · Watchruum` : "Profile · Watchruum" };
+  if (!data) return { title: "Profile · Watchruum" };
+  const name = data.profile.display_name || data.profile.username || username;
+  return {
+    title: `${data.profile.display_name} · Watchruum`,
+    description: `See ${name}'s reviews, ratings, and watch activity on Watchruum.`,
+  };
 }
 
 export default async function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {

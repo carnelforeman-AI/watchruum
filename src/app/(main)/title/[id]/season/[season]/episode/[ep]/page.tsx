@@ -14,8 +14,24 @@ import { SafeZonePill } from "@/components/room/spoiler-standard";
 import { scopeLabel } from "@/lib/spoiler";
 import { Avatar } from "@/components/ui/avatar";
 import { compact } from "@/lib/utils";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; season: string; ep: string }>;
+}): Promise<Metadata> {
+  const { id, season, ep } = await params;
+  const media = await getMedia(id);
+  if (!media) return { title: "Watch Room" };
+  return {
+    title: `${media.title} — S${season} · E${ep}`,
+    description: `Discuss ${media.title} Season ${season}, Episode ${ep} spoiler-safe on Watchruum — only see posts from viewers at your episode.`,
+    alternates: { canonical: `/title/${id}/season/${season}/episode/${ep}` },
+  };
+}
 
 export default async function EpisodeRoomPage({
   params,

@@ -61,6 +61,7 @@ function mapMedia(r: any, type: "movie" | "tv"): MediaItem {
       .map((id: number) => GENRES[id])
       .filter(Boolean),
     vote_average: Math.round((r.vote_average ?? 0) * 10) / 10,
+    vote_count: r.vote_count ?? 0,
     number_of_seasons: r.number_of_seasons,
   };
 }

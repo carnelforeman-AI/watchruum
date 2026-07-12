@@ -19,6 +19,7 @@ export interface MediaItem {
   release_year: number | null;
   genres: string[];
   vote_average: number; // TMDb 0-10
+  vote_count?: number; // TMDb number of ratings (for AggregateRating structured data)
   number_of_seasons?: number;
   runtime?: number | null; // minutes (movie total, or a TV episode)
   certification?: string | null; // e.g. "PG", "TV-14"

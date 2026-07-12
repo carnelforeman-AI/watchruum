@@ -6,7 +6,11 @@ import { Poster } from "@/components/media/poster";
 import { MediaCard } from "@/components/media/media-card";
 import { getUserLibrary, getSampleContent } from "@/lib/queries";
 
-export const metadata = { title: "Watchlist · Watchruum" };
+export const metadata = {
+  title: "Watchlist · Watchruum",
+  description:
+    "Your watchlist on Watchruum — track what you plan to watch and pick up spoiler-safe discussions when you're ready.",
+};
 
 export default async function WatchlistPage() {
   const lib = await getUserLibrary();

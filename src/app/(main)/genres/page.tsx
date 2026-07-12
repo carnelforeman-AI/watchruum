@@ -2,7 +2,10 @@ import { discoverByGenre, getGenrePreviews, GENRES_BROWSE } from "@/lib/tmdb";
 import { GenreBrowser } from "@/components/media/genre-browser";
 import { GenreIndex } from "@/components/media/genre-index";
 
-export const metadata = { title: "Genres · Watchruum" };
+export const metadata = {
+  title: "Genres · Watchruum",
+  description: "Browse movies and TV shows by genre and join spoiler-safe fan discussions on Watchruum.",
+};
 export const dynamic = "force-dynamic";
 
 export default async function GenresPage({ searchParams }: { searchParams: Promise<{ g?: string }> }) {

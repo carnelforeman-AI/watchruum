@@ -12,8 +12,20 @@ import { RoomPresence } from "@/components/room/room-presence";
 import { SafeZonePill } from "@/components/room/spoiler-standard";
 import { Avatar } from "@/components/ui/avatar";
 import { compact } from "@/lib/utils";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const media = await getMedia(id);
+  if (!media) return { title: "Watch Room" };
+  return {
+    title: `${media.title} — Watch Room`,
+    description: `Join the spoiler-safe watch room for ${media.title}. Discuss, rate, and react with fans at your exact episode — without getting spoiled.`,
+    alternates: { canonical: `/title/${id}/room` },
+  };
+}
 
 export default async function MovieRoomPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

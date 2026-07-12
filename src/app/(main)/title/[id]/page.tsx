@@ -95,6 +95,9 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
   const members = compact(trackingCount);
   const filledStars = Math.round(media.vote_average / 2);
 
+  // Only real, spoiler-free reviews feed structured data (never seeded placeholders).
+  const seoReviews = reviews.filter((r) => r.body && r.spoiler_scope === "none").slice(0, 5);
+
   const titleJsonLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": isTv ? "TVSeries" : "Movie",
@@ -105,11 +108,47 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
     ...(media.genres.length ? { genre: media.genres } : {}),
     ...(media.release_year ? { datePublished: String(media.release_year) } : {}),
     ...(isTv && media.number_of_seasons ? { numberOfSeasons: media.number_of_seasons } : {}),
+    // AggregateRating from real TMDb ratings (ratingValue + a genuine ratingCount)
+    // so rich-result star ratings can appear in search.
+    ...(media.vote_average > 0 && (media.vote_count ?? 0) > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: media.vote_average,
+            bestRating: 10,
+            worstRating: 1,
+            ratingCount: media.vote_count,
+          },
+        }
+      : {}),
+    // Individual Review nodes from real, spoiler-free member reviews.
+    ...(seoReviews.length
+      ? {
+          review: seoReviews.map((r) => ({
+            "@type": "Review",
+            author: { "@type": "Person", name: r.author_name },
+            datePublished: r.created_at,
+            reviewRating: { "@type": "Rating", ratingValue: r.score, bestRating: 10, worstRating: 1 },
+            reviewBody: r.body.slice(0, 500),
+          })),
+        }
+      : {}),
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: absoluteUrl("/") },
+      { "@type": "ListItem", position: 2, name: isTv ? "TV Shows" : "Movies", item: absoluteUrl("/explore") },
+      { "@type": "ListItem", position: 3, name: media.title, item: absoluteUrl(`/title/${id}`) },
+    ],
   };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
       <JsonLd data={titleJsonLd} />
+      <JsonLd data={breadcrumbJsonLd} />
       {/* Backdrop */}
       <div className="relative -mx-4 -mt-6 mb-6 h-64 overflow-hidden md:-mx-6 md:h-96">
         <div className="absolute inset-0" style={{ background: posterGradient(media.title) }} />
@@ -129,6 +168,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
             title={media.title}
             src={media.poster_url}
             showTitle={!media.poster_url}
+            eager
             rounded="rounded-2xl"
             className="h-72 w-48 shrink-0 shadow-2xl ring-1 ring-white/10 md:h-80 md:w-52"
           />

@@ -4,6 +4,22 @@ import { ChevronLeft, Play, MessageCircle } from "lucide-react";
 import { getMedia, getEpisodes } from "@/lib/tmdb";
 import { Poster } from "@/components/media/poster";
 import { posterGradient } from "@/lib/utils";
+import type { Metadata } from "next";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; season: string }>;
+}): Promise<Metadata> {
+  const { id, season } = await params;
+  const media = await getMedia(id);
+  if (!media) return { title: "Watch Room" };
+  return {
+    title: `${media.title} — Season ${season}`,
+    description: `Spoiler-safe Season ${season} discussion for ${media.title} on Watchruum.`,
+    alternates: { canonical: `/title/${id}/season/${season}` },
+  };
+}
 
 export default async function SeasonPage({
   params,

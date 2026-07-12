@@ -4,7 +4,10 @@ import { MediaGrid } from "@/components/media/media-card";
 import { trending } from "@/lib/tmdb";
 import { getTrendingRooms } from "@/lib/queries";
 
-export const metadata = { title: "Trending · Watchruum" };
+export const metadata = {
+  title: "Trending · Watchruum",
+  description: "See what's trending across TV and movies right now and join the spoiler-safe conversation on Watchruum.",
+};
 
 export default async function TrendingPage() {
   const [rooms, media] = await Promise.all([getTrendingRooms(6), trending()]);

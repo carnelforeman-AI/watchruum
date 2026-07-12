@@ -6,7 +6,11 @@ import { ExploreSearch } from "@/components/media/explore-search";
 import { Badge } from "@/components/ui/badge";
 import type { MediaItem } from "@/lib/types";
 
-export const metadata = { title: "Explore · Watchruum" };
+export const metadata = {
+  title: "Explore · Watchruum",
+  description:
+    "Explore trending shows and movies, browse by genre, and find spoiler-safe rooms to discuss what you're watching.",
+};
 export const dynamic = "force-dynamic";
 
 const HEADINGS: Record<string, string> = {
