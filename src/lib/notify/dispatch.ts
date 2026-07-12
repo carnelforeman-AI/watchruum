@@ -54,21 +54,31 @@ export async function dispatchReleaseAlerts(): Promise<DispatchResult> {
   base.due = due.length;
   if (due.length === 0) return { ...base, ok: true };
 
+  // Respect each subscriber's global "New releases" preference. Users who
+  // turned it off are skipped for delivery but still marked notified below, so
+  // they aren't reprocessed every day.
+  const userIds = Array.from(new Set(due.map((r) => r.user_id)));
+  const { data: prefRows } = await sb.from("profiles").select("id, notify_releases").in("id", userIds);
+  const off = new Set(((prefRows as any[]) ?? []).filter((p) => p.notify_releases === false).map((p) => p.id));
+  const sendable = due.filter((r) => !off.has(r.user_id));
+
   // 1) In-app notifications (real, no provider needed).
   const link = (r: any) => `/title/${routeId(r.media_type, r.tmdb_id, r.title)}`;
-  const rows = due.map((r) => ({
-    user_id: r.user_id,
-    type: "release",
-    message: `${r.title} is out today — your spoiler-safe Watchruum is open.`,
-    link: link(r),
-  }));
-  const { error: insErr } = await sb.from("notifications").insert(rows);
-  if (insErr) return { ...base, error: insErr.message };
-  base.inApp = rows.length;
+  if (sendable.length) {
+    const rows = sendable.map((r) => ({
+      user_id: r.user_id,
+      type: "release",
+      message: `${r.title} is out today — your spoiler-safe Watchruum is open.`,
+      link: link(r),
+    }));
+    const { error: insErr } = await sb.from("notifications").insert(rows);
+    if (insErr) return { ...base, error: insErr.message };
+    base.inApp = rows.length;
+  }
 
   // 2) Email — only when configured. Look up each subscriber's email.
   if (emailConfigured()) {
-    for (const r of due) {
+    for (const r of sendable) {
       base.email.attempted++;
       try {
         const { data } = await sb.auth.admin.getUserById(r.user_id);

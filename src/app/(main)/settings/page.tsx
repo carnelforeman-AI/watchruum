@@ -9,7 +9,7 @@ export default async function SettingsPage() {
   let showActivity = true;
   let language: string | null = null;
   let safety = "strict";
-  let notifs = { messages: true, replies: true, likes: true, unlocks: true, trending: false };
+  let notifs = { messages: true, replies: true, likes: true, releases: true, unlocks: true, trending: false };
   const supabase = await createClient();
   if (supabase) {
     const {
@@ -18,7 +18,7 @@ export default async function SettingsPage() {
     if (user) {
       const { data } = await supabase
         .from("profiles")
-        .select("is_private, show_activity, preferred_language, spoiler_safety, notify_messages, notify_replies, notify_likes, notify_unlocks, notify_trending")
+        .select("is_private, show_activity, preferred_language, spoiler_safety, notify_messages, notify_replies, notify_likes, notify_releases, notify_unlocks, notify_trending")
         .eq("id", user.id)
         .maybeSingle();
       const p = data as
@@ -30,6 +30,7 @@ export default async function SettingsPage() {
             notify_messages?: boolean | null;
             notify_replies?: boolean | null;
             notify_likes?: boolean | null;
+            notify_releases?: boolean | null;
             notify_unlocks?: boolean | null;
             notify_trending?: boolean | null;
           }
@@ -42,6 +43,7 @@ export default async function SettingsPage() {
         messages: p?.notify_messages ?? true,
         replies: p?.notify_replies ?? true,
         likes: p?.notify_likes ?? true,
+        releases: p?.notify_releases ?? true,
         unlocks: p?.notify_unlocks ?? true,
         trending: p?.notify_trending ?? false,
       };

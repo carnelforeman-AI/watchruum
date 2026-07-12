@@ -50,6 +50,7 @@ interface NotifPrefs {
   messages: boolean;
   replies: boolean;
   likes: boolean;
+  releases: boolean;
   unlocks: boolean;
   trending: boolean;
 }
@@ -59,7 +60,7 @@ export function SettingsPanel({
   initialShowActivity = true,
   initialLanguage = null,
   initialSafety = "strict",
-  initialNotifs = { messages: true, replies: true, likes: true, unlocks: true, trending: false },
+  initialNotifs = { messages: true, replies: true, likes: true, releases: true, unlocks: true, trending: false },
 }: {
   initialPrivate?: boolean;
   initialShowActivity?: boolean;
@@ -293,6 +294,7 @@ export function SettingsPanel({
             ["messages", "Direct messages"],
             ["replies", "Replies to my posts"],
             ["likes", "Likes on my reviews"],
+            ["releases", "New releases I'm notified for"],
             ["unlocks", "When discussions unlock"],
             ["trending", "Trending room alerts"],
           ] as const).map(([key, label]) => (

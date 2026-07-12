@@ -25,7 +25,7 @@ const PREF_COL: Partial<Record<NotifyType, string>> = {
   reaction: "notify_likes",
   unlock: "notify_unlocks",
   trending: "notify_trending",
-  release: "notify_trending",
+  release: "notify_releases",
   // follow, invite, reminder: always allowed (low-frequency, high-value)
 };
 
