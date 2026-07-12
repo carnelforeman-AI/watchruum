@@ -7,7 +7,6 @@ import {
   Tv,
   Layers,
   Film,
-  PlayCircle,
   Bell,
   Loader2,
   ChevronRight,
@@ -39,8 +38,7 @@ const TABS: { key: UITab; label: string; icon: typeof Tv }[] = [
   { key: "new_episodes", label: "New Episodes", icon: Tv },
   { key: "new_seasons", label: "New Seasons", icon: Layers },
   { key: "movies", label: "Movies", icon: Film },
-  { key: "trailers", label: "Trailers", icon: PlayCircle },
-  { key: "my_alerts", label: "My Alerts", icon: Bell },
+  { key: "my_alerts", label: "My Notifications", icon: Bell },
 ];
 
 function Select<T extends string>({
@@ -456,7 +454,7 @@ function MyAlertsView() {
     return (
       <div className="glass rounded-2xl p-12 text-center">
         <Bell className="mx-auto size-10 text-muted-2/50" />
-        <p className="mt-3 font-semibold">No alerts yet</p>
+        <p className="mt-3 font-semibold">No notifications yet</p>
         <p className="mt-1 text-sm text-muted-2">
           Tap <span className="font-semibold text-primary">Notify Me</span> on any upcoming title to track it here.
         </p>
