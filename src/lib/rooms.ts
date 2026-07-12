@@ -114,10 +114,17 @@ export const getWatchRooms = cache(async (limit = 12): Promise<WatchRoomsData> =
   }
   items = items.filter((m) => m.poster_url).slice(0, limit);
 
+  // Always measure real room activity so the rail can auto-switch from the
+  // seeded demo numbers to live counts once rooms are genuinely active — no
+  // manual toggle needed. Live Mode stays a hard override: when an admin turns
+  // it ON, real counts are used immediately regardless of the threshold.
   const liveMode = await getLiveMode();
-  const activity = liveMode ? await getRoomActivity(items) : null;
+  const activity = await getRoomActivity(items);
+  const totalRealMessages = [...activity.values()].reduce((sum, r) => sum + r.messages, 0);
+  const MIN_LIVE_MESSAGES = 50; // total real chat messages across all rooms
+  const useReal = liveMode || totalRealMessages >= MIN_LIVE_MESSAGES;
   const realFor = (m: MediaItem): RoomActivity | null =>
-    activity ? activity.get(`${m.media_type}_${m.tmdb_id}`) ?? { messages: 0, members: 0 } : null;
+    useReal ? activity.get(`${m.media_type}_${m.tmdb_id}`) ?? { messages: 0, members: 0 } : null;
 
   const rooms = await Promise.all(items.map((m, i) => buildRoom(m, i, realFor(m))));
 
