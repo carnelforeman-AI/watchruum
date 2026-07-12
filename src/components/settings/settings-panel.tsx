@@ -47,6 +47,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
 }
 
 interface NotifPrefs {
+  messages: boolean;
   replies: boolean;
   likes: boolean;
   unlocks: boolean;
@@ -58,7 +59,7 @@ export function SettingsPanel({
   initialShowActivity = true,
   initialLanguage = null,
   initialSafety = "strict",
-  initialNotifs = { replies: true, likes: true, unlocks: true, trending: false },
+  initialNotifs = { messages: true, replies: true, likes: true, unlocks: true, trending: false },
 }: {
   initialPrivate?: boolean;
   initialShowActivity?: boolean;
@@ -74,6 +75,8 @@ export function SettingsPanel({
   const [notifs, setNotifs] = useState<NotifPrefs>(initialNotifs);
   const [savedNotifs, setSavedNotifs] = useState(false);
   const [notifsPending, startNotifs] = useTransition();
+  // "Live" once Web Push is configured — the "Coming soon" badge clears itself then.
+  const notifLive = !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
   function changeSafety(next: string) {
     if (next === safety) return;
@@ -268,6 +271,11 @@ export function SettingsPanel({
         <div className="mb-4 flex items-center gap-2">
           <Bell className="size-4 text-primary" />
           <h2 className="font-semibold">Notifications</h2>
+          {!notifLive && (
+            <span className="inline-flex items-center rounded-full bg-warn/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warn">
+              Coming soon
+            </span>
+          )}
           {notifsPending && <Loader2 className="size-4 animate-spin text-muted-2" />}
           {savedNotifs && !notifsPending && (
             <span className="flex items-center gap-1 text-[12px] font-medium text-safe">
@@ -275,8 +283,14 @@ export function SettingsPanel({
             </span>
           )}
         </div>
+        {!notifLive && (
+          <p className="mb-3 text-[12px] text-muted-2">
+            Set your preferences now — notification delivery is rolling out soon. Your choices are saved.
+          </p>
+        )}
         <div className="space-y-3">
           {([
+            ["messages", "Direct messages"],
             ["replies", "Replies to my posts"],
             ["likes", "Likes on my reviews"],
             ["unlocks", "When discussions unlock"],
