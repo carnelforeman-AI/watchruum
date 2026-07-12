@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import {
   Star,
   Heart,
@@ -348,7 +349,10 @@ function AllReviewsDrawer({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  // Render into <body> so the panel is anchored to the viewport — not to the
+  // reflowed #main-col (whose backdrop-blur/glass ancestors would otherwise
+  // become the fixed containing block and drag the panel left with the margin).
+  if (!open || typeof document === "undefined") return null;
 
   const TABS: { key: SortKey; label: string }[] = [
     { key: "liked", label: "Top" },
@@ -364,7 +368,7 @@ function AllReviewsDrawer({
     setText("");
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-y-0 right-0 z-[80] flex w-full max-w-md flex-col border-l border-border bg-bg shadow-2xl sm:w-[420px]">
       <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3.5">
           <h3 className="text-base font-bold">
@@ -425,7 +429,8 @@ function AllReviewsDrawer({
             </button>
           </div>
         </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
