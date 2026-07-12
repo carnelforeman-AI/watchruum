@@ -26,6 +26,7 @@ import { createClient } from "@/lib/supabase/client";
 import { setProfilePrivacy, setShowActivity, setPreferredLanguage, setSpoilerSafety, setNotificationPrefs } from "@/app/actions";
 import { LANGUAGES } from "@/lib/lang";
 import { DeviceNotifications } from "@/components/settings/device-notifications";
+import { AccessibilityPanel } from "@/components/settings/accessibility-panel";
 
 const SAFETY = [
   { value: "strict", label: "Strict", desc: "Hide everything beyond my progress. Recommended." },
@@ -377,6 +378,8 @@ export function SettingsPanel({
 
         <DeviceNotifications />
       </Card>
+
+      <AccessibilityPanel />
 
       <Card className="p-5">
         <h2 className="mb-1 font-semibold">Account</h2>

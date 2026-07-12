@@ -134,3 +134,65 @@ html { scrollbar-width: auto; scrollbar-color: #454560 transparent; }
     overflow-y: auto;
   }
 }
+
+/* ===============================================================
+   Accessibility (WCAG) — user-adjustable via Settings → Accessibility.
+   Preferences live in localStorage and are reflected onto <html> as
+   data-wr-text / .wr-reduce-motion / .wr-high-contrast / .wr-focus-rings
+   (see src/lib/a11y.ts + the inline pre-paint script in the root layout).
+================================================================ */
+
+/* Clear focus indicator for keyboard users — a baseline WCAG win for
+   everyone, independent of the "always show" toggle below. */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Text size / UI scale. `zoom` scales px- and rem-based sizing alike, so it
+   works with the app's mixed units. Default = 1 (no change). */
+html[data-wr-text="large"] {
+  zoom: 1.12;
+}
+html[data-wr-text="xlarge"] {
+  zoom: 1.25;
+}
+
+/* Reduce motion — user toggle OR the OS-level "reduce motion" setting. */
+html.wr-reduce-motion *,
+html.wr-reduce-motion *::before,
+html.wr-reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High-contrast mode — lift the muted text and border tokens so low-contrast
+   secondary text and hairline borders become clearly legible. Because the whole
+   UI is token-based, overriding the tokens boosts contrast app-wide. */
+html.wr-high-contrast {
+  --color-foreground: #ffffff;
+  --color-muted: #d7dae6;
+  --color-muted-2: #b9bdcc;
+  --color-border: #55556f;
+  --color-border-soft: #44445a;
+}
+
+/* Always show focus outlines — extends the keyboard-only indicator to every
+   focus (including mouse/touch), for users who need a persistent cue. */
+html.wr-focus-rings :focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
