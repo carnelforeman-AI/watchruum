@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { detectLang } from "@/lib/detect-lang";
 import { isSupportedLang } from "@/lib/lang";
+import { GENRES } from "@/lib/genres";
 import type { MediaItem, SpoilerScope } from "@/lib/types";
 
 /**
@@ -255,6 +256,19 @@ export async function setShowActivity(showActivity: boolean): Promise<Result> {
   const { error } = await ctx.supabase
     .from("profiles")
     .update({ show_activity: showActivity })
+    .eq("id", ctx.userId);
+  return { ok: !error, error: error?.message };
+}
+
+/** Update the viewer's favorite genres (validated against the known list). */
+export async function setFavoriteGenres(genres: string[]): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  const allowed = new Set<string>(GENRES);
+  const clean = Array.from(new Set(genres)).filter((g) => allowed.has(g)).slice(0, 12);
+  const { error } = await ctx.supabase
+    .from("profiles")
+    .update({ favorite_genres: clean })
     .eq("id", ctx.userId);
   return { ok: !error, error: error?.message };
 }

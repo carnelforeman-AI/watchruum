@@ -1,6 +1,7 @@
 import { ShieldCheck, Star, MessageCircle, Users, Award } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { AvatarUploader } from "@/components/profile/avatar-uploader";
+import { GenreEditor } from "@/components/profile/genre-editor";
 import { Badge } from "@/components/ui/badge";
 import { ReviewCard } from "@/components/feed/review-card";
 import { MediaCard } from "@/components/media/media-card";
@@ -62,13 +63,17 @@ export default async function ProfilePage() {
             </Badge>
           </div>
 
-          {genres.length > 0 && (
+          {real ? (
+            <div className="mt-5">
+              <GenreEditor initialGenres={genres} />
+            </div>
+          ) : genres.length > 0 ? (
             <div className="mt-5 flex flex-wrap gap-2">
               {genres.map((g) => (
                 <Badge key={g} variant="neutral">{g}</Badge>
               ))}
             </div>
-          )}
+          ) : null}
 
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {stats.map((s) => {

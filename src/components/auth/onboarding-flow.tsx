@@ -8,11 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-
-const GENRES = [
-  "Drama", "Sci-Fi", "Thriller", "Fantasy", "Crime", "Comedy",
-  "Horror", "Mystery", "Romance", "Action", "Documentary", "Reality",
-];
+import { GENRES } from "@/lib/genres";
 
 export function OnboardingFlow() {
   const router = useRouter();
