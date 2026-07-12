@@ -583,6 +583,14 @@ export const getMessage = cache(async (id: string): Promise<MessageItem | null> 
 
 /* ------------------------------------------------------------------ reviews */
 
+export interface ReviewComment {
+  id: string;
+  author_name: string;
+  author_avatar: string | null;
+  body: string;
+  created_at: string;
+}
+
 export interface DisplayReview {
   id: string;
   author_name: string;
@@ -595,6 +603,11 @@ export interface DisplayReview {
   image_urls: string[];
   like_count: number;
   liked_by_me: boolean;
+  comment_count: number;
+  /** Preloaded replies — used for seeded placeholders. Real reviews load on expand. */
+  replies?: ReviewComment[];
+  /** Placeholder card: like/reply/report stay optimistic and never hit the DB. */
+  demo?: boolean;
   created_at: string;
   lang: string | null;
 }
@@ -644,7 +657,17 @@ export const getReviewsForMedia = cache(
       .limit(50);
 
     const list = (rows ?? []) as any[];
-    const { counts, mine } = await reactionCounts(supabase, list.map((r) => r.id), user?.id ?? null);
+    const ids = list.map((r) => r.id);
+    const { counts, mine } = await reactionCounts(supabase, ids, user?.id ?? null);
+
+    // Batch reply counts per review (one query, tallied client-side).
+    const replyCounts = new Map<string, number>();
+    if (ids.length) {
+      const { data: rc } = await supabase.from("review_comments").select("review_id").in("review_id", ids);
+      for (const row of (rc ?? []) as any[]) {
+        replyCounts.set(row.review_id, (replyCounts.get(row.review_id) ?? 0) + 1);
+      }
+    }
 
     return list.map((r) => ({
       id: r.id,
@@ -658,11 +681,93 @@ export const getReviewsForMedia = cache(
       image_urls: r.image_urls ?? [],
       like_count: counts.get(r.id) ?? 0,
       liked_by_me: mine.has(r.id),
+      comment_count: replyCounts.get(r.id) ?? 0,
       created_at: r.created_at,
       lang: r.lang ?? null,
     }));
   },
 );
+
+/**
+ * Seeded placeholder reviews — shown on a title until it collects enough
+ * REAL reviews (see MIN_REAL_REVIEWS on the title page). They carry embedded
+ * replies + counts so the reviews wall looks alive from day one, and are
+ * flagged `demo` so likes/replies/reports stay optimistic and never touch the
+ * database. Once real reviews cross the threshold these disappear.
+ */
+export function placeholderReviews(title: string): DisplayReview[] {
+  const ago = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+  const c = (author_name: string, body: string, h: number): ReviewComment => ({
+    id: `seedc_${author_name}_${h}`,
+    author_name,
+    author_avatar: null,
+    body,
+    created_at: ago(h),
+  });
+  return [
+    {
+      id: "seed_r1",
+      author_name: "Maya Diaz",
+      author_avatar: null,
+      season_number: null,
+      episode_number: null,
+      score: 9,
+      body: `Watched ${title} last night and I'm still thinking about it. The pacing, the performances — everything just clicks. Easily one of my favorites this year.`,
+      spoiler_scope: "none",
+      image_urls: [],
+      like_count: 248,
+      liked_by_me: false,
+      comment_count: 3,
+      demo: true,
+      replies: [
+        c("Sarah Kim", "Completely agree, the last act had me on the edge of my seat.", 20),
+        c("Mike Boone", "The score alone deserves an award. So good.", 14),
+        c("Jess Rivera", "Okay now I have to bump it up my watchlist 😄", 6),
+      ],
+      lang: null,
+      created_at: ago(30),
+    },
+    {
+      id: "seed_r2",
+      author_name: "Drew Park",
+      author_avatar: null,
+      season_number: null,
+      episode_number: null,
+      score: 8,
+      body: `Solid start for what feels like a long adventure. Great acting, the effects hold up, and the story leaves you wanting the next one. A good time.`,
+      spoiler_scope: "none",
+      image_urls: [],
+      like_count: 127,
+      liked_by_me: false,
+      comment_count: 2,
+      demo: true,
+      replies: [
+        c("Tom Hale", "Same — didn't expect to be this hooked already.", 10),
+        c("Maya Diaz", "The world-building is the standout for me.", 5),
+      ],
+      lang: null,
+      created_at: ago(52),
+    },
+    {
+      id: "seed_r3",
+      author_name: "Sarah Kim",
+      author_avatar: null,
+      season_number: null,
+      episode_number: null,
+      score: 9,
+      body: `You can feel the craft in every scene — every character, every detail, every note of the music. Unbelievably well made. Highly recommend going in unspoiled.`,
+      spoiler_scope: "none",
+      image_urls: [],
+      like_count: 88,
+      liked_by_me: false,
+      comment_count: 1,
+      demo: true,
+      replies: [c("Drew Park", "The 'go in unspoiled' advice is 100% correct.", 4)],
+      lang: null,
+      created_at: ago(76),
+    },
+  ];
+}
 
 export interface PersonComment {
   id: string;

@@ -5,7 +5,9 @@ import { detectLang } from "@/lib/detect-lang";
 import { isSupportedLang } from "@/lib/lang";
 import { GENRES } from "@/lib/genres";
 import { notify } from "@/lib/notify/fanout";
+import { routeId } from "@/lib/utils";
 import type { MediaItem, SpoilerScope } from "@/lib/types";
+import type { ReviewComment } from "@/lib/queries";
 
 /**
  * Server actions for the core flow. Each persists to Supabase when it's
@@ -233,6 +235,69 @@ export async function postReview(
     .select("id")
     .single();
   return { ok: !error, id: data?.id, error: error?.message };
+}
+
+/** Fetch the reply thread under a review (oldest first), for lazy expand. */
+export async function loadReviewComments(reviewId: string): Promise<ReviewComment[]> {
+  const supabase = await createClient();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("review_comments")
+    .select("id, body, created_at, author:profiles(display_name, avatar_url)")
+    .eq("review_id", reviewId)
+    .order("created_at", { ascending: true })
+    .limit(200);
+  type Row = { id: string; body: string; created_at: string; author?: { display_name?: string; avatar_url?: string | null } };
+  return ((data ?? []) as Row[]).map((r) => ({
+    id: r.id,
+    author_name: r.author?.display_name ?? "User",
+    author_avatar: r.author?.avatar_url ?? null,
+    body: r.body,
+    created_at: r.created_at,
+  }));
+}
+
+/**
+ * Post a reply under a review. Notifies the review's author via the fan-out
+ * (in-app + push). Returns the new row id so the client can reconcile.
+ */
+export async function postReviewComment(
+  reviewId: string,
+  body: string,
+): Promise<Result & { id?: string }> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  if (BLOCK_COMMENT.has(await accountStatus(ctx.supabase, ctx.userId)))
+    return { ok: false, error: "Your account can't reply right now." };
+  const text = cleanText(body, 4000);
+  if (!text) return { ok: false, error: "Reply is empty." };
+
+  const { data, error } = await ctx.supabase
+    .from("review_comments")
+    .insert({ review_id: reviewId, user_id: ctx.userId, body: text })
+    .select("id")
+    .single();
+
+  if (!error) {
+    // Notify the review's author (skip self-replies).
+    const { data: rev } = await ctx.supabase
+      .from("reviews")
+      .select("user_id, media:media_items(tmdb_id, media_type, title)")
+      .eq("id", reviewId)
+      .maybeSingle();
+    const r = rev as
+      | { user_id?: string; media?: { tmdb_id: number; media_type: "movie" | "tv"; title: string } }
+      | null;
+    if (r?.user_id && r.user_id !== ctx.userId) {
+      const a = await actorName(ctx);
+      const link = r.media
+        ? `/title/${routeId(r.media.media_type, r.media.tmdb_id, r.media.title)}#reviews`
+        : "/notifications";
+      await notify(r.user_id, { type: "reply", message: `${a.name} replied to your review`, link });
+    }
+  }
+
+  return { ok: !error, id: (data as { id: string } | null)?.id, error: error?.message };
 }
 
 /** Save a new avatar URL (uploaded to Supabase Storage) on the caller's profile. */

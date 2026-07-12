@@ -19,7 +19,7 @@ import { ScheduleWatchButton } from "@/components/schedule/schedule-watch-button
 import { CastRail } from "@/components/media/cast-rail";
 import { PosterRail } from "@/components/media/poster-rail";
 import { ReviewsSection } from "@/components/review/reviews-section";
-import { getReviewsForMedia } from "@/lib/queries";
+import { getReviewsForMedia, placeholderReviews } from "@/lib/queries";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getLiveMode } from "@/lib/settings";
 import { getTrackingCount } from "@/lib/live-counts";
@@ -80,6 +80,13 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
     getCurrentProfile(),
   ]);
   const viewerLang = (profile as { preferred_language?: string | null } | null)?.preferred_language ?? null;
+
+  // Keep the reviews wall lively before a title collects its own reviews:
+  // show seeded placeholder cards (with replies + counts) until enough REAL
+  // reviews exist, then switch entirely to the real ones. Same threshold
+  // pattern as the home page's Top Discussions.
+  const MIN_REAL_REVIEWS = 3;
+  const shownReviews = reviews.length >= MIN_REAL_REVIEWS ? reviews : placeholderReviews(media.title);
 
   // Live Mode → real people tracking this title (each add = +1). Demo → seeded.
   const trackingCount = live
@@ -325,7 +332,7 @@ export default async function TitlePage({ params }: { params: Promise<{ id: stri
       </section>
 
       <section id="reviews" className="scroll-mt-24">
-        <ReviewsSection media={media} initialReviews={reviews} viewerLang={viewerLang} />
+        <ReviewsSection media={media} initialReviews={shownReviews} viewerLang={viewerLang} />
       </section>
     </div>
   );

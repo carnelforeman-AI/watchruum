@@ -12,6 +12,8 @@ import {
   Sparkles,
   ShieldCheck,
   ImagePlus,
+  MessageCircle,
+  Send,
   X,
   Loader2,
 } from "lucide-react";
@@ -24,9 +26,9 @@ import { TranslatableText } from "@/components/i18n/translatable-text";
 import { cn, timeAgo } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { SortSelect, sortByKey, type SortKey } from "@/components/ui/comment-sort";
-import { postReview, toggleReaction, reportContent } from "@/app/actions";
+import { postReview, toggleReaction, reportContent, loadReviewComments, postReviewComment } from "@/app/actions";
 import type { MediaItem } from "@/lib/types";
-import type { DisplayReview } from "@/lib/queries";
+import type { DisplayReview, ReviewComment } from "@/lib/queries";
 
 const MAX_IMAGES = 4;
 const MAX_IMG_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -118,6 +120,8 @@ export function ReviewsSection({
       image_urls: imgs,
       like_count: 0,
       liked_by_me: false,
+      comment_count: 0,
+      replies: [],
       created_at: new Date().toISOString(),
       lang: null,
     };
@@ -254,6 +258,7 @@ export function ReviewsSection({
 }
 
 function ReviewItem({ review, viewerLang }: { review: DisplayReview; viewerLang: string | null }) {
+  const demo = !!review.demo;
   const [revealed, setRevealed] = useState(false);
   const [liked, setLiked] = useState(review.liked_by_me);
   const [likes, setLikes] = useState(review.like_count);
@@ -261,8 +266,55 @@ function ReviewItem({ review, viewerLang }: { review: DisplayReview; viewerLang:
   const [reportErr, setReportErr] = useState<string | null>(null);
   const [, start] = useTransition();
 
+  // Replies
+  const [open, setOpen] = useState(false);
+  const [comments, setComments] = useState<ReviewComment[] | null>(demo ? review.replies ?? [] : null);
+  const [count, setCount] = useState(review.comment_count);
+  const [loading, setLoading] = useState(false);
+  const [replyBody, setReplyBody] = useState("");
+  const [posting, setPosting] = useState(false);
+
+  function toggleReplies() {
+    const next = !open;
+    setOpen(next);
+    // Lazy-load the real thread the first time it's opened.
+    if (next && !demo && comments === null && !loading) {
+      setLoading(true);
+      loadReviewComments(review.id)
+        .then((rows) => setComments(rows))
+        .catch(() => setComments([]))
+        .finally(() => setLoading(false));
+    }
+  }
+
+  function submitReply(e: React.FormEvent) {
+    e.preventDefault();
+    const text = replyBody.trim();
+    if (!text) return;
+    const optimistic: ReviewComment = {
+      id: `local_${Date.now()}`,
+      author_name: "You",
+      author_avatar: null,
+      body: text,
+      created_at: new Date().toISOString(),
+    };
+    setComments((c) => [...(c ?? []), optimistic]);
+    setCount((n) => n + 1);
+    setReplyBody("");
+    if (demo) return; // placeholder card — stay optimistic, never hit the DB
+    setPosting(true);
+    start(async () => {
+      await postReviewComment(review.id, text);
+      setPosting(false);
+    });
+  }
+
   function report() {
     setReportErr(null);
+    if (demo) {
+      setReported(true);
+      return;
+    }
     start(async () => {
       const res = await reportContent("review", review.id, "Unmarked spoiler");
       if (res.ok) setReported(true);
@@ -278,6 +330,7 @@ function ReviewItem({ review, viewerLang }: { review: DisplayReview; viewerLang:
     const next = !liked;
     setLiked(next);
     setLikes((n) => n + (next ? 1 : -1));
+    if (demo) return; // placeholder card — optimistic only
     start(() => {
       toggleReaction("review", review.id, next);
     });
@@ -370,6 +423,13 @@ function ReviewItem({ review, viewerLang }: { review: DisplayReview; viewerLang:
           <Heart className={cn("size-3.5", liked && "fill-danger")} /> {likes}
         </button>
         <button
+          onClick={toggleReplies}
+          aria-expanded={open}
+          className={cn("flex items-center gap-1.5 transition-colors hover:text-foreground", open && "text-primary")}
+        >
+          <MessageCircle className="size-3.5" /> {count}
+        </button>
+        <button
           onClick={report}
           disabled={reported}
           className={cn("ml-auto flex items-center gap-1.5 hover:text-warn disabled:opacity-70", reported && "text-warn")}
@@ -379,6 +439,48 @@ function ReviewItem({ review, viewerLang }: { review: DisplayReview; viewerLang:
         </button>
       </div>
       {reportErr && <p className="mt-1.5 text-right text-[11px] text-danger">{reportErr}</p>}
+
+      {open && (
+        <div className="mt-3 space-y-3 border-t border-border-soft pt-3">
+          {loading ? (
+            <p className="flex items-center gap-2 text-[12px] text-muted-2">
+              <Loader2 className="size-3.5 animate-spin" /> Loading replies…
+            </p>
+          ) : comments && comments.length > 0 ? (
+            comments.map((cm) => (
+              <div key={cm.id} className="flex items-start gap-2.5">
+                <Avatar name={cm.author_name} src={cm.author_avatar} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-2">
+                    <span className="text-[13px] font-semibold">{cm.author_name}</span>
+                    <span className="text-[11px] text-muted-2">{timeAgo(cm.created_at)}</span>
+                  </p>
+                  <p className="text-[13px] leading-relaxed text-foreground/90">{cm.body}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-[12px] text-muted-2">No replies yet. Start the conversation.</p>
+          )}
+
+          <form onSubmit={submitReply} className="flex items-center gap-2">
+            <input
+              value={replyBody}
+              onChange={(e) => setReplyBody(e.target.value)}
+              placeholder="Write a reply…"
+              className="min-w-0 flex-1 rounded-full border border-border bg-white/[0.03] px-3.5 py-2 text-[13px] text-foreground outline-none transition placeholder:text-muted-2 focus:border-primary/50"
+            />
+            <button
+              type="submit"
+              disabled={!replyBody.trim() || posting}
+              aria-label="Post reply"
+              className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-white transition hover:brightness-110 disabled:opacity-50"
+            >
+              {posting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
