@@ -273,6 +273,36 @@ export async function setFavoriteGenres(genres: string[]): Promise<Result> {
   return { ok: !error, error: error?.message };
 }
 
+/** Persist the viewer's spoiler-safety level (strict | balanced | off). */
+export async function setSpoilerSafety(level: string): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  const v = level === "balanced" || level === "off" ? level : "strict";
+  const { error } = await ctx.supabase.from("profiles").update({ spoiler_safety: v }).eq("id", ctx.userId);
+  return { ok: !error, error: error?.message };
+}
+
+/** Persist the viewer's notification toggles. */
+export async function setNotificationPrefs(prefs: {
+  replies: boolean;
+  likes: boolean;
+  unlocks: boolean;
+  trending: boolean;
+}): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  const { error } = await ctx.supabase
+    .from("profiles")
+    .update({
+      notify_replies: !!prefs.replies,
+      notify_likes: !!prefs.likes,
+      notify_unlocks: !!prefs.unlocks,
+      notify_trending: !!prefs.trending,
+    })
+    .eq("id", ctx.userId);
+  return { ok: !error, error: error?.message };
+}
+
 export interface MemberResult {
   id: string;
   username: string;

@@ -59,7 +59,8 @@ export default async function ProfilePage() {
               {bio ? <p className="mt-1 text-[13px] text-foreground/80">{bio}</p> : null}
             </div>
             <Badge variant="safe">
-              <ShieldCheck className="size-3" /> Spoiler-safe
+              <ShieldCheck className="size-3" />
+              {real?.profile ? `Spoiler-safe: ${real.profile.spoiler_safety}` : "Spoiler-safe"}
             </Badge>
           </div>
 

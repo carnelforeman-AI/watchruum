@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { setProfilePrivacy, setShowActivity, setPreferredLanguage } from "@/app/actions";
+import { setProfilePrivacy, setShowActivity, setPreferredLanguage, setSpoilerSafety, setNotificationPrefs } from "@/app/actions";
 import { LANGUAGES } from "@/lib/lang";
 
 const SAFETY = [
@@ -45,19 +45,58 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   );
 }
 
+interface NotifPrefs {
+  replies: boolean;
+  likes: boolean;
+  unlocks: boolean;
+  trending: boolean;
+}
+
 export function SettingsPanel({
   initialPrivate = false,
   initialShowActivity = true,
   initialLanguage = null,
+  initialSafety = "strict",
+  initialNotifs = { replies: true, likes: true, unlocks: true, trending: false },
 }: {
   initialPrivate?: boolean;
   initialShowActivity?: boolean;
   initialLanguage?: string | null;
+  initialSafety?: string;
+  initialNotifs?: NotifPrefs;
 }) {
   const router = useRouter();
   const supabase = createClient();
-  const [safety, setSafety] = useState("strict");
-  const [notifs, setNotifs] = useState({ replies: true, likes: true, unlocks: true, trending: false });
+  const [safety, setSafety] = useState(initialSafety);
+  const [savedSafety, setSavedSafety] = useState(false);
+  const [safetyPending, startSafety] = useTransition();
+  const [notifs, setNotifs] = useState<NotifPrefs>(initialNotifs);
+  const [savedNotifs, setSavedNotifs] = useState(false);
+  const [notifsPending, startNotifs] = useTransition();
+
+  function changeSafety(next: string) {
+    if (next === safety) return;
+    const prev = safety;
+    setSafety(next);
+    setSavedSafety(false);
+    startSafety(async () => {
+      const res = await setSpoilerSafety(next);
+      if (res.ok) setSavedSafety(true);
+      else setSafety(prev); // revert on failure
+    });
+  }
+
+  function toggleNotif(key: keyof NotifPrefs) {
+    const prev = notifs;
+    const next = { ...notifs, [key]: !notifs[key] };
+    setNotifs(next);
+    setSavedNotifs(false);
+    startNotifs(async () => {
+      const res = await setNotificationPrefs(next);
+      if (res.ok) setSavedNotifs(true);
+      else setNotifs(prev); // revert on failure
+    });
+  }
   const [isPrivate, setIsPrivate] = useState(initialPrivate);
   const [savedPrivate, setSavedPrivate] = useState(false);
   const [pending, startPrivacy] = useTransition();
@@ -195,12 +234,18 @@ export function SettingsPanel({
         <div className="mb-4 flex items-center gap-2">
           <ShieldCheck className="size-4 text-primary" />
           <h2 className="font-semibold">Spoiler safety</h2>
+          {safetyPending && <Loader2 className="size-4 animate-spin text-muted-2" />}
+          {savedSafety && !safetyPending && (
+            <span className="flex items-center gap-1 text-[12px] font-medium text-safe">
+              <Check className="size-3.5" /> Saved
+            </span>
+          )}
         </div>
         <div className="space-y-2">
           {SAFETY.map((s) => (
             <button
               key={s.value}
-              onClick={() => setSafety(s.value)}
+              onClick={() => changeSafety(s.value)}
               className={cn(
                 "flex w-full items-start gap-3 rounded-xl border p-3 text-left transition-colors",
                 safety === s.value ? "border-primary/50 bg-primary/10" : "border-border bg-white/[0.02] hover:bg-white/5",
@@ -222,6 +267,12 @@ export function SettingsPanel({
         <div className="mb-4 flex items-center gap-2">
           <Bell className="size-4 text-primary" />
           <h2 className="font-semibold">Notifications</h2>
+          {notifsPending && <Loader2 className="size-4 animate-spin text-muted-2" />}
+          {savedNotifs && !notifsPending && (
+            <span className="flex items-center gap-1 text-[12px] font-medium text-safe">
+              <Check className="size-3.5" /> Saved
+            </span>
+          )}
         </div>
         <div className="space-y-3">
           {([
@@ -232,7 +283,7 @@ export function SettingsPanel({
           ] as const).map(([key, label]) => (
             <div key={key} className="flex items-center justify-between">
               <span className="text-sm">{label}</span>
-              <Toggle on={notifs[key]} onClick={() => setNotifs((n) => ({ ...n, [key]: !n[key] }))} />
+              <Toggle on={notifs[key]} onClick={() => toggleNotif(key)} />
             </div>
           ))}
         </div>

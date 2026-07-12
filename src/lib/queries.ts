@@ -771,6 +771,7 @@ export interface ProfileOverview {
     bio: string | null;
     favorite_genres: string[];
     is_private: boolean;
+    spoiler_safety: string;
   } | null;
   stats: { rooms: number; reviews: number; ratings: number; badges: number };
   badges: string[];
@@ -823,7 +824,7 @@ export const getProfileOverview = cache(async (): Promise<ProfileOverview | null
     { data: commentRooms },
     { data: reviewRows },
   ] = await Promise.all([
-    supabase.from("profiles").select("id, username, display_name, avatar_url, bio, favorite_genres, is_private").eq("id", me).maybeSingle(),
+    supabase.from("profiles").select("id, username, display_name, avatar_url, bio, favorite_genres, is_private, spoiler_safety").eq("id", me).maybeSingle(),
     supabase.from("reviews").select("*", { count: "exact", head: true }).eq("user_id", me),
     supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", me),
     supabase.from("episode_watches").select("*", { count: "exact", head: true }).eq("user_id", me),
@@ -883,6 +884,7 @@ export const getProfileOverview = cache(async (): Promise<ProfileOverview | null
           bio: p.bio ?? null,
           favorite_genres: p.favorite_genres ?? [],
           is_private: isPrivate,
+          spoiler_safety: p.spoiler_safety ?? "strict",
         }
       : null,
     stats: { rooms: rooms.size, reviews, ratings, badges: badges.length },
