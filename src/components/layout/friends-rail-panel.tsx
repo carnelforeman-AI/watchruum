@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { MessageWindow } from "@/components/friends/message-window";
 import { cn, timeAgo } from "@/lib/utils";
+import { useFriendsPresence } from "@/lib/use-presence";
 import type { ActivityEvent } from "@/lib/types";
 import type { FriendOnline } from "@/lib/queries";
 
@@ -33,13 +34,22 @@ type Selected =
 export function FriendsRailPanel({
   friendsOnline,
   friendActivity,
+  followingIds = [],
 }: {
   friendsOnline: FriendOnline[];
   friendActivity: ActivityEvent[];
+  followingIds?: string[];
 }) {
   const [alerts, setAlerts] = useState<Set<string>>(() => new Set());
   const [selected, setSelected] = useState<Selected | null>(null);
   const [messaging, setMessaging] = useState<FriendOnline | null>(null);
+
+  // Live room presence, scoped to who the viewer follows. When any friend is
+  // really in a room we show that; otherwise we fall back to the seeded list so
+  // the panel still looks alive pre-launch.
+  const livePresence = useFriendsPresence(followingIds);
+  const isLive = livePresence.length > 0;
+  const online = isLive ? livePresence : friendsOnline;
 
   useEffect(() => {
     // Hydrate from localStorage after mount so SSR and first client render agree.
@@ -67,6 +77,11 @@ export function FriendsRailPanel({
         <div className="flex items-center justify-between p-5 pb-3">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-semibold">Friends Online</h3>
+            {isLive && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-safe/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-safe">
+                <span className="size-1.5 animate-pulse rounded-full bg-safe" /> Live
+              </span>
+            )}
             <Link
               href="/friends"
               aria-label="Add friends"
@@ -84,8 +99,13 @@ export function FriendsRailPanel({
         <div className="flex h-[420px] flex-col px-2 pb-3">
           {/* Friends online — 65% */}
           <div className="min-h-0 flex-[65] overflow-y-auto px-1 no-scrollbar">
+            {online.length === 0 ? (
+              <p className="px-2 py-6 text-center text-[12.5px] text-muted-2">
+                No friends in a room right now. When someone you follow joins one, they&apos;ll show up here.
+              </p>
+            ) : (
             <div className="space-y-1">
-              {friendsOnline.map((f, i) => {
+              {online.map((f, i) => {
                 const key = `online:${f.name}`;
                 return (
                   <Row key={i} onOpen={() => setSelected({ kind: "online", key, data: f })}>
@@ -113,6 +133,7 @@ export function FriendsRailPanel({
                 );
               })}
             </div>
+            )}
           </div>
 
           {/* Recent activity — 35% */}

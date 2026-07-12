@@ -17,12 +17,14 @@ export function RightRail({
   progress = [],
   friendActivity = [],
   friendsOnline = [],
+  followingIds = [],
   safeUpTo = null,
 }: {
   signedIn?: boolean;
   progress?: LibraryItem[];
   friendActivity?: ActivityEvent[];
   friendsOnline?: FriendOnline[];
+  followingIds?: string[];
   safeUpTo?: string | null;
 }) {
   return (
@@ -60,7 +62,7 @@ export function RightRail({
       </RailCard>
 
       {/* Combined Friends panel: Online (65%) + Activity (35%) */}
-      <FriendsRailPanel friendsOnline={friendsOnline} friendActivity={friendActivity} />
+      <FriendsRailPanel friendsOnline={friendsOnline} friendActivity={friendActivity} followingIds={followingIds} />
 
       <Card>
         <div className="p-5 pb-3">

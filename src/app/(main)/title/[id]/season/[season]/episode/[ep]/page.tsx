@@ -7,6 +7,7 @@ import { getRoomFeed } from "@/lib/queries";
 import { RoomChat } from "@/components/room/room-chat";
 import { EpisodeNav } from "@/components/room/episode-nav";
 import { RoomRail } from "@/components/room/room-rail";
+import { RoomPresence } from "@/components/room/room-presence";
 import { SafeZonePill } from "@/components/room/spoiler-standard";
 import { scopeLabel } from "@/lib/spoiler";
 import { Avatar } from "@/components/ui/avatar";
@@ -51,6 +52,15 @@ export default async function EpisodeRoomPage({
 
   return (
     <div className="mx-auto max-w-[1500px] px-4 py-5 md:px-6">
+      <RoomPresence
+        enabled={!!profile && profile.show_activity !== false}
+        userId={profile?.id ?? null}
+        username={profile?.username ?? null}
+        displayName={profile?.display_name ?? "A fan"}
+        avatar={profile?.avatar_url ?? null}
+        room={media.title}
+        roomHref={`${base}/${epNum}`}
+      />
       {/* Breadcrumb */}
       <nav className="mb-3 flex flex-wrap items-center gap-1.5 text-[13px] text-muted-2">
         <Link href="/rooms" className="font-semibold text-muted hover:text-foreground">

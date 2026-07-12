@@ -248,6 +248,17 @@ export async function setProfilePrivacy(isPrivate: boolean): Promise<Result> {
   return { ok: !error, error: error?.message };
 }
 
+/** Toggle whether friends can see the room you're currently in (presence). */
+export async function setShowActivity(showActivity: boolean): Promise<Result> {
+  const ctx = await authed();
+  if (!ctx) return { ok: true, demo: true };
+  const { error } = await ctx.supabase
+    .from("profiles")
+    .update({ show_activity: showActivity })
+    .eq("id", ctx.userId);
+  return { ok: !error, error: error?.message };
+}
+
 export interface MemberResult {
   id: string;
   username: string;
@@ -271,7 +282,7 @@ export async function searchMembers(query: string): Promise<MemberResult[]> {
 
   let sel = ctx.supabase
     .from("profiles")
-    .select("id, username, display_name, avatar_url, bio, favorite_genres")
+    .select("id, username, display_name, avatar_url, bio, favorite_genres, is_private")
     .neq("id", ctx.userId);
   if (q) sel = sel.or(`display_name.ilike.%${q}%,username.ilike.%${q}%`);
   const { data } = await sel.order("created_at", { ascending: false }).limit(30);
@@ -283,6 +294,7 @@ export async function searchMembers(query: string): Promise<MemberResult[]> {
     avatar_url: string | null;
     bio: string | null;
     favorite_genres: string[] | null;
+    is_private: boolean | null;
   }[] | null) ?? []).filter((p) => p.username);
 
   const ids = rows.map((r) => r.id);
@@ -301,8 +313,9 @@ export async function searchMembers(query: string): Promise<MemberResult[]> {
     username: p.username as string,
     display_name: p.display_name ?? "Member",
     avatar_url: p.avatar_url ?? null,
-    bio: p.bio ?? null,
-    genres: p.favorite_genres ?? [],
+    // Private members: only name + avatar are public.
+    bio: p.is_private ? null : p.bio ?? null,
+    genres: p.is_private ? [] : p.favorite_genres ?? [],
     followed: followed.has(p.id),
   }));
 }

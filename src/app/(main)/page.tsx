@@ -6,6 +6,7 @@ import { DiscussionCard } from "@/components/feed/discussion-card";
 import { ReviewCard } from "@/components/feed/review-card";
 import { RightRail } from "@/components/layout/right-rail";
 import { getUserLibrary, getTrendingRooms, getSampleContent, getPopularReviews } from "@/lib/queries";
+import { createClient } from "@/lib/supabase/server";
 import { JsonLd } from "@/components/seo/json-ld";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
 
@@ -26,6 +27,16 @@ export default async function HomePage() {
   ]);
   const signedIn = !!lib;
   const reviews = popular.length ? popular : sample.reviews;
+
+  // Who the viewer follows — used to scope live room presence to their friends.
+  let followingIds: string[] = [];
+  if (signedIn && lib?.profile) {
+    const supabase = await createClient();
+    if (supabase) {
+      const { data } = await supabase.from("follows").select("following_id").eq("follower_id", lib.profile.id);
+      followingIds = ((data as { following_id: string }[] | null) ?? []).map((r) => r.following_id);
+    }
+  }
 
   return (
     <div className="flex gap-6">
@@ -67,6 +78,7 @@ export default async function HomePage() {
         progress={signedIn ? lib!.continueWatching : sample.progress}
         friendActivity={sample.friendActivity}
         friendsOnline={sample.friendsOnline}
+        followingIds={followingIds}
         safeUpTo={signedIn ? (lib!.furthest ? `${lib!.furthest.media.title} ${lib!.furthest.label.replace(" · ", " ")}` : null) : sample.safeUpTo}
         signedIn={signedIn}
       />

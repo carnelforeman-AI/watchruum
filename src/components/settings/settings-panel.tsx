@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { setProfilePrivacy, setPreferredLanguage } from "@/app/actions";
+import { setProfilePrivacy, setShowActivity, setPreferredLanguage } from "@/app/actions";
 import { LANGUAGES } from "@/lib/lang";
 
 const SAFETY = [
@@ -47,9 +47,11 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
 
 export function SettingsPanel({
   initialPrivate = false,
+  initialShowActivity = true,
   initialLanguage = null,
 }: {
   initialPrivate?: boolean;
+  initialShowActivity?: boolean;
   initialLanguage?: string | null;
 }) {
   const router = useRouter();
@@ -59,6 +61,9 @@ export function SettingsPanel({
   const [isPrivate, setIsPrivate] = useState(initialPrivate);
   const [savedPrivate, setSavedPrivate] = useState(false);
   const [pending, startPrivacy] = useTransition();
+  const [showActivity, setShowActivityState] = useState(initialShowActivity);
+  const [savedActivity, setSavedActivity] = useState(false);
+  const [activityPending, startActivity] = useTransition();
   const [language, setLanguage] = useState<string>(initialLanguage ?? "");
   const [savedLang, setSavedLang] = useState(false);
   const [langPending, startLang] = useTransition();
@@ -71,6 +76,17 @@ export function SettingsPanel({
       const res = await setProfilePrivacy(next);
       if (res.ok) setSavedPrivate(true);
       else setIsPrivate(!next); // revert on failure
+    });
+  }
+
+  function toggleActivity() {
+    const next = !showActivity;
+    setShowActivityState(next);
+    setSavedActivity(false);
+    startActivity(async () => {
+      const res = await setShowActivity(next);
+      if (res.ok) setSavedActivity(true);
+      else setShowActivityState(!next); // revert on failure
     });
   }
 
@@ -118,6 +134,25 @@ export function SettingsPanel({
           <div className="flex shrink-0 items-center gap-2">
             {pending && <Loader2 className="size-4 animate-spin text-muted-2" />}
             <Toggle on={isPrivate} onClick={togglePrivacy} />
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-start justify-between gap-4 border-t border-border pt-4">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Show my current room to friends</p>
+            <p className="text-[12px] text-muted-2">
+              When on, people you follow can see which watch room you&apos;re in on their Friends panel. Turn it off to
+              browse rooms invisibly — nobody sees where you are.
+            </p>
+            {savedActivity && !activityPending && (
+              <p className="mt-1.5 flex items-center gap-1 text-[12px] font-medium text-safe">
+                <Check className="size-3.5" /> Saved
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {activityPending && <Loader2 className="size-4 animate-spin text-muted-2" />}
+            <Toggle on={showActivity} onClick={toggleActivity} />
           </div>
         </div>
       </Card>
