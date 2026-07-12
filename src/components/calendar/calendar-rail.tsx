@@ -48,7 +48,7 @@ function MyAlertsRail() {
   return (
     <section className="glass rounded-2xl p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-[15px] font-bold">My Alerts</h3>
+        <h3 className="text-[15px] font-bold">My Notifications</h3>
         <Link href="/calendar?tab=my_alerts" className="text-[12px] font-semibold text-primary hover:text-primary-strong">
           View All
         </Link>
