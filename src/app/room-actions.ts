@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { notify } from "@/lib/notify/fanout";
+import { routeId } from "@/lib/utils";
 import type { MediaItem, SpoilerScope } from "@/lib/types";
 
 /**
@@ -85,6 +87,23 @@ export async function postThreadReply(threadId: string, body: string): Promise<R
     .insert({ thread_id: threadId, user_id: ctx.userId, body: b })
     .select("id")
     .single();
+
+  if (!error) {
+    // Notify the thread's author (fan-out → in-app + push).
+    const { data: thread } = await ctx.supabase
+      .from("room_threads")
+      .select("user_id, title, media:media_items(tmdb_id, media_type, title)")
+      .eq("id", threadId)
+      .maybeSingle();
+    const t = thread as { user_id?: string; title?: string; media?: { tmdb_id: number; media_type: "movie" | "tv"; title: string } } | null;
+    if (t?.user_id && t.user_id !== ctx.userId) {
+      const { data: me } = await ctx.supabase.from("profiles").select("display_name").eq("id", ctx.userId).maybeSingle();
+      const name = (me as { display_name?: string } | null)?.display_name ?? "Someone";
+      const link = t.media ? `/title/${routeId(t.media.media_type, t.media.tmdb_id, t.media.title)}#rooms` : "/notifications";
+      await notify(t.user_id, { type: "reply", message: `${name} replied to your thread “${t.title ?? "discussion"}”`, link });
+    }
+  }
+
   return { ok: !error, id: (data as { id: string } | null)?.id, error: error?.message };
 }
 

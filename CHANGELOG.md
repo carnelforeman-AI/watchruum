@@ -258,6 +258,7 @@ genres, reviews) with **editable genres**; and **Settings preferences**
 | `supabase/room-tabs.sql` | `room_threads`, `room_thread_replies`, `room_polls`, `room_poll_votes`, `room_media` + RLS. Powers the Discussion / Polls / Media tabs | run to enable those tabs (they show empty states until run) |
 | `supabase/preferences.sql` | `profiles.spoiler_safety` (checked strict/balanced/off) + `notify_replies/likes/unlocks/trending` booleans | run so Settings toggles persist + the profile shows the real spoiler-safety level |
 | `supabase/watch-schedule.sql` | `scheduled_watches`, `scheduled_watch_invites`, `push_subscriptions` + RLS | run to enable "schedule a watch" / watch parties + Web Push devices |
+| `supabase/notify-fanout.sql` | `create_notification()` SECURITY DEFINER (cross-user in-app notification) + `profiles.notify_messages` | run to enable the notification → push fan-out |
 
 ### Work (chronological)
 
@@ -366,6 +367,26 @@ Added `web-push` dep + `public/sw.js` service worker + `src/lib/push.ts`
 public key is set). Verify: tsc/eslint/build green; `/schedule` + cron registered.
 **Caveat:** timely push needs a sub-daily cron (Vercel Pro; Hobby is daily-only) —
 calendar export covers reminders until then.
+
+**Notification → push fan-out (DMs + replies + likes + follows + party invites) — _(pending push)_**
+One choke point so every social event notifies + pushes. `src/lib/notify/fanout.ts`
+`notify(recipientId, {type, message, link, pushTitle})`: (1) creates a real in-app
+notification via the `create_notification` **SECURITY DEFINER** RPC
+(`supabase/notify-fanout.sql`) — works cross-user with just the caller's session,
+no service role; (2) fans out **Web Push** to the recipient's devices when VAPID +
+service-role are set, gated by the recipient's per-type preference. Best-effort
+(wrapped in try/catch — a notification failure never breaks the triggering action).
+Wired into all five sources: **DMs** (`dm-actions.ts` `notifyDirectMessage`, called
+from `use-direct-messages` after send), **follows** (`toggleFollow`), **likes**
+(`toggleReaction` → looks up the review/comment author), **replies**
+(`postThreadReply` → thread author, links to `#rooms`), **watch-party invites**
+(`scheduleWatch`). Added a **"Direct messages"** toggle (`profiles.notify_messages`,
+`setNotificationPrefs`, Settings). Per-type pref → push gate: message→notify_messages,
+reply→notify_replies, like→notify_likes, unlock/trending→their columns; follow &
+invite always push. **Note:** the in-app notification *feed* is still seeded, so
+these real rows accumulate but won't show in the bell until the feed is made real
+(checklist) — the **push** half is the live payoff once VAPID keys are set. Deep
+links are best-effort (actor profile for like/follow) until the feed is real.
 
 ### Key decisions & gotchas
 - **Presence is broadcast; the toggle is the real gate.** Opting out is

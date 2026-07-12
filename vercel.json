@@ -3,10 +3,6 @@
     {
       "path": "/api/cron/release-alerts",
       "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/watch-reminders",
-      "schedule": "*/15 * * * *"
     }
   ]
 }

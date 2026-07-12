@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { notifyDirectMessage } from "@/app/dm-actions";
 
 /** A row of the `direct_messages` table. */
 export interface DMessage {
@@ -170,6 +171,9 @@ export function useDirectMessages(recipientId: string | null | undefined): UseDi
         return false;
       }
       if (data) upsert(data as DMessage); // my own insert doesn't echo back via Realtime
+      // Fan out to the recipient (in-app notification + phone push). Best-effort.
+      const preview = payload.body?.trim() || (payload.sticker ? payload.sticker : payload.image_url ? "📷 Photo" : "New message");
+      void notifyDirectMessage(recipientId, preview);
       return true;
     },
     [supabase, meId, recipientId, upsert],

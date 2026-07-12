@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { notify } from "@/lib/notify/fanout";
 
 /**
  * Server actions for scheduling watches (solo or as a watch party) and for
@@ -62,6 +63,16 @@ export async function scheduleWatch(input: {
   if (invitees.length) {
     const rows = invitees.map((uid) => ({ schedule_id: id, user_id: uid, status: "invited" }));
     await ctx.supabase.from("scheduled_watch_invites").insert(rows);
+
+    // Notify each invitee (fan-out → in-app + push).
+    const { data: me } = await ctx.supabase.from("profiles").select("display_name").eq("id", ctx.userId).maybeSingle();
+    const host = (me as { display_name?: string } | null)?.display_name ?? "A friend";
+    const ep = input.seasonNumber != null && input.episodeNumber != null ? ` S${input.seasonNumber} E${input.episodeNumber}` : "";
+    await Promise.all(
+      invitees.map((uid) =>
+        notify(uid, { type: "invite", message: `${host} invited you to watch ${input.title}${ep}`, link: "/schedule" }),
+      ),
+    );
   }
 
   return { ok: true, id };

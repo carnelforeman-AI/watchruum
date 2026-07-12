@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { detectLang } from "@/lib/detect-lang";
 import { isSupportedLang } from "@/lib/lang";
 import { GENRES } from "@/lib/genres";
+import { notify } from "@/lib/notify/fanout";
 import type { MediaItem, SpoilerScope } from "@/lib/types";
 
 /**
@@ -49,6 +50,13 @@ async function authed() {
   } = await supabase.auth.getUser();
   if (!user) return null;
   return { supabase, userId: user.id };
+}
+
+/** The acting user's display name + username, for notification copy/links. */
+async function actorName(ctx: { supabase: Awaited<ReturnType<typeof createClient>>; userId: string }): Promise<{ name: string; username: string }> {
+  const { data } = await ctx.supabase!.from("profiles").select("username, display_name").eq("id", ctx.userId).maybeSingle();
+  const p = data as { username?: string; display_name?: string } | null;
+  return { name: p?.display_name ?? "Someone", username: p?.username ?? "" };
 }
 
 /**
@@ -284,6 +292,7 @@ export async function setSpoilerSafety(level: string): Promise<Result> {
 
 /** Persist the viewer's notification toggles. */
 export async function setNotificationPrefs(prefs: {
+  messages: boolean;
   replies: boolean;
   likes: boolean;
   unlocks: boolean;
@@ -294,6 +303,7 @@ export async function setNotificationPrefs(prefs: {
   const { error } = await ctx.supabase
     .from("profiles")
     .update({
+      notify_messages: !!prefs.messages,
       notify_replies: !!prefs.replies,
       notify_likes: !!prefs.likes,
       notify_unlocks: !!prefs.unlocks,
@@ -377,6 +387,14 @@ export async function toggleFollow(targetUserId: string, follow: boolean): Promi
     const { error } = await ctx.supabase
       .from("follows")
       .insert({ follower_id: ctx.userId, following_id: targetUserId });
+    if (!error) {
+      const a = await actorName(ctx);
+      await notify(targetUserId, {
+        type: "follow",
+        message: `${a.name} started following you`,
+        link: a.username ? `/u/${a.username}` : "/friends",
+      });
+    }
     // Ignore duplicate-follow errors (already following).
     return { ok: !error || error.code === "23505", error: error?.code === "23505" ? undefined : error?.message };
   }
@@ -453,6 +471,19 @@ export async function toggleReaction(
         { user_id: ctx.userId, target_type: targetType, target_id: targetId, emoji: "❤️" },
         { onConflict: "user_id,target_type,target_id,emoji" },
       );
+    if (!error && (targetType === "review" || targetType === "comment")) {
+      const table = targetType === "review" ? "reviews" : "comments";
+      const { data: t } = await ctx.supabase.from(table).select("user_id").eq("id", targetId).maybeSingle();
+      const authorId = (t as { user_id?: string } | null)?.user_id;
+      if (authorId && authorId !== ctx.userId) {
+        const a = await actorName(ctx);
+        await notify(authorId, {
+          type: "like",
+          message: `${a.name} liked your ${targetType}`,
+          link: a.username ? `/u/${a.username}` : "/notifications",
+        });
+      }
+    }
     return { ok: !error, error: error?.message };
   }
   const { error } = await ctx.supabase
