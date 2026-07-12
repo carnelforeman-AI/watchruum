@@ -4,16 +4,16 @@ import { ChevronRight, Settings, UserPlus, ShieldCheck } from "lucide-react";
 import { getMedia } from "@/lib/tmdb";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getRoomFeed } from "@/lib/queries";
+import { getRoomThreads, getRoomPolls, getRoomMedia } from "@/lib/room-tabs";
 import { RoomChat } from "@/components/room/room-chat";
 import { RoomRail } from "@/components/room/room-rail";
+import { RoomTabs } from "@/components/room/room-tabs";
 import { RoomPresence } from "@/components/room/room-presence";
 import { SafeZonePill } from "@/components/room/spoiler-standard";
 import { Avatar } from "@/components/ui/avatar";
 import { compact } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-const TABS = ["Chat", "Discussion", "Polls", "Media", "About"];
 
 export default async function MovieRoomPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,9 +22,12 @@ export default async function MovieRoomPage({ params }: { params: Promise<{ id: 
   // Rooms for shows live at the episode level; send TV titles back to the title page.
   if (media.media_type !== "movie") redirect(`/title/${id}`);
 
-  const [profile, feed] = await Promise.all([
+  const [profile, feed, threads, polls, mediaItems] = await Promise.all([
     getCurrentProfile(),
     getRoomFeed(media.tmdb_id, media.media_type, null, null),
+    getRoomThreads(media.tmdb_id, media.media_type, null, null),
+    getRoomPolls(media.tmdb_id, media.media_type, null, null),
+    getRoomMedia(media.tmdb_id, media.media_type, null, null),
   ]);
 
   const topChatters = feed.members.slice(0, 3);
@@ -79,25 +82,46 @@ export default async function MovieRoomPage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
-        {TABS.map((t) => (
-          <span
-            key={t}
-            className={
-              t === "Chat"
-                ? "border-b-2 border-primary px-3 py-2 text-[14px] font-semibold text-foreground"
-                : "cursor-default border-b-2 border-transparent px-3 py-2 text-[14px] font-medium text-muted-2"
-            }
-          >
-            {t}
-          </span>
-        ))}
-      </div>
-
-      {/* 2-pane layout */}
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <main className="min-w-0">
+      {/* Room activity tabs */}
+      <RoomTabs
+        ctx={{
+          media,
+          season: null,
+          episode: null,
+          isMovie: true,
+          safeLabel: "",
+          viewerId: feed.viewerId,
+          viewerName: profile?.display_name ?? null,
+          progress: feed.progress,
+        }}
+        about={{
+          titleId: id,
+          title: media.title,
+          isMovie: true,
+          releaseYear: media.release_year ?? null,
+          safeLabel: "",
+          spoilerLine: "Safe once you've finished the film.",
+          memberCount: feed.memberCount,
+          onlineCount: feed.onlineCount,
+          createdBy: feed.createdBy,
+        }}
+        threads={threads}
+        polls={polls}
+        mediaItems={mediaItems}
+        rightRail={
+          <RoomRail
+            media={media}
+            season={null}
+            episode={null}
+            episodeName=""
+            safeLabel=""
+            members={feed.members}
+            memberCount={feed.memberCount}
+            createdBy={feed.createdBy}
+            isMovie
+          />
+        }
+        chat={
           <RoomChat
             media={media}
             season={null}
@@ -111,22 +135,8 @@ export default async function MovieRoomPage({ params }: { params: Promise<{ id: 
             watchedThisEpisode={feed.watchedThisEpisode}
             isMovie
           />
-        </main>
-
-        <aside className="hidden xl:block">
-          <RoomRail
-            media={media}
-            season={null}
-            episode={null}
-            episodeName=""
-            safeLabel=""
-            members={feed.members}
-            memberCount={feed.memberCount}
-            createdBy={feed.createdBy}
-            isMovie
-          />
-        </aside>
-      </div>
+        }
+      />
 
       {/* Bottom bar */}
       <div className="glass mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl px-5 py-3.5">

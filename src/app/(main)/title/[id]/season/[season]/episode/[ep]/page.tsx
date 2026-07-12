@@ -4,9 +4,11 @@ import { ChevronRight, Settings, UserPlus, ShieldCheck } from "lucide-react";
 import { getMedia, getEpisode, getEpisodes } from "@/lib/tmdb";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getRoomFeed } from "@/lib/queries";
+import { getRoomThreads, getRoomPolls, getRoomMedia } from "@/lib/room-tabs";
 import { RoomChat } from "@/components/room/room-chat";
 import { EpisodeNav } from "@/components/room/episode-nav";
 import { RoomRail } from "@/components/room/room-rail";
+import { RoomTabs } from "@/components/room/room-tabs";
 import { RoomPresence } from "@/components/room/room-presence";
 import { SafeZonePill } from "@/components/room/spoiler-standard";
 import { scopeLabel } from "@/lib/spoiler";
@@ -14,8 +16,6 @@ import { Avatar } from "@/components/ui/avatar";
 import { compact } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-const TABS = ["Chat", "Discussion", "Polls", "Media", "About"];
 
 export default async function EpisodeRoomPage({
   params,
@@ -33,9 +33,12 @@ export default async function EpisodeRoomPage({
   ]);
   if (!media || !episode) notFound();
 
-  const [profile, feed] = await Promise.all([
+  const [profile, feed, threads, polls, mediaItems] = await Promise.all([
     getCurrentProfile(),
     getRoomFeed(media.tmdb_id, media.media_type, seasonNum, epNum),
+    getRoomThreads(media.tmdb_id, media.media_type, seasonNum, epNum),
+    getRoomPolls(media.tmdb_id, media.media_type, seasonNum, epNum),
+    getRoomMedia(media.tmdb_id, media.media_type, seasonNum, epNum),
   ]);
 
   const safeLabel = scopeLabel(seasonNum, epNum); // "S2 E4"
@@ -104,25 +107,33 @@ export default async function EpisodeRoomPage({
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-border">
-        {TABS.map((t) => (
-          <span
-            key={t}
-            className={
-              t === "Chat"
-                ? "border-b-2 border-primary px-3 py-2 text-[14px] font-semibold text-foreground"
-                : "cursor-default border-b-2 border-transparent px-3 py-2 text-[14px] font-medium text-muted-2"
-            }
-          >
-            {t}
-          </span>
-        ))}
-      </div>
-
-      {/* 3-pane layout */}
-      <div className="grid gap-5 lg:grid-cols-[248px_minmax(0,1fr)] xl:grid-cols-[248px_minmax(0,1fr)_320px]">
-        <aside className="hidden lg:block">
+      {/* Room activity tabs */}
+      <RoomTabs
+        ctx={{
+          media,
+          season: seasonNum,
+          episode: epNum,
+          isMovie: false,
+          safeLabel,
+          viewerId: feed.viewerId,
+          viewerName: profile?.display_name ?? null,
+          progress: feed.progress,
+        }}
+        about={{
+          titleId: id,
+          title: media.title,
+          isMovie: false,
+          releaseYear: media.release_year ?? null,
+          safeLabel,
+          spoilerLine: `Safe up to Season ${seasonNum}, Episode ${epNum}.`,
+          memberCount: feed.memberCount,
+          onlineCount: feed.onlineCount,
+          createdBy: feed.createdBy,
+        }}
+        threads={threads}
+        polls={polls}
+        mediaItems={mediaItems}
+        leftRail={
           <EpisodeNav
             media={{ id, title: media.title, poster_url: media.poster_url }}
             season={seasonNum}
@@ -132,9 +143,20 @@ export default async function EpisodeRoomPage({
             watchedEpisodes={feed.watchedEpisodes}
             furthestEpisode={furthestEpisode}
           />
-        </aside>
-
-        <main className="min-w-0">
+        }
+        rightRail={
+          <RoomRail
+            media={media}
+            season={seasonNum}
+            episode={epNum}
+            episodeName={episode.name}
+            safeLabel={safeLabel}
+            members={feed.members}
+            memberCount={feed.memberCount}
+            createdBy={feed.createdBy}
+          />
+        }
+        chat={
           <RoomChat
             media={media}
             season={seasonNum}
@@ -147,21 +169,8 @@ export default async function EpisodeRoomPage({
             progress={feed.progress}
             watchedThisEpisode={feed.watchedThisEpisode}
           />
-        </main>
-
-        <aside className="hidden xl:block">
-          <RoomRail
-            media={media}
-            season={seasonNum}
-            episode={epNum}
-            episodeName={episode.name}
-            safeLabel={safeLabel}
-            members={feed.members}
-            memberCount={feed.memberCount}
-            createdBy={feed.createdBy}
-          />
-        </aside>
-      </div>
+        }
+      />
 
       {/* Bottom bar */}
       <div className="glass mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl px-5 py-3.5">
