@@ -760,6 +760,137 @@ export const getPopularReviews = cache(async (limit = 2): Promise<Review[]> => {
     }));
 });
 
+/* ---------------------------------------------------------------- profile overview */
+
+export interface ProfileOverview {
+  profile: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+    bio: string | null;
+    favorite_genres: string[];
+    is_private: boolean;
+  } | null;
+  stats: { rooms: number; reviews: number; ratings: number; badges: number };
+  badges: string[];
+  reviews: Review[];
+}
+
+/** Real earned badges from the viewer's own activity counts. */
+function earnedBadges(c: {
+  episodes: number;
+  completed: number;
+  reviews: number;
+  ratings: number;
+  rooms: number;
+  isPrivate: boolean;
+}): string[] {
+  const b: string[] = [];
+  if (c.episodes > 0 || c.completed > 0 || c.reviews > 0 || c.ratings > 0) b.push("Early Watcher");
+  if (c.episodes >= 20) b.push("Binge Master");
+  if (c.completed >= 1) b.push("Finale Survivor");
+  if (c.reviews >= 5) b.push("Critic");
+  if (c.reviews >= 25) b.push("Prolific Critic");
+  if (c.ratings >= 50) b.push("Rating Machine");
+  if (c.rooms >= 3) b.push("Room Regular");
+  if (c.rooms >= 10) b.push("Community Voice");
+  if (c.isPrivate) b.push("Spoiler Guardian");
+  return b;
+}
+
+/**
+ * Real, own-data overview for the signed-in user's profile page: activity
+ * counts (rooms active in, reviews, ratings), badges earned from those counts,
+ * and their own recent reviews. Returns null when not signed in / unconfigured
+ * so the page can fall back to sample content.
+ */
+export const getProfileOverview = cache(async (): Promise<ProfileOverview | null> => {
+  const supabase = await createClient();
+  if (!supabase) return null;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const me = user.id;
+
+  const [
+    { data: profile },
+    { count: reviewsCount },
+    { count: ratingsCount },
+    { count: episodesCount },
+    { data: completedRows },
+    { data: commentRooms },
+    { data: reviewRows },
+  ] = await Promise.all([
+    supabase.from("profiles").select("id, username, display_name, avatar_url, bio, favorite_genres, is_private").eq("id", me).maybeSingle(),
+    supabase.from("reviews").select("*", { count: "exact", head: true }).eq("user_id", me),
+    supabase.from("ratings").select("*", { count: "exact", head: true }).eq("user_id", me),
+    supabase.from("episode_watches").select("*", { count: "exact", head: true }).eq("user_id", me),
+    supabase.from("watch_status").select("movie_watched").eq("user_id", me).eq("movie_watched", true),
+    supabase.from("comments").select("media_id, season_number, episode_number").eq("user_id", me).limit(2000),
+    supabase
+      .from("reviews")
+      .select("id, season_number, episode_number, score, body, spoiler_scope, created_at, media:media_items(id, tmdb_id, media_type, title)")
+      .eq("user_id", me)
+      .order("created_at", { ascending: false })
+      .limit(4),
+  ]);
+
+  // Distinct rooms the viewer has chatted in.
+  const rooms = new Set<string>();
+  for (const c of (commentRooms as any[]) ?? []) rooms.add(`${c.media_id}:${c.season_number}:${c.episode_number}`);
+
+  const reviews = reviewsCount ?? 0;
+  const ratings = ratingsCount ?? 0;
+  const episodes = episodesCount ?? 0;
+  const completed = ((completedRows as any[]) ?? []).length;
+  const p = profile as any;
+  const isPrivate = !!p?.is_private;
+
+  const badges = earnedBadges({ episodes, completed, reviews, ratings, rooms: rooms.size, isPrivate });
+
+  const list = ((reviewRows as any[]) ?? []).filter((r) => r.media);
+  const { counts } = await reactionCounts(supabase, list.map((r) => r.id), me);
+  const myReviews: Review[] = list.map((r) => ({
+    id: r.id,
+    author: {
+      id: me,
+      username: p?.username ?? "you",
+      display_name: p?.display_name ?? "You",
+      avatar_url: p?.avatar_url ?? null,
+      bio: null,
+      favorite_genres: [],
+    },
+    media: { id: routeId(r.media.media_type, r.media.tmdb_id, r.media.title), title: r.media.title },
+    season_number: r.season_number,
+    episode_number: r.episode_number,
+    score: r.score ?? 0,
+    body: r.body,
+    spoiler_scope: r.spoiler_scope,
+    like_count: counts.get(r.id) ?? 0,
+    comment_count: 0,
+    created_at: r.created_at,
+  }));
+
+  return {
+    profile: p
+      ? {
+          id: p.id,
+          username: p.username,
+          display_name: p.display_name,
+          avatar_url: p.avatar_url ?? null,
+          bio: p.bio ?? null,
+          favorite_genres: p.favorite_genres ?? [],
+          is_private: isPrivate,
+        }
+      : null,
+    stats: { rooms: rooms.size, reviews, ratings, badges: badges.length },
+    badges,
+    reviews: myReviews,
+  };
+});
+
 /* ------------------------------------------------------------------ rooms */
 
 export interface RoomMessage {
