@@ -32,7 +32,7 @@ const NAV = [
   { href: "/trending", label: "Trending", icon: TrendingUp },
   { href: "/rooms", label: "Watch Rooms", icon: Users },
   { href: "/genres", label: "Genres", icon: LayoutGrid },
-  { href: "/calendar", label: "Watch Calendar", icon: CalendarDays },
+  { href: "/calendar", label: "Release Calendar", icon: CalendarDays },
   { href: "/schedule", label: "My Schedule", icon: CalendarClock },
   { href: "/watchlist", label: "Watchlist", icon: Bookmark },
   { href: "/activity", label: "Activity", icon: Activity },

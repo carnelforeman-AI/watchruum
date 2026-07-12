@@ -155,7 +155,7 @@ export function CalendarClient({
     <div className="min-w-0 flex-1">
       {/* Header */}
       <div className="mb-4">
-        <h1 className="text-3xl font-extrabold tracking-tight">Watch Calendar</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight">Release Calendar</h1>
         <p className="mt-1 text-[13px] text-muted-2">Discover what&apos;s coming soon and never miss a release.</p>
       </div>
 

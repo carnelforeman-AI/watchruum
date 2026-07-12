@@ -19,7 +19,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/trending", label: "Trending", icon: TrendingUp },
   { href: "/rooms", label: "Watch Rooms", icon: Users },
   { href: "/genres", label: "Genres", icon: LayoutGrid },
-  { href: "/calendar", label: "Watch Calendar", icon: CalendarDays },
+  { href: "/calendar", label: "Release Calendar", icon: CalendarDays },
   { href: "/watchlist", label: "Watchlist", icon: Bookmark },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/friends", label: "Find Friends", icon: UserPlus },
