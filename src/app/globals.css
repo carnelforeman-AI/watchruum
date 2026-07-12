@@ -17,7 +17,7 @@
 
   --color-foreground: #f4f4f7;
   --color-muted: #9aa0b4;
-  --color-muted-2: #6b7185;
+  --color-muted-2: #7d8399; /* WCAG-tuned: 4.85:1 on surfaces (was #6b7185 = 3.76, below AA) */
 
   --color-primary: #8b5cf6;
   --color-primary-strong: #7c3aed;
