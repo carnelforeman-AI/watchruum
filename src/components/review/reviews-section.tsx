@@ -400,7 +400,7 @@ function AllReviewsDrawer({
         </div>
 
         {/* Scrollable feed */}
-        <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {sortByKey(reviews, sort).map((r) => (
             <ReviewItem key={r.id} review={r} viewerLang={viewerLang} />
           ))}
