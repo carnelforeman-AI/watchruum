@@ -331,19 +331,15 @@ function AllReviewsDrawer({
   const [score, setScore] = useState(0);
   const [text, setText] = useState("");
 
-  // Lock body scroll and close on Escape while the drawer is open.
+  // Close on Escape. No body-scroll lock — the panel is docked to the right
+  // and the page on the left stays fully visible and interactive.
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
   if (!open) return null;
@@ -363,16 +359,8 @@ function AllReviewsDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-[80]">
-      {/* Backdrop */}
-      <button
-        aria-label="Close reviews"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
-      />
-      {/* Panel */}
-      <div className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-bg shadow-2xl ring-1 ring-border sm:w-[420px]">
-        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3.5">
+    <div className="fixed inset-y-0 right-0 z-[80] flex w-full max-w-md flex-col border-l border-border bg-bg shadow-2xl sm:w-[420px]">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3.5">
           <h3 className="text-base font-bold">
             All reviews <span className="text-muted-2">({compact(total)})</span>
           </h3>
@@ -431,7 +419,6 @@ function AllReviewsDrawer({
             </button>
           </div>
         </form>
-      </div>
     </div>
   );
 }
