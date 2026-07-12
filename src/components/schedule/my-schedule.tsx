@@ -171,7 +171,7 @@ export function MySchedule({
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight">My Schedule</h1>
             <p className="text-[13px] text-muted-2">
-              Everything you plan to watch — upcoming premieres, new episodes, and movies.
+              Everything you plan to watch: upcoming premieres, new episodes, and movies.
             </p>
           </div>
         </div>
