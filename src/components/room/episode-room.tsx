@@ -234,6 +234,7 @@ function Discussion({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={`Share your reaction to ${scopeLabel(season, episode)}…`}
+          aria-label="Share your reaction"
         />
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">

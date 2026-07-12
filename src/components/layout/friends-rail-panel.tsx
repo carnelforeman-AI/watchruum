@@ -112,7 +112,12 @@ export function FriendsRailPanel({
                     <Avatar name={f.name} src={f.avatar} size="sm" />
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-1.5 text-[13px] font-semibold">
-                        <span className={cn("size-2 shrink-0 rounded-full", f.status === "online" ? "bg-safe" : "bg-warn")} />
+                        <span
+                          role="img"
+                          aria-label={f.status === "online" ? "Online" : "Away"}
+                          title={f.status === "online" ? "Online" : "Away"}
+                          className={cn("size-2 shrink-0 rounded-full", f.status === "online" ? "bg-safe" : "bg-warn")}
+                        />
                         <span className="truncate">{f.name}</span>
                       </p>
                       <p className="truncate text-[12px] text-muted-2">In {f.room} Room</p>

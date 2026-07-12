@@ -180,6 +180,7 @@ function PollComposer({ ctx, onCreated, onCancel }: { ctx: Ctx; onCreated: (p: R
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
         placeholder="Ask the room… (e.g. Rate this episode 1–10)"
+        aria-label="Poll question"
         className="mb-2 w-full rounded-xl border border-border bg-white/[0.03] px-3.5 py-2.5 text-sm outline-none focus:border-primary/60"
       />
       <div className="space-y-2">
@@ -189,6 +190,7 @@ function PollComposer({ ctx, onCreated, onCancel }: { ctx: Ctx; onCreated: (p: R
               value={o}
               onChange={(e) => setOpt(i, e.target.value)}
               placeholder={`Option ${i + 1}`}
+              aria-label={`Option ${i + 1}`}
               className="w-full rounded-lg border border-border bg-white/[0.03] px-3 py-2 text-[13.5px] outline-none focus:border-primary/60"
             />
             {options.length > 2 && (

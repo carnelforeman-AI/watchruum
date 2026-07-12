@@ -193,7 +193,12 @@ function OnlinePanel({ online, onViewAll }: { online: HubOnline[]; onViewAll: ()
             <div key={i} className="w-[172px] shrink-0 rounded-2xl border border-border bg-white/[0.02] p-4 text-center">
               <div className="relative mx-auto w-fit">
                 <Avatar name={f.name} src={f.avatar} size="lg" className="size-16" />
-                <span className={cn("absolute bottom-0 right-0 size-3.5 rounded-full ring-2 ring-bg-elevated", statusDot(f.status))} />
+                <span
+                  role="img"
+                  aria-label={f.status === "online" ? "Online" : "Away"}
+                  title={f.status === "online" ? "Online" : "Away"}
+                  className={cn("absolute bottom-0 right-0 size-3.5 rounded-full ring-2 ring-bg-elevated", statusDot(f.status))}
+                />
               </div>
               <p className="mt-2 truncate text-[14px] font-bold">{f.name}</p>
               <p className="truncate text-[12px] text-muted-2">
@@ -395,7 +400,12 @@ function OnlineGrid({ online }: { online: HubOnline[] }) {
         <div key={i} className="glass rounded-2xl p-4 text-center">
           <div className="relative mx-auto w-fit">
             <Avatar name={f.name} src={f.avatar} size="lg" className="size-16" />
-            <span className={cn("absolute bottom-0 right-0 size-3.5 rounded-full ring-2 ring-bg-elevated", statusDot(f.status))} />
+            <span
+              role="img"
+              aria-label={f.status === "online" ? "Online" : "Away"}
+              title={f.status === "online" ? "Online" : "Away"}
+              className={cn("absolute bottom-0 right-0 size-3.5 rounded-full ring-2 ring-bg-elevated", statusDot(f.status))}
+            />
           </div>
           <p className="mt-2 truncate text-[14px] font-bold">{f.name}</p>
           <p className="truncate text-[12px] text-muted-2">In <span className="text-primary">{f.room}</span> Room</p>

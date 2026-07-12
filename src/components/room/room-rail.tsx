@@ -108,7 +108,12 @@ export function RoomRail({
                     </p>
                     <p className="truncate text-[12px] text-muted-2">@{m.username}</p>
                   </div>
-                  <span className={`size-2 shrink-0 rounded-full ${m.online ? "bg-safe" : "bg-muted-2/40"}`} />
+                  <span
+                    role="img"
+                    aria-label={m.online ? "Online" : "Offline"}
+                    title={m.online ? "Online" : "Offline"}
+                    className={`size-2 shrink-0 rounded-full ${m.online ? "bg-safe" : "bg-muted-2/40"}`}
+                  />
                 </Link>
               </li>
             ))}

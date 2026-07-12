@@ -441,6 +441,7 @@ function ReadingPane({
             <input
               value={reply}
               onChange={(e) => setReply(e.target.value)}
+              aria-label="Write a reply"
               placeholder="Write a reply…"
               className="h-11 w-full bg-transparent px-3.5 text-sm placeholder:text-muted-2 focus-visible:outline-none"
             />

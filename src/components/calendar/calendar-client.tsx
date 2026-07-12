@@ -163,6 +163,7 @@ export function CalendarClient({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search upcoming titles"
           placeholder="Search upcoming shows, movies, seasons, or episodes…"
           className="h-11 w-full rounded-xl border border-border bg-white/5 pl-10 pr-3 text-sm placeholder:text-muted-2 focus-visible:border-primary/60 focus-visible:outline-none"
         />

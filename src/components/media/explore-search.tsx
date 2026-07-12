@@ -43,6 +43,7 @@ export function ExploreSearch({
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          aria-label="Search"
           placeholder="Search shows, movies, episodes…"
           className="h-12 w-full rounded-2xl border border-border bg-white/5 pl-12 pr-4 text-[15px] placeholder:text-muted-2 focus-visible:border-primary/60 focus-visible:outline-none"
         />

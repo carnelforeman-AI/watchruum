@@ -142,6 +142,7 @@ export function PersonComments({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={`Share a thought about ${personName}…`}
+          aria-label="Write a comment"
         />
 
         {images.length > 0 && (

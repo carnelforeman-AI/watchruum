@@ -230,7 +230,14 @@ export function AdminMessagesView({ messages }: { messages: SupportMessage[] }) 
                 visible.map((m) => (
                   <tr
                     key={m.id}
+                    tabIndex={0}
                     onClick={() => setOpenId(m.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setOpenId(m.id);
+                      }
+                    }}
                     className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-white/[0.02]"
                   >
                     <td className="px-5 py-3.5">

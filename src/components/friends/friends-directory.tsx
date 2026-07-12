@@ -83,6 +83,7 @@ export function FriendsDirectory({
         <input
           value={q}
           onChange={(e) => onChange(e.target.value)}
+          aria-label="Search members"
           placeholder="Search members by name or @username…"
           className="w-full rounded-xl border border-border bg-white/[0.03] py-2.5 pl-9 pr-9 text-sm outline-none transition focus:border-primary/60"
         />

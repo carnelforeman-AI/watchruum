@@ -167,6 +167,7 @@ export function GenreBrowser({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search titles in this genre"
             placeholder={`Search within ${genre}…`}
             className="h-11 w-full rounded-xl border border-border bg-white/5 pl-10 pr-3 text-sm placeholder:text-muted-2 focus-visible:border-primary/60 focus-visible:outline-none"
           />

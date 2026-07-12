@@ -315,6 +315,7 @@ export function WatchRooms({ data }: { data: WatchRoomsData }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search rooms"
             placeholder="Search rooms, shows, movies, or keywords..."
             className="w-full rounded-xl border border-border bg-white/[0.03] py-3 pl-10 pr-4 text-[14px] outline-none transition focus:border-primary/50"
           />

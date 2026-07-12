@@ -280,6 +280,7 @@ export function RoomChat({
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   placeholder="Message the room…"
+                  aria-label="Message the room"
                   className="w-full bg-transparent px-3.5 py-3 text-sm placeholder:text-muted-2 focus:outline-none"
                 />
               </div>
@@ -291,8 +292,8 @@ export function RoomChat({
             </div>
             <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1 text-muted-2">
-                <IconBtn icon={Smile} />
-                <IconBtn icon={ImageIcon} />
+                <IconBtn icon={Smile} aria-label="Add emoji" />
+                <IconBtn icon={ImageIcon} aria-label="Attach image" />
                 {/* Spoiler-scope selector — the episode tag is forced, scope is chosen */}
                 <div className="relative">
                   <button
@@ -303,6 +304,9 @@ export function RoomChat({
                     <SpoilerTag {...chipTag(scope)} />
                     <ChevronDown className="size-3.5" />
                   </button>
+                  {scopeOpen && (
+                    <button aria-hidden tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setScopeOpen(false)} />
+                  )}
                   {scopeOpen && (
                     <div className="absolute bottom-full left-0 z-20 mb-1.5 w-44 overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-xl">
                       {scopes.map((o) => (
@@ -344,10 +348,17 @@ export function RoomChat({
   );
 }
 
-function IconBtn({ icon: Icon }: { icon: React.ComponentType<{ className?: string }> }) {
+function IconBtn({
+  icon: Icon,
+  "aria-label": ariaLabel,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  "aria-label"?: string;
+}) {
   return (
     <button
       type="button"
+      aria-label={ariaLabel}
       className="grid size-8 place-items-center rounded-lg text-muted-2 hover:bg-white/5 hover:text-foreground"
     >
       <Icon className="size-4" />
@@ -472,6 +483,7 @@ function MessageRow({
             <div className="mt-1.5 flex items-center gap-4 text-[12px] text-muted-2">
               <button
                 onClick={like}
+                aria-label="Like"
                 className={cn("flex items-center gap-1.5 hover:text-foreground", liked && "text-danger")}
               >
                 <Heart className={cn("size-3.5", liked && "fill-danger")} /> {likes > 0 ? likes : ""}

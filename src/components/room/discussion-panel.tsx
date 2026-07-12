@@ -191,6 +191,7 @@ function ReplyBox({ threadId, ctx, onReply }: { threadId: string; ctx: Ctx; onRe
         value={body}
         onChange={(e) => setBody(e.target.value)}
         placeholder="Add a reply…"
+        aria-label="Add a reply"
         className="h-9 min-w-0 flex-1 rounded-full border border-border bg-white/[0.03] px-3.5 text-[13px] outline-none focus:border-primary/60"
       />
       <button type="submit" disabled={!body.trim() || pending} aria-label="Reply" className="grid size-9 shrink-0 place-items-center rounded-full text-primary hover:bg-primary/15 disabled:opacity-40">
@@ -242,6 +243,7 @@ function ThreadComposer({ ctx, onCreated, onCancel }: { ctx: Ctx; onCreated: (t:
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Thread title — a theory, a question, a breakdown…"
+        aria-label="Thread title"
         className="mb-2 w-full rounded-xl border border-border bg-white/[0.03] px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-primary/60"
       />
       <textarea
@@ -249,6 +251,7 @@ function ThreadComposer({ ctx, onCreated, onCancel }: { ctx: Ctx; onCreated: (t:
         onChange={(e) => setBody(e.target.value)}
         rows={4}
         placeholder="Lay out your thoughts…"
+        aria-label="Thread body"
         className="w-full resize-y rounded-xl border border-border bg-white/[0.03] px-3.5 py-2.5 text-[13.5px] leading-relaxed outline-none focus:border-primary/60"
       />
       <div className="mt-3">

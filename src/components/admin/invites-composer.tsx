@@ -292,6 +292,14 @@ export function InvitesComposer({ nowIso, token, baseUrl }: { nowIso: string; to
                     Variables <ChevronDown className="size-3.5" />
                   </button>
                   {showVars && (
+                    <button
+                      aria-hidden
+                      tabIndex={-1}
+                      className="fixed inset-0 z-10 cursor-default"
+                      onClick={() => setShowVars(false)}
+                    />
+                  )}
+                  {showVars && (
                     <div className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-border bg-bg-elevated py-1 shadow-2xl">
                       {["{{first_name}}", "{{site_name}}", "{{invite_link}}"].map((v) => (
                         <button

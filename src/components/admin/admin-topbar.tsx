@@ -13,6 +13,7 @@ export function AdminTopbar({
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-2" />
         <input
           disabled
+          aria-label="Search"
           placeholder="Search users, rooms, content…"
           className="h-9 w-full rounded-xl border border-border bg-white/[0.03] pl-9 pr-3 text-sm text-foreground placeholder:text-muted-2 focus:outline-none"
         />
@@ -25,7 +26,7 @@ export function AdminTopbar({
         >
           View Site <ExternalLink className="size-3.5" />
         </Link>
-        <button className="relative grid size-9 place-items-center rounded-xl border border-border bg-white/[0.03] text-muted transition-colors hover:text-foreground">
+        <button aria-label="Notifications" className="relative grid size-9 place-items-center rounded-xl border border-border bg-white/[0.03] text-muted transition-colors hover:text-foreground">
           <Bell className="size-4" />
           <span className="absolute right-2 top-2 size-1.5 rounded-full bg-primary" />
         </button>

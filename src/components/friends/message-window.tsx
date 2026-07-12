@@ -302,7 +302,7 @@ export function MessageWindow({
                         <div className={cn("text-5xl leading-none", m.mine ? "text-right" : "text-left")}>{m.sticker}</div>
                       ) : m.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={m.image} alt="Shared" className="max-h-56 rounded-2xl ring-1 ring-white/10" />
+                        <img src={m.image} alt="Shared image" className="max-h-56 rounded-2xl ring-1 ring-white/10" />
                       ) : (
                         <div
                           className={cn(
@@ -366,6 +366,7 @@ export function MessageWindow({
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Type a message…"
+            aria-label="Message"
             className="h-10 min-w-0 flex-1 rounded-full border border-border bg-white/[0.03] px-4 text-sm placeholder:text-muted-2 focus:border-primary/60 focus:outline-none"
           />
 

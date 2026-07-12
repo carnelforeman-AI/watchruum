@@ -46,6 +46,7 @@ export function TopBar({
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search shows, movies, episodes…"
+        aria-label="Search"
         className="h-10 w-full rounded-xl border border-border bg-white/5 pl-10 pr-16 text-sm placeholder:text-muted-2 focus-visible:border-primary/60 focus-visible:outline-none"
       />
       <kbd className="absolute right-3 hidden rounded-md border border-border bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-muted-2 sm:block">

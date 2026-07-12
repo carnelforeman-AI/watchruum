@@ -170,6 +170,7 @@ export function ReviewsSection({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={`Share your thoughts on ${media.title}…`}
+          aria-label="Your review"
           className="mt-3"
         />
 
@@ -417,6 +418,7 @@ function AllReviewsDrawer({
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={`Review ${media.title}…`}
+              aria-label="Write a review"
               className="min-w-0 flex-1 rounded-full border border-border bg-white/[0.03] px-3.5 py-2.5 text-[13px] text-foreground outline-none transition placeholder:text-muted-2 focus:border-primary/50"
             />
             <button
@@ -528,6 +530,7 @@ function ReportControl({ targetId, demo }: { targetId: string; demo: boolean }) 
                 value={other}
                 onChange={(e) => setOther(e.target.value)}
                 placeholder="Tell us more (optional)"
+                aria-label="Additional details"
                 rows={2}
                 className="mt-2 w-full resize-none rounded-lg border border-border bg-white/[0.03] px-2.5 py-2 text-[12.5px] outline-none placeholder:text-muted-2 focus:border-primary/50"
               />
@@ -740,6 +743,7 @@ function ReviewItem({ review, viewerLang }: { review: DisplayReview; viewerLang:
               value={replyBody}
               onChange={(e) => setReplyBody(e.target.value)}
               placeholder="Write a reply…"
+              aria-label="Write a reply"
               className="min-w-0 flex-1 rounded-full border border-border bg-white/[0.03] px-3.5 py-2 text-[13px] text-foreground outline-none transition placeholder:text-muted-2 focus:border-primary/50"
             />
             <button

@@ -245,6 +245,7 @@ function MediaComposer({ ctx, onAdded, onCancel }: { ctx: Ctx; onAdded: (m: Room
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="Paste an official YouTube / trailer / link URL"
+            aria-label="Trailer or clip URL"
             className="w-full rounded-xl border border-border bg-white/[0.03] py-2.5 pl-9 pr-3 text-[13.5px] outline-none focus:border-primary/60"
           />
         </div>
@@ -254,6 +255,7 @@ function MediaComposer({ ctx, onAdded, onCancel }: { ctx: Ctx; onAdded: (m: Room
         value={caption}
         onChange={(e) => setCaption(e.target.value)}
         placeholder="Caption (optional)"
+        aria-label="Caption"
         className="mt-2 w-full rounded-xl border border-border bg-white/[0.03] px-3.5 py-2.5 text-[13.5px] outline-none focus:border-primary/60"
       />
 
