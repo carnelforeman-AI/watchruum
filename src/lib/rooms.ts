@@ -64,13 +64,14 @@ async function buildRoom(
   let engagementScore = Math.min(96, 72 + Math.round((1 - rank / 12) * 20) + Math.round(s * 4));
   let live = rank <= 4;
 
-  // Live Mode → real counts (each post = +1). Everything is 0 until people act.
+  // Real mode → true counts (each post = +1). "Live" means someone posted in
+  // the last 30 min; the engagement score is normalized across the set below.
   if (real) {
     inRoom = real.members;
     messages = real.messages;
     engagement = real.messages;
-    engagementScore = 0;
-    live = false;
+    engagementScore = 0; // set in getWatchRooms once every room's raw activity is known
+    live = real.recent > 0;
   }
 
   const scopeLabel =
@@ -124,9 +125,21 @@ export const getWatchRooms = cache(async (limit = 12): Promise<WatchRoomsData> =
   const MIN_LIVE_MESSAGES = 50; // total real chat messages across all rooms
   const useReal = liveMode || totalRealMessages >= MIN_LIVE_MESSAGES;
   const realFor = (m: MediaItem): RoomActivity | null =>
-    useReal ? activity.get(`${m.media_type}_${m.tmdb_id}`) ?? { messages: 0, members: 0 } : null;
+    useReal ? activity.get(`${m.media_type}_${m.tmdb_id}`) ?? { messages: 0, members: 0, recent: 0 } : null;
 
   const rooms = await Promise.all(items.map((m, i) => buildRoom(m, i, realFor(m))));
+
+  // In real mode, derive each room's engagement-score ring from its activity
+  // relative to the busiest room (messages + members weighted), so the ring
+  // shows genuine relative engagement instead of a 0 placeholder.
+  if (useReal) {
+    const raw = (r: WatchRoom) => r.messages + r.inRoom * 2;
+    const max = Math.max(1, ...rooms.map(raw));
+    for (const r of rooms) {
+      const v = raw(r);
+      r.engagementScore = v > 0 ? Math.min(96, Math.max(8, Math.round((v / max) * 96))) : 0;
+    }
+  }
 
   const activeNow = rooms.reduce((a, r) => a + r.inRoom, 0);
   const trendingNow = rooms.slice(0, 5);

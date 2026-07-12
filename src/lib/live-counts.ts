@@ -40,6 +40,8 @@ export interface RoomActivity {
   messages: number;
   /** Distinct people who have posted in the room. */
   members: number;
+  /** Posts in the last 30 minutes — drives the "LIVE NOW" badge. */
+  recent: number;
 }
 
 /**
@@ -73,27 +75,33 @@ export async function getRoomActivity(
 
     const { data: comments } = await supabase
       .from("comments")
-      .select("media_id, user_id")
+      .select("media_id, user_id, created_at")
       .in(
         "media_id",
         rows.map((r) => r.id),
       );
 
+    const recentCutoff = Date.now() - 30 * 60_000; // "live" = posted in the last 30 min
     const authorsByKey = new Map<string, Set<string>>();
     const msgByKey = new Map<string, number>();
-    for (const c of (comments as { media_id: string; user_id: string }[] | null) ?? []) {
+    const recentByKey = new Map<string, number>();
+    for (const c of (comments as { media_id: string; user_id: string; created_at: string }[] | null) ?? []) {
       const k = mediaKeyById.get(c.media_id);
       if (!k) continue;
       msgByKey.set(k, (msgByKey.get(k) ?? 0) + 1);
       const set = authorsByKey.get(k) ?? new Set<string>();
       set.add(c.user_id);
       authorsByKey.set(k, set);
+      if (c.created_at && new Date(c.created_at).getTime() >= recentCutoff) {
+        recentByKey.set(k, (recentByKey.get(k) ?? 0) + 1);
+      }
     }
 
     for (const k of mediaKeyById.values()) {
       out.set(k, {
         messages: msgByKey.get(k) ?? 0,
         members: authorsByKey.get(k)?.size ?? 0,
+        recent: recentByKey.get(k) ?? 0,
       });
     }
     return out;
