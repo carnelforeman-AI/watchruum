@@ -39,7 +39,7 @@ const CATEGORIES: {
   { key: "messages", label: "Direct Messages", desc: "New direct messages from other members.", icon: Mail, tint: "bg-accent/15 text-accent", badge: "bg-accent", types: ["message"] },
   { key: "replies", label: "Replies & Mentions", desc: "Replies and mentions on your posts and reviews.", icon: MessageSquare, tint: "bg-primary/15 text-primary", badge: "bg-primary", types: ["reply", "mention"] },
   { key: "likes", label: "Likes", desc: "Likes and reactions on your reviews and posts.", icon: Heart, tint: "bg-danger/15 text-danger", badge: "bg-danger", types: ["like", "reaction"] },
-  { key: "reminders", label: "Watch Reminders", desc: "Upcoming episodes and scheduled watches.", icon: CalendarClock, tint: "bg-accent-2/15 text-accent-2", badge: "bg-accent-2", types: ["reminder"] },
+  { key: "reminders", label: "Scheduled Watch Reminders", desc: "Reminders before your scheduled shows and movies.", icon: CalendarClock, tint: "bg-accent-2/15 text-accent-2", badge: "bg-accent-2", types: ["reminder"] },
   { key: "releases", label: "New Releases", desc: "New movies and shows you're tracking.", icon: Clapperboard, tint: "bg-season/15 text-season", badge: "bg-season", types: ["release", "episode"] },
   { key: "unlocks", label: "Discussion Unlocks", desc: "When a discussion you follow unlocks.", icon: Unlock, tint: "bg-safe/15 text-safe", badge: "bg-safe", types: ["unlock"] },
   { key: "trending", label: "Trending", desc: "Popular rooms and trending discussions.", icon: Flame, tint: "bg-warn/15 text-warn", badge: "bg-warn", types: ["trending"] },
