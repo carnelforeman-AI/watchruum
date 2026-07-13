@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home,
+  MessagesSquare,
   TrendingUp,
   Users,
   LayoutGrid,
@@ -30,6 +31,7 @@ import type { MediaItem } from "@/lib/types";
 
 const NAV = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/lobby", label: "The Lobby", icon: MessagesSquare },
   { href: "/trending", label: "Trending", icon: TrendingUp },
   { href: "/rooms", label: "Watch Rooms", icon: Users },
   { href: "/genres", label: "Genres", icon: LayoutGrid },

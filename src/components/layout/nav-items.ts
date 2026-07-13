@@ -1,5 +1,6 @@
 import {
   Home,
+  MessagesSquare,
   TrendingUp,
   Users,
   LayoutGrid,
@@ -17,6 +18,7 @@ export type NavItem = { href: string; label: string; icon: React.ComponentType<{
 /** Primary navigation, shared by the desktop sidebar and the mobile drawer. */
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
+  { href: "/lobby", label: "The Lobby", icon: MessagesSquare },
   { href: "/trending", label: "Trending", icon: TrendingUp },
   { href: "/rooms", label: "Watch Rooms", icon: Users },
   { href: "/genres", label: "Genres", icon: LayoutGrid },
