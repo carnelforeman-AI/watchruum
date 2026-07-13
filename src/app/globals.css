@@ -152,13 +152,17 @@ html { scrollbar-width: auto; scrollbar-color: #454560 transparent; }
   border-radius: 3px;
 }
 
-/* Text size / UI scale. `zoom` scales px- and rem-based sizing alike, so it
-   works with the app's mixed units. Default = 1 (no change). */
+/* Text size / UI scale. Scales via root font-size (rem) rather than `zoom`.
+   `zoom` on the root element breaks `position: fixed` on iOS Safari — the fixed
+   mobile bottom nav drifts and gets cut off — so we use font-size, the WCAG-
+   recommended method, which leaves fixed positioning intact. rem-based sizing
+   (spacing, icons, default type) scales; the base is bumped a bit higher to
+   compensate for the app's fixed-px text. Default = 100% (no change). */
 html[data-wr-text="large"] {
-  zoom: 1.12;
+  font-size: 118.75%;
 }
 html[data-wr-text="xlarge"] {
-  zoom: 1.25;
+  font-size: 137.5%;
 }
 
 /* Reduce motion — user toggle OR the OS-level "reduce motion" setting. */
