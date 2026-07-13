@@ -2,6 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { SUPABASE_URL, SUPABASE_ANON_KEY, isSupabaseConfigured } from "@/lib/supabase/config";
 
+// Social/search crawlers that fetch a page purely to build a link preview or
+// search index. They never log in, so instead of bouncing them to /login with a
+// redirect (an extra hop that some previewers mishandle) we serve the OG-bearing
+// page directly at the requested URL with a 200.
+const CRAWLER_UA =
+  /facebookexternalhit|facebot|Twitterbot|Slackbot|Slack-ImgProxy|Discordbot|WhatsApp|LinkedInBot|TelegramBot|Applebot|redditbot|Pinterest|Googlebot|bingbot|DuckDuckBot|Embedly|SkypeUriPreview|vkShare|Iframely|Google-InspectionTool/i;
+
+function isCrawler(ua: string | null): boolean {
+  return !!ua && CRAWLER_UA.test(ua);
+}
+
 /**
  * Next.js 16 "proxy" (formerly middleware). Refreshes the Supabase auth
  * session cookie on each request. No-op when Supabase isn't configured.
@@ -56,6 +67,27 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
+
+    // Bulletproof link previews. The /login page carries the site-wide Open
+    // Graph tags, so for the two cases where a redirect hop causes trouble we
+    // REWRITE (serve /login's content at the requested URL, HTTP 200) instead
+    // of redirecting:
+    //   1. The root "/" — the URL people actually share. Serving it as a 200
+    //      removes the last hop from every shared-link chain, which fixes
+    //      previewers (notably iMessage) that choke on multi-hop redirects.
+    //   2. Any known crawler on any path — so deep-linked room previews resolve
+    //      without a redirect too.
+    // Humans on deep links still get a normal redirect so the address bar
+    // updates to /login.
+    const shareRoot = pathname === "/";
+    const crawler = isCrawler(request.headers.get("user-agent"));
+    if (shareRoot || crawler) {
+      const rewrite = NextResponse.rewrite(url, { request });
+      // Carry over the refreshed Supabase auth cookies set on `response`.
+      response.cookies.getAll().forEach((cookie) => rewrite.cookies.set(cookie));
+      return rewrite;
+    }
+
     return NextResponse.redirect(url);
   }
 
