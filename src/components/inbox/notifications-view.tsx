@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import {
   Trash2,
   Check,
+  ChevronRight,
   Mail,
   MessageSquare,
   Heart,
@@ -18,27 +19,16 @@ import { useDismissed } from "@/lib/use-dismissed";
 import { Poster } from "@/components/media/poster";
 import { NotifAvatar, NotifText } from "@/components/inbox/notif-visuals";
 import { notificationHref } from "@/lib/notif-link";
-import { setNotificationPrefs } from "@/app/actions";
 import type { NotificationItem } from "@/lib/queries";
 
-export interface NotifPrefs {
-  messages: boolean;
-  replies: boolean;
-  likes: boolean;
-  releases: boolean;
-  reminders: boolean;
-  unlocks: boolean;
-  trending: boolean;
-}
-
 /**
- * Each "Notification Type" card maps to a real backend preference toggle
- * (profiles.notify_*), shows the live unread count for that type, and toggling
- * it persists via setNotificationPrefs — so the section both reports actual
- * numbers and controls delivery. Watchruum is ad-free, so there's no Offers card.
+ * "Notification Type" cards break the feed down by kind and show the live
+ * unread count for each type; tapping one filters the list below. On/off
+ * control of each type lives in Settings → Notifications (the backend toggles).
+ * Watchruum is ad-free, so there's no Offers card.
  */
 const CATEGORIES: {
-  key: keyof NotifPrefs;
+  key: string;
   label: string;
   desc: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -56,10 +46,10 @@ const CATEGORIES: {
 ];
 
 // type -> category key (unmapped types stay visible under "All" but have no card)
-const TYPE_TO_CAT: Record<string, keyof NotifPrefs> = {};
+const TYPE_TO_CAT: Record<string, string> = {};
 for (const c of CATEGORIES) for (const t of c.types) TYPE_TO_CAT[t] = c.key;
 
-type Filter = "all" | "unread" | "mentions" | keyof NotifPrefs;
+type Filter = "all" | "unread" | "mentions" | string;
 
 const TABS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
@@ -68,30 +58,10 @@ const TABS: { key: Filter; label: string }[] = [
   { key: "reminders", label: "Reminders" },
 ];
 
-function Toggle({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      className={cn("inline-flex h-5 w-9 shrink-0 items-center rounded-full px-0.5 transition-colors", on ? "bg-primary" : "bg-white/15")}
-    >
-      <span className={cn("inline-block size-4 rounded-full bg-white shadow-sm transition-transform", on ? "translate-x-4" : "translate-x-0")} />
-    </button>
-  );
-}
-
-export function NotificationsView({ items, initialPrefs }: { items: NotificationItem[]; initialPrefs: NotifPrefs }) {
+export function NotificationsView({ items }: { items: NotificationItem[] }) {
   const { dismissed, dismiss } = useDismissed("notifications");
   const [readIds, setReadIds] = useState<Set<string>>(() => new Set(items.filter((n) => !n.unread).map((n) => n.id)));
   const [filter, setFilter] = useState<Filter>("all");
-  const [prefs, setPrefs] = useState<NotifPrefs>(initialPrefs);
-  const [, startPrefs] = useTransition();
 
   const live = useMemo(() => items.filter((n) => !dismissed.has(n.id)), [items, dismissed]);
   const isRead = (id: string) => readIds.has(id);
@@ -105,16 +75,6 @@ export function NotificationsView({ items, initialPrefs }: { items: Notification
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, readIds]);
-
-  function togglePref(key: keyof NotifPrefs) {
-    const prev = prefs;
-    const next = { ...prefs, [key]: !prefs[key] };
-    setPrefs(next);
-    startPrefs(async () => {
-      const res = await setNotificationPrefs(next);
-      if (!res.ok) setPrefs(prev); // revert on failure
-    });
-  }
 
   const tabCount = (key: Filter) =>
     key === "unread" ? unread : key === "mentions" ? mentions : key === "all" ? live.length : catUnread[key] ?? 0;
@@ -175,32 +135,19 @@ export function NotificationsView({ items, initialPrefs }: { items: Notification
         ))}
       </div>
 
-      {/* Notification Types — each card is a live count + a real preference toggle */}
-      <div className="mb-2 flex items-baseline justify-between gap-3">
-        <h2 className="text-[15px] font-bold">Notification Types</h2>
-        <span className="text-[12px] text-muted-2">Toggle a type to turn its notifications on or off.</span>
-      </div>
+      {/* Notification Types — live counts + tap to filter (manage on/off in Settings) */}
+      <h2 className="mb-3 text-[15px] font-bold">Notification Types</h2>
       <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {CATEGORIES.map((c) => {
           const n = catUnread[c.key] ?? 0;
           const active = filter === c.key;
-          const on = prefs[c.key];
           return (
-            <div
+            <button
               key={c.key}
               onClick={() => setFilter(active ? "all" : c.key)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setFilter(active ? "all" : c.key);
-                }
-              }}
               className={cn(
-                "glass flex cursor-pointer items-start gap-3 rounded-2xl p-4 text-left transition-colors",
+                "glass flex items-start gap-3 rounded-2xl p-4 text-left transition-colors",
                 active ? "ring-1 ring-primary/50" : "hover:bg-white/[0.03]",
-                !on && "opacity-70",
               )}
             >
               <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", c.tint)}>
@@ -220,8 +167,8 @@ export function NotificationsView({ items, initialPrefs }: { items: Notification
                 </div>
                 <p className="mt-1 text-[12px] leading-snug text-muted-2">{c.desc}</p>
               </div>
-              <Toggle on={on} onClick={() => togglePref(c.key)} label={`${on ? "Disable" : "Enable"} ${c.label} notifications`} />
-            </div>
+              <ChevronRight className="mt-2 size-4 shrink-0 text-muted-2" />
+            </button>
           );
         })}
       </div>
