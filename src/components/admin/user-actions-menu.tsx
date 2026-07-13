@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Shield,
   ShieldCheck,
+  FlaskConical,
   AlertTriangle,
   MinusCircle,
   VolumeX,
@@ -26,7 +27,7 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
-import { changeRole, setModerator, setUserStatus, addAdminNote, warnUser, sendUserMessage } from "@/app/admin-actions";
+import { changeRole, setModerator, setTester, setUserStatus, addAdminNote, warnUser, sendUserMessage } from "@/app/admin-actions";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ export interface UserActionsMenuUser {
   username: string | null;
   is_admin: boolean;
   is_moderator: boolean;
+  is_tester: boolean;
   status: string;
 }
 
@@ -246,6 +248,22 @@ export function UserActionsMenu({ user }: { user: UserActionsMenuUser }) {
                       confirmLabel: user.is_moderator ? "Remove Moderator" : "Make Moderator",
                       destructive: user.is_moderator,
                       run: () => setModerator(user.id, !user.is_moderator),
+                    })
+                  }
+                />
+                <MenuButton
+                  icon={FlaskConical}
+                  label={user.is_tester ? "Remove Beta Tester" : "Make Beta Tester"}
+                  onClick={() =>
+                    openModal({
+                      mode: "confirm",
+                      title: user.is_tester ? "Remove beta tester" : "Make beta tester",
+                      message: user.is_tester
+                        ? `Remove ${user.display_name} from the beta program? They'll stop seeing early-access features.`
+                        : `Add ${user.display_name} to the beta program. They'll get early access to features that are still hidden from regular users (anything gated behind BetaGate).`,
+                      confirmLabel: user.is_tester ? "Remove Beta Tester" : "Make Beta Tester",
+                      destructive: user.is_tester,
+                      run: () => setTester(user.id, !user.is_tester),
                     })
                   }
                 />

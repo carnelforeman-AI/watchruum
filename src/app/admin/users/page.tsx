@@ -240,6 +240,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams: P
                               username: u.username,
                               is_admin: u.is_admin,
                               is_moderator: u.is_moderator,
+                              is_tester: u.is_tester,
                               status: u.status,
                             }}
                           />

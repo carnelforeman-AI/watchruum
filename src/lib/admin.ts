@@ -563,6 +563,7 @@ export interface AdminUserRow {
   created_at: string;
   is_admin: boolean;
   is_moderator: boolean;
+  is_tester: boolean;
   status: string;
   rooms: number;
   reports: number;
@@ -710,12 +711,15 @@ export const getAdminUsers = cache(async (params: AdminUsersParams = {}): Promis
     }
   }
 
-  // Moderator flags — fetched separately so a missing column (pre-migration)
-  // can't break the main list query.
+  // Moderator + tester flags — fetched separately so a missing column
+  // (pre-migration) can't break the main list query.
   const moderators = new Set<string>();
+  const testers = new Set<string>();
   if (ids.length) {
     const { data: mods } = await supabase.from("profiles").select("id, is_moderator").in("id", ids);
     for (const m of (mods ?? []) as any[]) if (m.is_moderator) moderators.add(m.id);
+    const { data: tst } = await supabase.from("profiles").select("id, is_tester").in("id", ids);
+    for (const t of (tst ?? []) as any[]) if (t.is_tester) testers.add(t.id);
   }
 
   const rows: AdminUserRow[] = rowsRaw.map((r) => ({
@@ -726,6 +730,7 @@ export const getAdminUsers = cache(async (params: AdminUsersParams = {}): Promis
     created_at: r.created_at,
     is_admin: !!r.is_admin,
     is_moderator: moderators.has(r.id),
+    is_tester: testers.has(r.id),
     status: r.status ?? "active",
     rooms: roomsByUser.get(r.id) ?? 0,
     reports: reportsByUser.get(r.id) ?? 0,

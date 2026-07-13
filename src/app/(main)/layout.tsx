@@ -5,6 +5,7 @@ import { MobileNav } from "@/components/layout/mobile-nav";
 import { getUserLibrary, getSampleContent, getInbox } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import { TrailerProvider } from "@/components/calendar/trailer-modal";
+import { ViewerProvider } from "@/components/system/viewer";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const lib = await getUserLibrary();
@@ -26,25 +27,33 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   const inbox = await getInbox();
 
   return (
-    <div id="app-shell" className="flex min-h-screen">
-      <Sidebar
-        signedIn={signedIn}
-        profile={lib?.profile ?? null}
-        continueWatching={signedIn ? lib!.continueWatching : sample!.continueWatching}
-        watchlist={signedIn ? lib!.watchlist : sample!.watchlist}
-      />
-      <div id="main-col" className="flex min-w-0 flex-1 flex-col">
-        <TopBar
-          profile={lib?.profile ?? null}
+    <ViewerProvider
+      flags={{
+        isAdmin: !!lib?.profile?.is_admin,
+        isModerator: !!lib?.profile?.is_moderator,
+        isTester: !!lib?.profile?.is_tester,
+      }}
+    >
+      <div id="app-shell" className="flex min-h-screen">
+        <Sidebar
           signedIn={signedIn}
-          notifications={inbox.notifications}
-          messages={inbox.messages}
+          profile={lib?.profile ?? null}
+          continueWatching={signedIn ? lib!.continueWatching : sample!.continueWatching}
+          watchlist={signedIn ? lib!.watchlist : sample!.watchlist}
         />
-        <main id="app-main" className="flex-1 pb-24 lg:pb-0">
-          <TrailerProvider>{children}</TrailerProvider>
-        </main>
+        <div id="main-col" className="flex min-w-0 flex-1 flex-col">
+          <TopBar
+            profile={lib?.profile ?? null}
+            signedIn={signedIn}
+            notifications={inbox.notifications}
+            messages={inbox.messages}
+          />
+          <main id="app-main" className="flex-1 pb-24 lg:pb-0">
+            <TrailerProvider>{children}</TrailerProvider>
+          </main>
+        </div>
+        <MobileNav />
       </div>
-      <MobileNav />
-    </div>
+    </ViewerProvider>
   );
 }

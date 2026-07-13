@@ -113,6 +113,15 @@ export async function setModerator(userId: string, makeModerator: boolean): Prom
   return { ok: !error, error: error?.message };
 }
 
+/** Grant / revoke the Beta Tester flag — early access to features gated behind <BetaGate>. */
+export async function setTester(userId: string, makeTester: boolean): Promise<Result> {
+  const ctx = await adminContext();
+  if (!ctx) return { ok: false, error: "Not authorized" };
+  const { error } = await ctx.supabase.from("profiles").update({ is_tester: makeTester }).eq("id", userId);
+  revalidateUser(userId);
+  return { ok: !error, error: error?.message };
+}
+
 /** Set an account's moderation status (active/muted/limited/suspended/banned). */
 export async function setUserStatus(
   userId: string,

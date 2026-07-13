@@ -52,6 +52,7 @@ export function Sidebar({
     avatar_url: string | null;
     is_admin?: boolean;
     is_moderator?: boolean;
+    is_tester?: boolean;
   } | null;
   continueWatching?: LibraryItem[];
   watchlist?: MediaItem[];
@@ -179,7 +180,14 @@ export function Sidebar({
         >
           <Avatar name={displayName} src={profile?.avatar_url} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{displayName}</p>
+            <p className="flex items-center gap-1.5 truncate text-sm font-semibold">
+              <span className="truncate">{displayName}</span>
+              {profile?.is_tester && (
+                <span className="shrink-0 rounded bg-accent/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent">
+                  Beta
+                </span>
+              )}
+            </p>
             <p className="text-[11px] text-primary">{signedIn ? "View Profile" : "Sign in"}</p>
           </div>
           <ChevronRight className="size-4 text-muted-2" />

@@ -724,7 +724,7 @@ export function placeholderReviews(title: string): DisplayReview[] {
         c("Mike Boone", "The score alone deserves an award. So good.", 14),
         c("Jess Rivera", "Okay now I have to bump it up my watchlist 😄", 6),
       ],
-      lang: null,
+      lang: "en", // already English — skip the translate control (real reviews store their own detected lang)
       created_at: ago(30),
     },
     {
@@ -745,7 +745,7 @@ export function placeholderReviews(title: string): DisplayReview[] {
         c("Tom Hale", "Same — didn't expect to be this hooked already.", 10),
         c("Maya Diaz", "The world-building is the standout for me.", 5),
       ],
-      lang: null,
+      lang: "en", // already English — skip the translate control (real reviews store their own detected lang)
       created_at: ago(52),
     },
     {
@@ -763,7 +763,7 @@ export function placeholderReviews(title: string): DisplayReview[] {
       comment_count: 1,
       demo: true,
       replies: [c("Drew Park", "The 'go in unspoiled' advice is 100% correct.", 4)],
-      lang: null,
+      lang: "en", // already English — skip the translate control (real reviews store their own detected lang)
       created_at: ago(76),
     },
   ];
@@ -1288,6 +1288,7 @@ export interface UserLibrary {
     avatar_url: string | null;
     is_admin: boolean;
     is_moderator: boolean;
+    is_tester: boolean;
   } | null;
   continueWatching: LibraryItem[];
   watchlist: MediaItem[];
@@ -1304,7 +1305,7 @@ export const getUserLibrary = cache(async (): Promise<UserLibrary | null> => {
   if (!user) return null;
 
   const [{ data: profile }, { data: rows }, { data: watches }] = await Promise.all([
-    supabase.from("profiles").select("id, username, display_name, avatar_url, is_admin, is_moderator").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("id, username, display_name, avatar_url, is_admin, is_moderator, is_tester").eq("id", user.id).maybeSingle(),
     supabase
       .from("watch_status")
       .select("season_number, episode_number, movie_watched, in_watchlist, updated_at, media:media_items(*)")
