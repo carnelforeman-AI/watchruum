@@ -3,7 +3,7 @@ import { SITE_TAGLINE } from "@/lib/site";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "Watchruum — Never get spoiled again";
+export const alt = "Watchruum: Never get spoiled again";
 
 export default function OpengraphImage() {
   return new ImageResponse(

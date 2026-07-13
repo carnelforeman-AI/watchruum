@@ -36,7 +36,20 @@ export async function proxy(request: NextRequest) {
   // Public pages: auth, invite-accept (no account yet), and legal pages.
   const isLegal =
     pathname.startsWith("/privacy") || pathname.startsWith("/terms") || pathname.startsWith("/cookies");
-  const isPublic = isAuthRoute || pathname.startsWith("/auth") || pathname.startsWith("/join") || isLegal;
+  // SEO / social crawler assets must be reachable WITHOUT the login gate —
+  // otherwise Facebook/Twitter/Google fetch the login page instead of the
+  // Open Graph image, icons, robots.txt, or sitemap (link previews come back
+  // blank, and search engines can't crawl).
+  const isCrawlerAsset =
+    pathname.startsWith("/opengraph-image") ||
+    pathname.startsWith("/twitter-image") ||
+    pathname.startsWith("/icon") ||
+    pathname.startsWith("/apple-icon") ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml";
+  const isPublic =
+    isAuthRoute || pathname.startsWith("/auth") || pathname.startsWith("/join") || isLegal || isCrawlerAsset;
 
   // Gate the app: unauthenticated users can only reach the auth pages.
   if (!user && !isPublic) {
