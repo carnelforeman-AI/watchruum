@@ -15,12 +15,15 @@ import {
   Heart,
   MessageCircle,
   UserCheck,
+  ShieldOff,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { toggleFollow } from "@/app/actions";
+import { unblockUser } from "@/app/(main)/u/block-actions";
+import { useFriendsPresence } from "@/lib/use-presence";
 import { FriendsDirectory, type Person } from "@/components/friends/friends-directory";
-import type { FriendsHubData, HubPerson, HubOnline, HubActivity } from "@/lib/friends";
+import type { FriendsHubData, HubPerson, HubOnline, HubActivity, BlockedPerson } from "@/lib/friends";
 
 type TabKey = "overview" | "all" | "online" | "requests" | "find" | "blocked";
 
@@ -40,7 +43,27 @@ export function FriendsHub({ data, suggestionsForFind }: { data: FriendsHubData;
   const [tab, setTab] = useState<TabKey>("overview");
   const [requests, setRequests] = useState<HubPerson[]>(data.requests);
   const [suggestions, setSuggestions] = useState<HubPerson[]>(data.suggestions);
+  const [blocked, setBlocked] = useState<BlockedPerson[]>(data.blocked);
   const [, start] = useTransition();
+
+  // Live room presence, scoped to who the viewer follows (Supabase Realtime).
+  // Resolution: if anyone the viewer follows is really in a room, show that
+  // (badged "Live"). Otherwise, pre-launch (demo mode) falls back to the seeded
+  // list so the tab stays populated; once Go Live is on, an empty presence set
+  // means the tab is genuinely empty — no fake friends.
+  const livePresence = useFriendsPresence(data.followingIds);
+  const onlineIsLive = livePresence.length > 0;
+  const online: HubOnline[] = onlineIsLive
+    ? livePresence.map((p) => ({
+        name: p.name,
+        avatar: p.avatar,
+        room: p.room,
+        roomHref: p.roomHref,
+        status: p.status,
+      }))
+    : data.live
+      ? []
+      : data.online;
 
   function accept(p: HubPerson) {
     setRequests((r) => r.filter((x) => x.id !== p.id));
@@ -56,14 +79,18 @@ export function FriendsHub({ data, suggestionsForFind }: { data: FriendsHubData;
   function dismiss(id: string) {
     setSuggestions((s) => s.filter((x) => x.id !== id));
   }
+  function unblock(id: string) {
+    setBlocked((b) => b.filter((x) => x.id !== id));
+    start(() => void unblockUser(id));
+  }
 
   const TABS: { key: TabKey; label: string; count?: number }[] = [
     { key: "overview", label: "Overview" },
     { key: "all", label: "All Friends", count: data.counts.friends || undefined },
-    { key: "online", label: "Online", count: data.counts.online || undefined },
+    { key: "online", label: "Online", count: online.length || undefined },
     { key: "requests", label: "Requests", count: requests.length || undefined },
     { key: "find", label: "Find Friends" },
-    { key: "blocked", label: "Blocked" },
+    { key: "blocked", label: "Blocked", count: blocked.length || undefined },
   ];
 
   return (
@@ -113,7 +140,7 @@ export function FriendsHub({ data, suggestionsForFind }: { data: FriendsHubData;
       {tab === "overview" && (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0 space-y-5">
-            <OnlinePanel online={data.online} onViewAll={() => setTab("online")} />
+            <OnlinePanel online={online} isLive={onlineIsLive} onViewAll={() => setTab("online")} />
             <ActivityPanel activity={data.activity} />
           </div>
           <aside className="space-y-5">
@@ -126,7 +153,7 @@ export function FriendsHub({ data, suggestionsForFind }: { data: FriendsHubData;
 
       {tab === "all" && <FriendsGrid people={data.friends} emptyText="You aren't following anyone yet. Head to Find Friends." />}
 
-      {tab === "online" && <OnlineGrid online={data.online} />}
+      {tab === "online" && <OnlineGrid online={online} isLive={onlineIsLive} live={data.live} />}
 
       {tab === "requests" && (
         <div className="max-w-2xl space-y-3">
@@ -165,28 +192,68 @@ export function FriendsHub({ data, suggestionsForFind }: { data: FriendsHubData;
         </div>
       )}
 
-      {tab === "blocked" && (
-        <Empty icon={X} title="No blocked members" subtitle="Members you block won't be able to interact with you. You haven't blocked anyone." />
-      )}
+      {tab === "blocked" &&
+        (blocked.length === 0 ? (
+          <Empty
+            icon={ShieldOff}
+            title="No blocked members"
+            subtitle="Blocking someone stops them from messaging you, and hides you from each other. You can block a member from their profile — anyone you block will show up here so you can unblock them anytime."
+          />
+        ) : (
+          <div className="max-w-2xl space-y-3">
+            <p className="text-[13px] text-muted-2">
+              Blocked members can&apos;t message you or start a chat. Changed your mind? Unblock anytime.
+            </p>
+            {blocked.map((p) => (
+              <div key={p.id} className="glass flex items-center gap-3 rounded-2xl p-4">
+                <Link href={`/u/${p.username}`} className="shrink-0">
+                  <Avatar name={p.display_name} src={p.avatar_url} />
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <Link href={`/u/${p.username}`} className="block truncate text-sm font-bold hover:underline">
+                    {p.display_name}
+                  </Link>
+                  <p className="truncate text-[12px] text-muted-2">
+                    @{p.username}
+                    {p.since ? ` · blocked ${p.since}` : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() => unblock(p.id)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-[12.5px] font-semibold text-muted transition-colors hover:border-safe/40 hover:text-safe"
+                >
+                  <UserCheck className="size-3.5" /> Unblock
+                </button>
+              </div>
+            ))}
+          </div>
+        ))}
     </div>
   );
 }
 
 /* ------------------------------------------------------------ subcomponents */
 
-function OnlinePanel({ online, onViewAll }: { online: HubOnline[]; onViewAll: () => void }) {
+function OnlinePanel({ online, isLive, onViewAll }: { online: HubOnline[]; isLive: boolean; onViewAll: () => void }) {
   return (
     <section className="glass rounded-2xl p-5">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-base font-bold">
           <span className="size-2.5 rounded-full bg-safe" /> Friends Online
+          {isLive && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-safe/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-safe">
+              <span className="size-1.5 animate-pulse rounded-full bg-safe" /> Live
+            </span>
+          )}
         </h2>
         <button onClick={onViewAll} className="text-[12px] font-semibold text-primary hover:underline">
           View all
         </button>
       </div>
       {online.length === 0 ? (
-        <p className="py-8 text-center text-[13px] text-muted-2">No friends online right now.</p>
+        <p className="py-8 text-center text-[13px] text-muted-2">
+          No friends in a room right now. When someone you follow joins one, they&apos;ll show up here.
+        </p>
       ) : (
         <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
           {online.map((f, i) => (
@@ -204,11 +271,13 @@ function OnlinePanel({ online, onViewAll }: { online: HubOnline[]; onViewAll: ()
               <p className="truncate text-[12px] text-muted-2">
                 In <span className="text-primary">{f.room}</span> Room
               </p>
-              <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] text-muted-2">
-                <Users className="size-3" /> {f.members} members
-              </p>
+              {f.members && (
+                <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] text-muted-2">
+                  <Users className="size-3" /> {f.members} members
+                </p>
+              )}
               <Link
-                href="/rooms"
+                href={f.roomHref ?? "/rooms"}
                 className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-primary/15 py-2 text-[12.5px] font-semibold text-primary hover:bg-primary/25"
               >
                 {f.status === "online" ? <Play className="size-3.5" /> : <MessageSquare className="size-3.5" />}
@@ -392,28 +461,46 @@ function FriendsGrid({ people, emptyText }: { people: HubPerson[]; emptyText: st
   );
 }
 
-function OnlineGrid({ online }: { online: HubOnline[] }) {
-  if (online.length === 0) return <Empty icon={Users} title="No one online" subtitle="Check back soon." />;
+function OnlineGrid({ online, isLive, live }: { online: HubOnline[]; isLive: boolean; live: boolean }) {
+  if (online.length === 0)
+    return (
+      <Empty
+        icon={Users}
+        title="No friends online right now"
+        subtitle={
+          live
+            ? "When someone you follow hops into a room, they'll appear here in real time."
+            : "Live presence is ready — friends will appear here in real time once the app is live."
+        }
+      />
+    );
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-      {online.map((f, i) => (
-        <div key={i} className="glass rounded-2xl p-4 text-center">
-          <div className="relative mx-auto w-fit">
-            <Avatar name={f.name} src={f.avatar} size="lg" className="size-16" />
-            <span
-              role="img"
-              aria-label={f.status === "online" ? "Online" : "Away"}
-              title={f.status === "online" ? "Online" : "Away"}
-              className={cn("absolute bottom-0 right-0 size-3.5 rounded-full ring-2 ring-bg-elevated", statusDot(f.status))}
-            />
-          </div>
-          <p className="mt-2 truncate text-[14px] font-bold">{f.name}</p>
-          <p className="truncate text-[12px] text-muted-2">In <span className="text-primary">{f.room}</span> Room</p>
-          <Link href="/rooms" className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-primary/15 py-2 text-[12.5px] font-semibold text-primary hover:bg-primary/25">
-            <Play className="size-3.5" /> Join Room
-          </Link>
+    <div>
+      {isLive && (
+        <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-safe/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-safe">
+          <span className="size-1.5 animate-pulse rounded-full bg-safe" /> Live now
         </div>
-      ))}
+      )}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {online.map((f, i) => (
+          <div key={i} className="glass rounded-2xl p-4 text-center">
+            <div className="relative mx-auto w-fit">
+              <Avatar name={f.name} src={f.avatar} size="lg" className="size-16" />
+              <span
+                role="img"
+                aria-label={f.status === "online" ? "Online" : "Away"}
+                title={f.status === "online" ? "Online" : "Away"}
+                className={cn("absolute bottom-0 right-0 size-3.5 rounded-full ring-2 ring-bg-elevated", statusDot(f.status))}
+              />
+            </div>
+            <p className="mt-2 truncate text-[14px] font-bold">{f.name}</p>
+            <p className="truncate text-[12px] text-muted-2">In <span className="text-primary">{f.room}</span> Room</p>
+            <Link href={f.roomHref ?? "/rooms"} className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-primary/15 py-2 text-[12.5px] font-semibold text-primary hover:bg-primary/25">
+              <Play className="size-3.5" /> Join Room
+            </Link>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
