@@ -48,6 +48,15 @@ export interface TitleHit {
   year: number | null;
 }
 
+export interface GifResult {
+  id: string;
+  previewUrl: string;
+  url: string;
+  width: number;
+  height: number;
+  title: string;
+}
+
 export interface LobbyData {
   live: boolean;
   signedIn: boolean;

@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Poster } from "@/components/media/poster";
 import { cn } from "@/lib/utils";
 import { createLobbyPost, searchTitles } from "@/app/(main)/lobby/actions";
+import { GifPicker } from "./gif-picker";
 import type { LobbyAuthor, LobbyPost, TitleHit } from "@/lib/lobby-types";
 
 const MAX = 1000;
@@ -49,6 +50,7 @@ export function LobbyComposer({
   const [spoiler, setSpoiler] = useState(false);
   const [media, setMedia] = useState<TitleHit | null>(null);
   const [image, setImage] = useState<string | null>(null);
+  const [gifOpen, setGifOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -119,6 +121,7 @@ export function LobbyComposer({
     setSpoiler(false);
     setMedia(null);
     setImage(null);
+    setGifOpen(false);
     setTagOpen(false);
     setQ("");
     setHits([]);
@@ -218,6 +221,17 @@ export function LobbyComposer({
             </div>
           )}
 
+          {/* GIF picker */}
+          {gifOpen && (
+            <GifPicker
+              onSelect={(url) => {
+                setImage(url);
+                setGifOpen(false);
+              }}
+              onClose={() => setGifOpen(false)}
+            />
+          )}
+
           {err && <p className="mt-2 text-[12px] font-medium text-danger">{err}</p>}
 
           {/* Toolbar */}
@@ -225,6 +239,9 @@ export function LobbyComposer({
             <div className="flex items-center gap-0.5 text-primary">
               <ToolBtn label="Add image" onClick={() => fileRef.current?.click()}>
                 <ImageIcon className="size-[18px]" />
+              </ToolBtn>
+              <ToolBtn label="Add a GIF" active={gifOpen} onClick={() => setGifOpen((v) => !v)}>
+                <span className="text-[11px] font-extrabold leading-none tracking-tight">GIF</span>
               </ToolBtn>
               <ToolBtn label="Tag a show or movie" active={tagOpen || !!media} onClick={() => setTagOpen((v) => !v)}>
                 <Film className="size-[18px]" />

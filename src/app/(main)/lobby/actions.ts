@@ -4,7 +4,15 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notify/fanout";
 import { searchMedia } from "@/lib/tmdb";
-import type { LobbyPost, TitleHit } from "@/lib/lobby-types";
+import { searchGifs, klipyConfigured } from "@/lib/klipy";
+import type { LobbyPost, TitleHit, GifResult } from "@/lib/lobby-types";
+
+/** Search GIFs (KLIPY). Empty query returns trending. `configured` is false
+ *  until KLIPY_API_KEY is set, so the picker can show a friendly notice. */
+export async function lobbyGifs(query: string): Promise<{ configured: boolean; gifs: GifResult[] }> {
+  if (!klipyConfigured()) return { configured: false, gifs: [] };
+  return { configured: true, gifs: await searchGifs(query) };
+}
 
 /** Search the catalog to tag a title in a post. */
 export async function searchTitles(query: string): Promise<TitleHit[]> {
