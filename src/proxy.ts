@@ -33,8 +33,10 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
-  // Invite accept pages are public — invitees don't have accounts yet.
-  const isPublic = isAuthRoute || pathname.startsWith("/auth") || pathname.startsWith("/join");
+  // Public pages: auth, invite-accept (no account yet), and legal pages.
+  const isLegal =
+    pathname.startsWith("/privacy") || pathname.startsWith("/terms") || pathname.startsWith("/cookies");
+  const isPublic = isAuthRoute || pathname.startsWith("/auth") || pathname.startsWith("/join") || isLegal;
 
   // Gate the app: unauthenticated users can only reach the auth pages.
   if (!user && !isPublic) {
@@ -50,6 +52,48 @@ export async function proxy(request: NextRequest) {
     url.pathname = "/";
     url.search = "";
     return NextResponse.redirect(url);
+  }
+
+  // Membership wall: once Live Mode is on, members must choose a plan before
+  // the app opens. Onboarding runs first; admins/testers are exempt so they
+  // can move around and QA. Pre-launch (demo mode) this is a single extra
+  // read; it only touches the profile once we're actually live.
+  if (user) {
+    const wallExempt =
+      pathname.startsWith("/welcome") ||
+      pathname === "/onboarding" ||
+      pathname.startsWith("/upgrade/success") ||
+      pathname.startsWith("/api") ||
+      pathname.startsWith("/auth") ||
+      pathname.startsWith("/join") ||
+      isLegal ||
+      pathname === "/suspended";
+
+    if (!wallExempt) {
+      const { data: settings } = await supabase
+        .from("app_settings")
+        .select("live_mode")
+        .eq("id", 1)
+        .maybeSingle();
+      const live = Boolean((settings as { live_mode?: boolean } | null)?.live_mode);
+
+      if (live) {
+        const [{ data: prof }, { data: mem }] = await Promise.all([
+          supabase.from("profiles").select("onboarded, is_admin, is_tester").eq("id", user.id).maybeSingle(),
+          supabase.from("memberships").select("plan_chosen_at").eq("user_id", user.id).maybeSingle(),
+        ]);
+        const pr = prof as { onboarded?: boolean; is_admin?: boolean; is_tester?: boolean } | null;
+        const chosen = !!(mem as { plan_chosen_at?: string | null } | null)?.plan_chosen_at;
+        const privileged = !!pr?.is_admin || !!pr?.is_tester;
+
+        if (pr?.onboarded && !chosen && !privileged) {
+          const url = request.nextUrl.clone();
+          url.pathname = "/welcome";
+          url.search = "";
+          return NextResponse.redirect(url);
+        }
+      }
+    }
   }
 
   return response;

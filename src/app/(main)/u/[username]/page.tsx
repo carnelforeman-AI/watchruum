@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ShieldCheck, Star, Lock } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { BlockButton } from "@/components/profile/block-button";
 import { createClient } from "@/lib/supabase/server";
 import { timeAgo, posterGradient } from "@/lib/utils";
 
@@ -35,10 +36,25 @@ async function loadProfile(username: string) {
   const isOwner = user?.id === (profile as any).id;
   const restricted = !!(profile as any).is_private && !isOwner;
 
+  // Can this viewer block the profile owner, and have they already?
+  const canBlock = !!user && !isOwner;
+  let isBlocked = false;
+  if (canBlock) {
+    const { data: b } = await supabase
+      .from("blocks")
+      .select("blocked_id")
+      .eq("blocker_id", user!.id)
+      .eq("blocked_id", (profile as any).id)
+      .maybeSingle();
+    isBlocked = !!b;
+  }
+
   if (restricted) {
     return {
       profile: profile as any,
       isOwner,
+      canBlock,
+      isBlocked,
       restricted: true as const,
       stats: { reviews: 0, posts: 0, rooms: 0, followers: 0, following: 0 },
       recentReviews: [] as any[],
@@ -71,6 +87,8 @@ async function loadProfile(username: string) {
   return {
     profile: profile as any,
     isOwner,
+    canBlock,
+    isBlocked,
     restricted: false as const,
     stats: { reviews, posts, rooms, followers, following },
     recentReviews: recentReviews as any[],
@@ -96,20 +114,25 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   const { profile, stats, recentReviews } = data;
   const genres: string[] = profile.favorite_genres ?? [];
 
-  // Private profile viewed by someone else → minimal card only.
+  // Private profile viewed by someone else → identity is public (name, @handle,
+  // avatar, bio, genres, like X/Facebook), but activity (reviews, ratings, watch
+  // stats and the follower graph) is hidden.
   if (data.restricted) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
         <div className="panel overflow-hidden rounded-2xl">
           <div className="h-28 w-full" style={{ background: posterGradient(profile.username) }} />
           <div className="px-5 pb-6">
-            <div className="-mt-8 flex items-end gap-4">
+            <div className="-mt-8 flex items-end justify-between gap-4">
               <Avatar
                 name={profile.display_name}
                 src={profile.avatar_url}
                 size="lg"
                 className="size-20 text-2xl ring-4 ring-bg"
               />
+              {data.canBlock && (
+                <BlockButton targetId={profile.id} targetName={profile.display_name} initialBlocked={data.isBlocked} />
+              )}
             </div>
             <div className="mt-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -120,15 +143,30 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                 </Badge>
               </div>
               <p className="text-[13px] text-muted-2">@{profile.username}</p>
+
+              {profile.bio && <p className="mt-3 text-[13px] text-muted">{profile.bio}</p>}
+
+              {genres.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {genres.map((g) => (
+                    <span key={g} className="rounded-full border border-border bg-white/5 px-2.5 py-1 text-[12px]">
+                      {g}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <p className="mt-3 text-[12px] text-muted-2">Joined {joinedLabel(profile.created_at)}</p>
             </div>
+
             <div className="mt-6 rounded-2xl border border-border bg-white/[0.02] p-6 text-center">
               <span className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/25">
                 <Lock className="size-6" />
               </span>
-              <p className="font-semibold">This profile is private</p>
+              <p className="font-semibold">This account is private</p>
               <p className="mx-auto mt-1 max-w-sm text-[13px] text-muted-2">
-                {profile.display_name} keeps their bio, stats, and reviews private. You&apos;ll still see them in rooms
-                you share.
+                {profile.display_name} keeps their reviews, ratings and watch activity private. You can still follow
+                them and chat in rooms you share.
               </p>
             </div>
           </div>
@@ -151,13 +189,16 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       <div className="panel overflow-hidden rounded-2xl">
         <div className="h-28 w-full" style={{ background: posterGradient(profile.username) }} />
         <div className="px-5 pb-5">
-          <div className="-mt-8 flex items-end gap-4">
+          <div className="-mt-8 flex items-end justify-between gap-4">
             <Avatar
               name={profile.display_name}
               src={profile.avatar_url}
               size="lg"
               className="size-20 text-2xl ring-4 ring-bg"
             />
+            {data.canBlock && (
+              <BlockButton targetId={profile.id} targetName={profile.display_name} initialBlocked={data.isBlocked} />
+            )}
           </div>
           <div className="mt-3">
             <div className="flex flex-wrap items-center gap-2">

@@ -58,8 +58,8 @@ export function LiveModeToggle({ initialLive }: { initialLive: boolean }) {
           </div>
           <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
             {live
-              ? "Every count is real — each new action adds +1. Title tracking, watch-room activity and the leaderboard all reflect actual members."
-              : "Showing seeded demo numbers so the app looks alive pre-launch. Go live to switch to real, 0-based counts everywhere."}
+              ? "Every count is real — each new action adds +1. Title tracking, watch-room activity and the leaderboard all reflect actual members. Memberships (the Upgrade page) are live for everyone."
+              : "Showing seeded demo numbers so the app looks alive pre-launch. Go live to switch to real, 0-based counts everywhere — and to turn on memberships (the Upgrade page) for all users."}
           </p>
         </div>
       </div>

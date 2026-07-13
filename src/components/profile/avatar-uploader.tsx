@@ -8,6 +8,36 @@ import { createClient } from "@/lib/supabase/client";
 import { updateAvatar } from "@/app/actions";
 
 const MAX_BYTES = 3 * 1024 * 1024; // 3 MB
+const MAX_DIM = 512; // avatars don't need to be large
+
+/**
+ * Re-encode an image through a canvas. This both downsizes it and — crucially —
+ * strips ALL metadata (EXIF, including GPS coordinates and device info) that a
+ * phone photo carries, so it never lands in the public avatars bucket.
+ */
+async function stripAndResize(file: File): Promise<Blob> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("Could not read that image."));
+      i.src = url;
+    });
+    const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Image processing unavailable.");
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    if (!blob) throw new Error("Could not process that image.");
+    return blob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 export function AvatarUploader({
   userId,
@@ -47,11 +77,12 @@ export function AvatarUploader({
 
     setBusy(true);
     try {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const path = `${userId}/avatar_${Date.now()}.${ext}`;
+      // Re-encode to strip EXIF/GPS metadata before it reaches the public bucket.
+      const clean = await stripAndResize(file);
+      const path = `${userId}/avatar_${Date.now()}.jpg`;
       const { error: upErr } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { upsert: true, cacheControl: "3600", contentType: file.type });
+        .upload(path, clean, { upsert: true, cacheControl: "3600", contentType: "image/jpeg" });
       if (upErr) throw upErr;
 
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);

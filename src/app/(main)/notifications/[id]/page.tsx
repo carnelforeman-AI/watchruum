@@ -23,6 +23,7 @@ const LABELS: Record<NotificationType, string> = {
   trending: "Trending",
   friend: "Friend activity",
   poll: "Poll results",
+  reminder: "Watch reminder",
 };
 
 function ctaLabel(type: NotificationType): string {

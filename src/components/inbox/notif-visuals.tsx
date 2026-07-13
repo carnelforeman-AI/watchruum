@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Star,
   BarChart3,
+  CalendarClock,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export const NOTIF_BADGE: Record<
   trending: { Icon: TrendingUp, badge: "bg-safe", tile: "bg-safe/15 text-safe" },
   friend: { Icon: Star, badge: "bg-accent", tile: "bg-accent/15 text-accent" },
   poll: { Icon: BarChart3, badge: "bg-primary", tile: "bg-primary/15 text-primary" },
+  reminder: { Icon: CalendarClock, badge: "bg-season", tile: "bg-season/15 text-season" },
 };
 
 /** Avatar + type badge for social notifications; a colored icon tile for system ones. */

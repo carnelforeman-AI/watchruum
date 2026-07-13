@@ -202,7 +202,8 @@ export type NotificationType =
   | "warning"
   | "trending"
   | "friend"
-  | "poll";
+  | "poll"
+  | "reminder";
 
 export interface NotifMedia {
   title: string;

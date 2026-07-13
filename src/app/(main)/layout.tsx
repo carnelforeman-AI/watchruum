@@ -6,6 +6,7 @@ import { getUserLibrary, getSampleContent, getInbox } from "@/lib/queries";
 import { createClient } from "@/lib/supabase/server";
 import { TrailerProvider } from "@/components/calendar/trailer-modal";
 import { ViewerProvider } from "@/components/system/viewer";
+import { CookieNotice } from "@/components/system/cookie-notice";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const lib = await getUserLibrary();
@@ -53,6 +54,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           </main>
         </div>
         <MobileNav />
+        <CookieNotice />
       </div>
     </ViewerProvider>
   );

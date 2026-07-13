@@ -209,8 +209,8 @@ export function SettingsPanel({
           <div className="min-w-0">
             <p className="text-sm font-semibold">Private profile</p>
             <p className="text-[12px] text-muted-2">
-              When on, other members only see your name and avatar. Your bio, favorite genres, stats and reviews stay
-              hidden from everyone but you.
+              When on, your reviews, ratings, watch activity and follower list are hidden from everyone but you. Your
+              name, @username, photo and bio stay visible so friends can still find and follow you.
             </p>
             {savedPrivate && !pending && (
               <p className="mt-1.5 flex items-center gap-1 text-[12px] font-medium text-safe">

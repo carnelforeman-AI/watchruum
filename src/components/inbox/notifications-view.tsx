@@ -2,18 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  Trash2,
-  Check,
-  ChevronRight,
-  Mail,
-  MessageSquare,
-  Heart,
-  CalendarClock,
-  Clapperboard,
-  Unlock,
-  Flame,
-} from "lucide-react";
+import { Trash2, Check, BellRing, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDismissed } from "@/lib/use-dismissed";
 import { Poster } from "@/components/media/poster";
@@ -21,35 +10,28 @@ import { NotifAvatar, NotifText } from "@/components/inbox/notif-visuals";
 import { notificationHref } from "@/lib/notif-link";
 import type { NotificationItem } from "@/lib/queries";
 
-/**
- * "Notification Type" cards break the feed down by kind and show the live
- * unread count for each type; tapping one filters the list below. On/off
- * control of each type lives in Settings → Notifications (the backend toggles).
- * Watchruum is ad-free, so there's no Offers card.
- */
-const CATEGORIES: {
-  key: string;
-  label: string;
-  desc: string;
-  icon: React.ComponentType<{ className?: string }>;
-  tint: string;
-  badge: string;
-  types: string[];
-}[] = [
-  { key: "messages", label: "Direct Messages", desc: "New direct messages from other members.", icon: Mail, tint: "bg-accent/15 text-accent", badge: "bg-accent", types: ["message"] },
-  { key: "replies", label: "Replies & Mentions", desc: "Replies and mentions on your posts and reviews.", icon: MessageSquare, tint: "bg-primary/15 text-primary", badge: "bg-primary", types: ["reply", "mention"] },
-  { key: "likes", label: "Likes", desc: "Likes and reactions on your reviews and posts.", icon: Heart, tint: "bg-danger/15 text-danger", badge: "bg-danger", types: ["like", "reaction"] },
-  { key: "reminders", label: "Scheduled Watch Reminders", desc: "Reminders before your scheduled shows and movies.", icon: CalendarClock, tint: "bg-accent-2/15 text-accent-2", badge: "bg-accent-2", types: ["reminder"] },
-  { key: "releases", label: "New Releases", desc: "New movies and shows you're tracking.", icon: Clapperboard, tint: "bg-season/15 text-season", badge: "bg-season", types: ["release", "episode"] },
-  { key: "unlocks", label: "Discussion Unlocks", desc: "When a discussion you follow unlocks.", icon: Unlock, tint: "bg-safe/15 text-safe", badge: "bg-safe", types: ["unlock"] },
-  { key: "trending", label: "Trending", desc: "Popular rooms and trending discussions.", icon: Flame, tint: "bg-warn/15 text-warn", badge: "bg-warn", types: ["trending"] },
+export interface NotifPrefs {
+  messages: boolean;
+  replies: boolean;
+  likes: boolean;
+  releases: boolean;
+  reminders: boolean;
+  unlocks: boolean;
+  trending: boolean;
+}
+
+// Label for each backend preference, in display order.
+const PREF_LABELS: [keyof NotifPrefs, string][] = [
+  ["messages", "Direct Messages"],
+  ["replies", "Replies & Mentions"],
+  ["likes", "Likes"],
+  ["reminders", "Scheduled Watch Reminders"],
+  ["releases", "New Releases"],
+  ["unlocks", "Discussion Unlocks"],
+  ["trending", "Trending"],
 ];
 
-// type -> category key (unmapped types stay visible under "All" but have no card)
-const TYPE_TO_CAT: Record<string, string> = {};
-for (const c of CATEGORIES) for (const t of c.types) TYPE_TO_CAT[t] = c.key;
-
-type Filter = "all" | "unread" | "mentions" | string;
+type Filter = "all" | "unread" | "mentions" | "reminders";
 
 const TABS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
@@ -58,7 +40,7 @@ const TABS: { key: Filter; label: string }[] = [
   { key: "reminders", label: "Reminders" },
 ];
 
-export function NotificationsView({ items }: { items: NotificationItem[] }) {
+export function NotificationsView({ items, prefs }: { items: NotificationItem[]; prefs: NotifPrefs | null }) {
   const { dismissed, dismiss } = useDismissed("notifications");
   const [readIds, setReadIds] = useState<Set<string>>(() => new Set(items.filter((n) => !n.unread).map((n) => n.id)));
   const [filter, setFilter] = useState<Filter>("all");
@@ -67,29 +49,23 @@ export function NotificationsView({ items }: { items: NotificationItem[] }) {
   const isRead = (id: string) => readIds.has(id);
   const unread = live.filter((n) => !isRead(n.id)).length;
   const mentions = live.filter((n) => n.type === "mention").length;
+  const reminders = live.filter((n) => n.type === "reminder" && !isRead(n.id)).length;
 
-  // Live unread count per category (actual numbers, from the same feed as the bell).
-  const catUnread = useMemo(() => {
-    const m: Record<string, number> = {};
-    for (const n of live) if (!isRead(n.id)) { const k = TYPE_TO_CAT[n.type]; if (k) m[k] = (m[k] ?? 0) + 1; }
-    return m;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, readIds]);
+  const enabled = prefs ? PREF_LABELS.filter(([k]) => prefs[k]).map(([, l]) => l) : [];
 
-  const tabCount = (key: Filter) =>
-    key === "unread" ? unread : key === "mentions" ? mentions : key === "all" ? live.length : catUnread[key] ?? 0;
+  const tabCount = (key: Filter) => (key === "unread" ? unread : key === "mentions" ? mentions : key === "reminders" ? reminders : live.length);
 
   const shown = live.filter((n) => {
     if (filter === "all") return true;
     if (filter === "unread") return !isRead(n.id);
     if (filter === "mentions") return n.type === "mention";
-    return TYPE_TO_CAT[n.type] === filter;
+    return n.type === "reminder";
   });
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 md:px-6">
+    <div className="mx-auto max-w-3xl px-4 py-6 md:px-6">
       {/* Header */}
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Notifications</h1>
           <p className="mt-0.5 text-[13px] text-muted-2">Stay updated on what matters to you.</p>
@@ -114,8 +90,32 @@ export function NotificationsView({ items }: { items: NotificationItem[] }) {
         </div>
       </div>
 
+      {/* Enabled types — reflected from the backend prefs, managed in Settings */}
+      {prefs && (
+        <div className="glass mb-5 flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-2xl px-4 py-3">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-foreground">
+            <BellRing className="size-3.5 text-primary" /> Notifying you about:
+          </span>
+          {enabled.length > 0 ? (
+            enabled.map((l) => (
+              <span key={l} className="rounded-full bg-primary/10 px-2 py-0.5 text-[11.5px] font-medium text-primary">
+                {l}
+              </span>
+            ))
+          ) : (
+            <span className="text-[12px] text-muted-2">All notification types are turned off.</span>
+          )}
+          <Link
+            href="/settings"
+            className="ml-auto inline-flex items-center gap-1 text-[12px] font-semibold text-primary hover:underline"
+          >
+            <Settings className="size-3.5" /> Manage
+          </Link>
+        </div>
+      )}
+
       {/* Quick-filter tabs */}
-      <div className="mb-6 flex items-center gap-6 overflow-x-auto border-b border-border no-scrollbar">
+      <div className="mb-4 flex items-center gap-6 overflow-x-auto border-b border-border no-scrollbar">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -135,58 +135,10 @@ export function NotificationsView({ items }: { items: NotificationItem[] }) {
         ))}
       </div>
 
-      {/* Notification Types — live counts + tap to filter (manage on/off in Settings) */}
-      <h2 className="mb-3 text-[15px] font-bold">Notification Types</h2>
-      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {CATEGORIES.map((c) => {
-          const n = catUnread[c.key] ?? 0;
-          const active = filter === c.key;
-          return (
-            <button
-              key={c.key}
-              onClick={() => setFilter(active ? "all" : c.key)}
-              className={cn(
-                "glass flex items-start gap-3 rounded-2xl p-4 text-left transition-colors",
-                active ? "ring-1 ring-primary/50" : "hover:bg-white/[0.03]",
-              )}
-            >
-              <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", c.tint)}>
-                <c.icon className="size-5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold">{c.label}</p>
-                  <span
-                    className={cn(
-                      "grid min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold",
-                      n > 0 ? `${c.badge} text-white` : "bg-white/10 text-muted-2",
-                    )}
-                  >
-                    {n}
-                  </span>
-                </div>
-                <p className="mt-1 text-[12px] leading-snug text-muted-2">{c.desc}</p>
-              </div>
-              <ChevronRight className="mt-2 size-4 shrink-0 text-muted-2" />
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Recent / filtered list */}
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-[15px] font-bold">{filter === "all" ? "Recent Notifications" : labelFor(filter)}</h2>
-        {filter !== "all" && (
-          <button onClick={() => setFilter("all")} className="text-[12px] font-semibold text-primary hover:underline">
-            Show all
-          </button>
-        )}
-      </div>
-
       {shown.length === 0 ? (
         <div className="panel rounded-2xl p-10 text-center">
           <p className="font-semibold">
-            {filter === "unread" ? "You're all caught up" : filter === "all" ? "Nothing here yet" : "Nothing in this category"}
+            {filter === "unread" ? "You're all caught up" : filter === "all" ? "Nothing here yet" : "Nothing in this filter"}
           </p>
           <p className="mt-1 text-sm text-muted-2">Nothing to show here right now.</p>
         </div>
@@ -240,10 +192,4 @@ export function NotificationsView({ items }: { items: NotificationItem[] }) {
       )}
     </div>
   );
-}
-
-function labelFor(filter: string): string {
-  if (filter === "unread") return "Unread";
-  if (filter === "mentions") return "Mentions";
-  return CATEGORIES.find((c) => c.key === filter)?.label ?? "Notifications";
 }
