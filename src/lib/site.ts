@@ -10,7 +10,7 @@ export const SITE_URL = raw && !raw.includes("localhost") ? raw : "https://www.w
 export const SITE_NAME = "Watchruum";
 export const SITE_TAGLINE = "Never get spoiled again";
 export const SITE_DESCRIPTION =
-  "Watchruum is the spoiler-safe social platform for TV and movie fans. Track what you watch, rate every episode, join fan rooms scoped to your progress, and discuss shows and movies without ever getting spoiled.";
+  "Track what you watch, discuss your favorite shows and movies, rate episodes, and connect with fans.";
 
 export const SITE_KEYWORDS = [
   "spoiler-safe",
