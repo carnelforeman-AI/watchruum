@@ -1,4 +1,4 @@
-/** Shared Lobby types — safe to import from client and server. */
+/** Shared Lobby types, safe to import from client and server. */
 
 export interface LobbyAuthor {
   username: string;
@@ -22,7 +22,7 @@ export interface LobbyPost {
   liked: boolean;
   reposted: boolean;
   bookmarked: boolean;
-  /** Seeded placeholder shown pre-launch — interactions are visual only. */
+  /** Seeded placeholder shown pre-launch; interactions are visual only. */
   demo?: boolean;
 }
 

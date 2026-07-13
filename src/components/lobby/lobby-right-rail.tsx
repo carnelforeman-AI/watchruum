@@ -68,7 +68,7 @@ export function LobbyRightRail({ trends, suggestions }: { trends: LobbyTrend[]; 
             </span>
             <span className="text-[13px] font-bold">Watch party</span>
           </div>
-          <p className="mt-1.5 text-[12px] text-muted">Fans are hanging out in watch rooms right now — jump in.</p>
+          <p className="mt-1.5 text-[12px] text-muted">Fans are hanging out in watch rooms right now. Jump in.</p>
         </Link>
       </section>
     </div>
@@ -80,7 +80,7 @@ function SuggestionRow({ s }: { s: LobbySuggestion }) {
   const [pending, start] = useTransition();
 
   const follow = () => {
-    if (!s.id) return; // seeded suggestion — the chip links to the profile instead
+    if (!s.id) return; // seeded suggestion: the chip links to the profile instead
     const next = !following;
     setFollowing(next);
     start(async () => {

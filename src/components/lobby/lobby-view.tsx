@@ -77,7 +77,7 @@ export function LobbyView({ data }: { data: LobbyData }) {
           <div className="mt-4 space-y-4">
             {!data.live && (
               <p className="rounded-xl border border-warn/25 bg-warn/[0.06] px-3 py-2 text-[12px] font-medium text-warn">
-                Preview — these are sample posts. The Lobby fills with real conversations once you go live.
+                Preview: these are sample posts. The Lobby fills with real conversations once you go live.
               </p>
             )}
             {shown.length === 0 ? (

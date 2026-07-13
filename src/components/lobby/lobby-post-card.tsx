@@ -89,7 +89,7 @@ export function LobbyPostCard({ post, me, demo }: { post: LobbyPost; me: LobbyAu
                   className="flex w-full items-center gap-2 rounded-xl border border-warn/30 bg-warn/[0.06] px-3 py-3 text-left text-[13px] font-semibold text-warn"
                 >
                   <ShieldAlert className="size-4 shrink-0" />
-                  Spoiler hidden — tap to reveal
+                  Spoiler hidden: tap to reveal
                   <Eye className="ml-auto size-4" />
                 </button>
               ) : (
