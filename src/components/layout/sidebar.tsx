@@ -11,6 +11,7 @@ import {
   CalendarClock,
   Bookmark,
   Activity,
+  Bell,
   User,
   PlayCircle,
   ChevronRight,
@@ -36,6 +37,7 @@ const NAV = [
   { href: "/schedule", label: "My Schedule", icon: CalendarClock },
   { href: "/watchlist", label: "Watchlist", icon: Bookmark },
   { href: "/activity", label: "Activity", icon: Activity },
+  { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/profile", label: "Profile", icon: User },
 ];
 

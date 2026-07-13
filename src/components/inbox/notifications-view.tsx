@@ -10,22 +10,61 @@ import { NotifAvatar, NotifText } from "@/components/inbox/notif-visuals";
 import { notificationHref } from "@/lib/notif-link";
 import type { NotificationItem } from "@/lib/queries";
 
-type Tab = "all" | "unread" | "mentions";
+// Group the many notification types into human-friendly categories so users can
+// manage them by kind. Any type not listed here falls into "System".
+const CATEGORIES: { key: string; label: string; types: string[] }[] = [
+  { key: "replies", label: "Replies", types: ["reply"] },
+  { key: "mentions", label: "Mentions", types: ["mention"] },
+  { key: "likes", label: "Likes", types: ["like", "reaction"] },
+  { key: "follows", label: "Follows", types: ["follow", "friend"] },
+  { key: "messages", label: "Messages", types: ["message"] },
+  { key: "invites", label: "Invites", types: ["invite"] },
+  { key: "reminders", label: "Reminders", types: ["reminder"] },
+  { key: "releases", label: "Releases", types: ["release", "episode"] },
+  { key: "unlocks", label: "Unlocks", types: ["unlock"] },
+  { key: "trending", label: "Trending", types: ["trending"] },
+  { key: "polls", label: "Polls", types: ["poll"] },
+];
+const TYPE_TO_CAT: Record<string, string> = {};
+for (const c of CATEGORIES) for (const t of c.types) TYPE_TO_CAT[t] = c.key;
+const catOf = (type: string) => TYPE_TO_CAT[type] ?? "system";
+
+type Filter = "all" | "unread" | string;
 
 export function NotificationsView({ items }: { items: NotificationItem[] }) {
   const { dismissed, dismiss } = useDismissed("notifications");
   const [readIds, setReadIds] = useState<Set<string>>(() => new Set(items.filter((n) => !n.unread).map((n) => n.id)));
-  const [tab, setTab] = useState<Tab>("all");
+  const [filter, setFilter] = useState<Filter>("all");
 
   const live = useMemo(() => items.filter((n) => !dismissed.has(n.id)), [items, dismissed]);
   const isRead = (id: string) => readIds.has(id);
   const unread = live.filter((n) => !isRead(n.id)).length;
-  const mentions = live.filter((n) => n.type === "mention").length;
+
+  // Per-category counts, so we only surface chips that actually have items.
+  const catCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const n of live) {
+      const k = catOf(n.type);
+      m[k] = (m[k] ?? 0) + 1;
+    }
+    return m;
+  }, [live]);
+
+  // The chip row: All + Unread, then each non-empty category in order, System last.
+  const chips = useMemo(() => {
+    const out: { key: Filter; label: string; count: number }[] = [
+      { key: "all", label: "All", count: live.length },
+      { key: "unread", label: "Unread", count: unread },
+    ];
+    for (const c of CATEGORIES) if (catCounts[c.key]) out.push({ key: c.key, label: c.label, count: catCounts[c.key] });
+    if (catCounts["system"]) out.push({ key: "system", label: "System", count: catCounts["system"] });
+    return out;
+  }, [live.length, unread, catCounts]);
 
   const shown = live.filter((n) => {
-    if (tab === "unread") return !isRead(n.id);
-    if (tab === "mentions") return n.type === "mention";
-    return true;
+    if (filter === "all") return true;
+    if (filter === "unread") return !isRead(n.id);
+    return catOf(n.type) === filter;
   });
 
   return (
@@ -57,29 +96,28 @@ export function NotificationsView({ items }: { items: NotificationItem[] }) {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-4 flex items-center gap-6 border-b border-border">
-        {(
-          [
-            { key: "all", label: "All", count: 0 },
-            { key: "unread", label: "Unread", count: unread },
-            { key: "mentions", label: "Mentions", count: mentions },
-          ] as const
-        ).map((t) => (
+      {/* Category filter chips — break notifications down by type */}
+      <div className="no-scrollbar mb-4 flex items-center gap-2 overflow-x-auto pb-1">
+        {chips.map((c) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={c.key}
+            onClick={() => setFilter(c.key)}
             className={cn(
-              "-mb-px flex items-center gap-1.5 border-b-2 pb-2.5 text-[14px] font-semibold transition-colors",
-              tab === t.key ? "border-primary text-primary" : "border-transparent text-muted hover:text-foreground",
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-colors",
+              filter === c.key
+                ? "border-primary/50 bg-primary/15 text-primary"
+                : "border-border bg-white/[0.03] text-muted hover:text-foreground",
             )}
           >
-            {t.label}
-            {t.key !== "all" && t.count > 0 && (
-              <span className="grid min-w-5 place-items-center rounded-full bg-white/10 px-1 text-[11px] font-bold text-foreground">
-                {t.count}
-              </span>
-            )}
+            {c.label}
+            <span
+              className={cn(
+                "grid min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold",
+                filter === c.key ? "bg-primary/25 text-primary" : "bg-white/10 text-foreground",
+              )}
+            >
+              {c.count}
+            </span>
           </button>
         ))}
       </div>
@@ -87,9 +125,9 @@ export function NotificationsView({ items }: { items: NotificationItem[] }) {
       {shown.length === 0 ? (
         <div className="panel rounded-2xl p-10 text-center">
           <p className="font-semibold">
-            {tab === "mentions" ? "No mentions yet" : tab === "unread" ? "You're all caught up" : "Nothing here yet"}
+            {filter === "unread" ? "You're all caught up" : filter === "all" ? "Nothing here yet" : "Nothing in this category"}
           </p>
-          <p className="mt-1 text-sm text-muted-2">Nothing to show in this tab right now.</p>
+          <p className="mt-1 text-sm text-muted-2">Nothing to show here right now.</p>
         </div>
       ) : (
         <div className="panel divide-y divide-border-soft overflow-hidden rounded-2xl">
