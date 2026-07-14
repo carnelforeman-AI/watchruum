@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Pencil, Check, X, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { GENRES } from "@/lib/genres";
+import { GENRES, genreHref } from "@/lib/genres";
 import { setFavoriteGenres } from "@/app/actions";
 
 /**
@@ -45,9 +46,14 @@ export function GenreEditor({ initialGenres }: { initialGenres: string[] }) {
       <div className="flex flex-wrap items-center gap-2">
         {genres.length > 0 ? (
           genres.map((g) => (
-            <span key={g} className="inline-flex items-center rounded-full bg-white/[0.06] px-3 py-1 text-[13px] font-medium text-foreground/90">
+            <Link
+              key={g}
+              href={genreHref(g)}
+              title={`Browse ${g}`}
+              className="inline-flex items-center rounded-full bg-white/[0.06] px-3 py-1 text-[13px] font-medium text-foreground/90 transition-colors hover:bg-primary/20 hover:text-primary"
+            >
               {g}
-            </span>
+            </Link>
           ))
         ) : (
           <span className="text-[13px] text-muted-2">No favorite genres yet.</span>

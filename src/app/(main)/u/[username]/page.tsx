@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { ShieldCheck, Star, Lock } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { BlockButton } from "@/components/profile/block-button";
 import { createClient } from "@/lib/supabase/server";
+import { genreHref } from "@/lib/genres";
 import { timeAgo, posterGradient } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -149,9 +151,14 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
               {genres.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {genres.map((g) => (
-                    <span key={g} className="rounded-full border border-border bg-white/5 px-2.5 py-1 text-[12px]">
+                    <Link
+                      key={g}
+                      href={genreHref(g)}
+                      title={`Browse ${g}`}
+                      className="rounded-full border border-border bg-white/5 px-2.5 py-1 text-[12px] transition-colors hover:border-primary/50 hover:bg-primary/15 hover:text-primary"
+                    >
                       {g}
-                    </span>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -212,12 +219,14 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
             {genres.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {genres.map((g) => (
-                  <span
+                  <Link
                     key={g}
-                    className="rounded-full border border-border bg-white/5 px-2.5 py-1 text-[12px]"
+                    href={genreHref(g)}
+                    title={`Browse ${g}`}
+                    className="rounded-full border border-border bg-white/5 px-2.5 py-1 text-[12px] transition-colors hover:border-primary/50 hover:bg-primary/15 hover:text-primary"
                   >
                     {g}
-                  </span>
+                  </Link>
                 ))}
               </div>
             )}
